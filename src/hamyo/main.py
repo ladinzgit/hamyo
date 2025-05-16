@@ -8,13 +8,13 @@ import typing
 # logging.basicConfig(level=logging.DEBUG)
 
 # application_id = os.environ.get("FLORENCE_APPLICATION_ID")
-application_id = os.environ.get("SUB_APPLICATION_ID")
+application_id = os.environ.get("APPLICATION_ID")
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="*", intents=intents, help_command=None, owner_id = 277812129011204097, application_id = application_id)
 
 # bot_token = os.environ.get("FLORENCE_TOKEN") # main
-bot_token = os.environ.get("SUB_DISCORD_BOT_TOKEN")
+bot_token = os.environ.get("DISCORD_BOT_TOKEN")
 
 # load cogs
 
