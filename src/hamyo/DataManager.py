@@ -10,7 +10,7 @@ class DataManager:
     _initialized = False
     _init_lock = asyncio.Lock()
 
-    def __new__(cls, db_path: str = "src/florence/data/voice_logs.db"):
+    def __new__(cls, db_path: str = "data/voice_logs.db"):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance.db_path = db_path

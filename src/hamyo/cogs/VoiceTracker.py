@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands, tasks
 from datetime import datetime
-from ..DataManager import DataManager
+from DataManager import DataManager
 import asyncio
 
 class VoiceTracker(commands.Cog):
@@ -109,7 +109,7 @@ class VoiceTracker(commands.Cog):
         except Exception as e:
             print(e)
             
-    @commands.command(name="전체확인")
+    @commands.command()
     async def check_all_time(self, ctx, user: discord.Member = None):
         user = user or ctx.author
         data = await self.data_manager.get_user_times(user.id, "누적")

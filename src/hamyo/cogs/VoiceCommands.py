@@ -2,12 +2,11 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 from datetime import datetime, timedelta
-from ..DataManager import DataManager
-import asyncio
+from DataManager import DataManager
 import pytz
 from typing import List
 
-class AginaryCommands(commands.GroupCog, group_name="아기나리"):
+class VoiceCommands(commands.GroupCog, group_name="보이스"):
     def __init__(self, bot):
         self.bot = bot
         self.data_manager = DataManager()
@@ -36,7 +35,7 @@ class AginaryCommands(commands.GroupCog, group_name="아기나리"):
         return f"{days}일 {hours}시간 {minutes}분 {seconds}초 ({self.calculate_points(total_seconds)})점"
     
     async def get_expanded_tracked_channels(self) -> List[int]:
-        tracked_ids = await self.data_manager.get_tracked_channels("aginary")
+        tracked_ids = await self.data_manager.get_tracked_channels("voice")
         expanded_ids = set()
 
         for cid in tracked_ids:
@@ -199,7 +198,7 @@ class AginaryCommands(commands.GroupCog, group_name="아기나리"):
             await interaction.response.defer() # 시간이 오래 걸릴 것을 대비해 defer 처리
             
             # 총 시간 데이터 조회
-            tracked_channels = await self.data_manager.get_tracked_channels("aginary")
+            tracked_channels = await self.data_manager.get_tracked_channels("voice")
             all_data, start_date, end_date = await self.data_manager.get_all_users_times(period, base_datetime, tracked_channels)
 
             user_totals = [(uid, sum(times.values())) for uid, times in all_data.items()]
@@ -245,7 +244,7 @@ class AginaryCommands(commands.GroupCog, group_name="아기나리"):
     @commands.command(name="역할순위")
     async def check_role_ranking(self, ctx, role: discord.Role, period: str = "누적", page: int = 1):
         now = datetime.now()
-        tracked_channels = await self.data_manager.get_tracked_channels("aginary")
+        tracked_channels = await self.data_manager.get_tracked_channels("voice")
         all_data = await self.data_manager.get_all_users_times(period, now, tracked_channels)
 
         role_member_ids = {member.id for member in role.members}
@@ -281,4 +280,4 @@ class AginaryCommands(commands.GroupCog, group_name="아기나리"):
         await ctx.send(embed=embed)
 
 async def setup(bot: commands.Bot):
-    await bot.add_cog(AginaryCommands(bot))
+    await bot.add_cog(VoiceCommands(bot))
