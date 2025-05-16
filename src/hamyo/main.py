@@ -3,6 +3,9 @@ from discord.ext import commands
 import os
 import asyncio
 import typing
+from dotenv import load_dotenv
+
+load_dotenv()
 # import logging
 
 # logging.basicConfig(level=logging.DEBUG)
