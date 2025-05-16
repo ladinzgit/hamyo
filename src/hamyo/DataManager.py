@@ -132,6 +132,12 @@ class DataManager:
         if not start_date or not end_date:
             return result, None, None
 
+        # 삭제된 채널을 자동으로 포함
+        if channel_filter is not None:
+            async with self._db.execute("SELECT channel_id FROM deleted_channels") as cursor:
+                deleted_channel_ids = [row[0] async for row in cursor]
+            channel_filter = channel_filter + deleted_channel_ids
+
         sql = """
             SELECT date, channel_id, seconds FROM voice_times
             WHERE user_id = ? AND date BETWEEN ? AND ?
@@ -158,6 +164,12 @@ class DataManager:
 
         if not start_date or not end_date:
             return result, start_date, end_date
+
+        # ✅ 삭제된 채널을 자동으로 포함
+        if channel_filter is not None:
+            async with self._db.execute("SELECT channel_id FROM deleted_channels") as cursor:
+                deleted_channel_ids = [row[0] async for row in cursor]
+            channel_filter = channel_filter + deleted_channel_ids
 
         sql = """
             SELECT date, user_id, channel_id, seconds FROM voice_times

@@ -70,6 +70,7 @@ class VoiceTracker(commands.Cog):
     async def on_guild_channel_delete(self, channel):
         if isinstance(channel, discord.VoiceChannel) and channel.category:
             await self.data_manager.register_deleted_channel(channel.id, channel.category.id)
+            await self.log(f"추적된 카테고리 {channel.category.name}의 음성 채널 {channel.name}({channel.id})이 삭제되었습니다.")
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):

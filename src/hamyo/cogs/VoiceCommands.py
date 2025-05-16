@@ -32,7 +32,7 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
         days, remainder = divmod(total_seconds, 86400)
         hours, remainder = divmod(remainder, 3600)
         minutes, seconds = divmod(remainder, 60)
-        return f"{days}일 {hours}시간 {minutes}분 {seconds}초 ({self.calculate_points(total_seconds)})점"
+        return f"{days}일 {hours}시간 {minutes}분 {seconds}초 ({self.calculate_points(total_seconds)}점)"
     
     async def get_expanded_tracked_channels(self) -> List[int]:
         tracked_ids = await self.data_manager.get_tracked_channels("voice")
@@ -66,12 +66,9 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
                         user: discord.Member = None, 
                         period: str = "일간",
                         base_date: str = None):
-        
         try:
-            # 유저 파싱
             user = user or interaction.user
-            
-            # 기준일 파싱
+
             if base_date:
                 try:
                     base_datetime = datetime.strptime(base_date, "%Y-%m-%d")
@@ -81,31 +78,32 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
                     return
             else:
                 base_datetime = datetime.now(self.tz)
-            
-            # 시간 데이터 조회
+
             tracked_channels = await self.get_expanded_tracked_channels()
             times, start_date, end_date = await self.data_manager.get_user_times(user.id, period, base_datetime, tracked_channels)
 
             if not times:
                 await interaction.response.send_message(f"해당 기간에 기록된 음성 채팅 기록이 없습니다.", ephemeral=True)
                 return
-            
+
             await interaction.response.defer()
 
-            # 카테고리별 시간 집계 및 세부 정보 생성
             total_seconds = sum(times.values())
             start_str = start_date.strftime("%Y-%m-%d") if start_date else "-"
             end_str = (end_date - timedelta(days=1)).strftime("%Y-%m-%d") if end_date else "-"
 
-            # 카테고리별 정리
             category_details = {}
+
             for channel_id, seconds in times.items():
                 channel = self.bot.get_channel(channel_id)
+
                 if channel:
                     category = channel.category
                     category_id = category.id if category else None
                     category_name = category.name if category else "기타"
                     category_position = category.position if category else float('inf')
+                    channel_name = channel.name
+                    channel_position = channel.position
                 else:
                     # 삭제된 채널 처리
                     original_category_id = await self.data_manager.get_deleted_channel_category(channel_id)
@@ -113,22 +111,25 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
                     category_id = original_category_id
                     category_name = category.name if category else "삭제된 카테고리"
                     category_position = category.position if category else float('inf')
+                    channel_name = "삭제된 채널"
+                    channel_position = float('inf')
 
                 if category_id not in category_details:
                     category_details[category_id] = {
                         "name": category_name,
                         "position": category_position,
                         "channels": [],
-                        "total": 0
+                        "total": 0,
+                        "deleted_total": 0
                     }
 
-                channel_name = channel.name if channel else "삭제된 채널"
-                channel_position = channel.position if channel else float('inf')
+                if channel_name == "삭제된 채널":
+                    category_details[category_id]["deleted_total"] += seconds
+                else:
+                    category_details[category_id]["channels"].append((channel_name, seconds, channel_position))
 
-                category_details[category_id]["channels"].append((channel_name, seconds, channel_position))
                 category_details[category_id]["total"] += seconds
 
-            # 정렬
             sorted_categories = sorted(category_details.items(), key=lambda x: (x[1]["position"], x[1]["name"]))
 
             embed = discord.Embed(
@@ -141,12 +142,16 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
                 cat_total = cat["total"]
                 cat_title = f"**{cat['name']}**"
                 field_value = ""
+
                 for cname, sec, pos in sorted(cat["channels"], key=lambda x: x[2]):
                     field_value += f"{cname}: {self.format_duration(sec)}\n"
-                    
+
+                if cat.get("deleted_total", 0) > 0:
+                    field_value += f"삭제된 채널: {self.format_duration(cat['deleted_total'])}\n"
+
                 field_value += f"\n**{cat['name']} 종합 시간**: {self.format_duration(cat_total)}"
                 embed.add_field(name=cat_title, value=field_value, inline=False)
-                
+
             embed.add_field(
                 name="───────── ౨ৎ ─────────",
                 value=f"**종합**: {self.format_duration(total_seconds)}",
@@ -155,7 +160,7 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
 
             await interaction.followup.send(embed=embed)
             await self.log(f"{interaction.user}({interaction.user.id})님께서 {user}({user.id})님의 {period} 기록을 조회했습니다.")
-            
+
         except Exception as e:
             await self.log(f"음성 채팅 기록 확인 중 오류 발생: {e}")
             await interaction.response.send_message("기록 조회 중 오류가 발생했습니다.", ephemeral=True)
@@ -224,7 +229,10 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
                 description=f"{period}({start_str} ~ {end_str}) 기준의 순위를 조회합니다.",
                 colour=discord.Colour.from_rgb(253, 237, 134)
             )
+            embed.set_footer(text=f"페이지: {page}/{total_pages} • 반영까지 최대 1분이 소요될 수 있습니다.")
+            embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
 
+            # 현재 페이지의 순위 표시
             for i, (uid, seconds) in enumerate(ranked[start_index:end_index], start=start_index + 1):
                 member = interaction.guild.get_member(uid)
                 name = member.display_name if member else f"알 수 없음 ({uid})"
@@ -233,6 +241,21 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
                     value=self.format_duration(seconds),
                     inline=False
                 )
+                
+            # 호출자의 순위가 현재 페이지에 포함되어 있지 않은 경우 하단에 추가 표시
+            caller_id = interaction.user.id
+            if caller_id not in [uid for uid, _ in ranked[start_index:end_index]]:
+                for i, (uid, seconds) in enumerate(ranked, start=1):
+                    if uid == caller_id:
+                        member = interaction.guild.get_member(uid)
+                        name = member.display_name if member else f"알 수 없음 ({uid})"
+                        embed.add_field(
+                            name="───────── ౨ৎ ─────────",
+                            value=f"{interaction.user.mention}님의 순위 - {i}위({self.format_duration(seconds)})",
+                            inline=False
+                        )
+                        break
+
 
             await interaction.followup.send(embed=embed)
         
@@ -241,43 +264,102 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
             await interaction.response.send_message("순위 조회 중 오류가 발생했습니다.", ephemeral=True)
             
 
-    @commands.command(name="역할순위")
-    async def check_role_ranking(self, ctx, role: discord.Role, period: str = "누적", page: int = 1):
-        now = datetime.now()
-        tracked_channels = await self.data_manager.get_tracked_channels("voice")
-        all_data = await self.data_manager.get_all_users_times(period, now, tracked_channels)
+    @app_commands.command(name="역할순위", description="특정 역할 내에서 음성 채널 사용 시간 순위를 확인합니다.")
+    @app_commands.describe(
+        role="순위를 조회할 디스코드 역할",
+        period="확인할 기간을 선택합니다. (일간/주간/월간/누적, 기본값: 일간)",
+        page="확인할 페이지를 선택합니다. (기본값: 1)",
+        base_date="기준일을 지정합니다. (YYYY-MM-DD 형식, 미입력시 현재 날짜)"
+    )
+    @app_commands.choices(period=[
+        app_commands.Choice(name="일간", value="일간"),
+        app_commands.Choice(name="주간", value="주간"),
+        app_commands.Choice(name="월간", value="월간"),
+        app_commands.Choice(name="누적", value="누적")
+    ])
+    async def check_role_ranking(self, interaction: discord.Interaction,
+                                role: discord.Role,
+                                period: str = "일간",
+                                page: int = 1,
+                                base_date: str = None):
+            try:
+                # 기준일 파싱
+                if base_date:
+                    try:
+                        base_datetime = datetime.strptime(base_date, "%Y-%m-%d")
+                        base_datetime = base_datetime.replace(tzinfo=self.tz)
+                    except ValueError:
+                        await interaction.response.send_message("날짜 형식이 올바르지 않습니다. YYYY-MM-DD 형식으로 입력해주세요.", ephemeral=True)
+                        return
+                else:
+                    base_datetime = datetime.now(self.tz)
 
-        role_member_ids = {member.id for member in role.members}
-        filtered = [(uid, sum(times.values())) for uid, times in all_data.items() if uid in role_member_ids]
-        ranked = sorted(filtered, key=lambda x: x[1], reverse=True)
+                if page < 1:
+                    await interaction.response.send_message("페이지 번호는 1 이상이어야 합니다.")
+                    return
+                
+                await interaction.response.defer()  # 시간이 오래 걸릴 것을 대비해 defer 처리
+                
+                # 총 시간 데이터 조회
+                tracked_channels = await self.get_expanded_tracked_channels()
+                all_data, start_date, end_date = await self.data_manager.get_all_users_times(period, base_datetime, tracked_channels)
 
-        if not ranked:
-            return await ctx.send(f"{role.name} 역할의 기록이 없습니다.")
+                role_member_ids = {member.id for member in role.members}
+                filtered = [(uid, sum(times.values())) for uid, times in all_data.items() if uid in role_member_ids]
+                ranked = sorted(filtered, key=lambda x: x[1], reverse=True)
 
-        items_per_page = 10
-        start_index = (page - 1) * items_per_page
-        end_index = start_index + items_per_page
-        total_pages = (len(ranked) + items_per_page - 1) // items_per_page
+                if not ranked:
+                    return await interaction.followup.send(f"{role.name} 역할의 기록이 없습니다.", ephemeral=True)
 
-        if page > total_pages:
-            return await ctx.send(f"요청한 페이지는 존재하지 않습니다. (1-{total_pages})")
+                items_per_page = 10
+                start_index = (page - 1) * items_per_page
+                end_index = start_index + items_per_page
+                total_pages = (len(ranked) + items_per_page - 1) // items_per_page
 
-        embed = discord.Embed(
-            title=f"{role.name} 역할 음성 사용 시간 순위 ({period})",
-            description=f"페이지 {page}/{total_pages}",
-            colour=role.colour
-        )
+                if page > total_pages:
+                    return await interaction.followup.send(f"요청한 페이지는 존재하지 않습니다. (1-{total_pages})", ephemeral=True)
 
-        for i, (uid, seconds) in enumerate(ranked[start_index:end_index], start=start_index + 1):
-            member = ctx.guild.get_member(uid)
-            name = member.display_name if member else f"알 수 없음 ({uid})"
-            embed.add_field(
-                name=f"{i}위 - {name}",
-                value=self.format_duration(seconds),
-                inline=False
-            )
+                start_str = start_date.strftime("%Y-%m-%d") if start_date else "-"
+                end_str = (end_date - timedelta(days=1)).strftime("%Y-%m-%d") if end_date else "-"
+                    
+                # 임베드 생성
+                embed = discord.Embed(
+                    title=f"{role.name} 역할 음성 사용 시간 순위",
+                    description=f"{period}({start_str} ~ {end_str}) 기준의 순위를 조회합니다.",
+                    colour=role.colour
+                )
+                embed.set_footer(text=f"페이지: {page}/{total_pages} • 반영까지 최대 1분이 소요될 수 있습니다.")
+                embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
 
-        await ctx.send(embed=embed)
+                # 현재 페이지의 순위 표시
+                for i, (uid, seconds) in enumerate(ranked[start_index:end_index], start=start_index + 1):
+                    member = interaction.guild.get_member(uid)
+                    name = member.display_name if member else f"알 수 없음 ({uid})"
+                    embed.add_field(
+                        name=f"{i}위 - {name}",
+                        value=self.format_duration(seconds),
+                        inline=False
+                    )
+                    
+                # 호출자의 순위가 현재 페이지에 포함되어 있지 않은 경우 하단에 추가 표시
+                caller_id = interaction.user.id
+                if caller_id not in [uid for uid, _ in ranked[start_index:end_index]]:
+                    for i, (uid, seconds) in enumerate(ranked, start=1):
+                        if uid == caller_id:
+                            member = interaction.guild.get_member(uid)
+                            name = member.display_name if member else f"알 수 없음 ({uid})"
+                            embed.add_field(
+                                name="───────── ౨ৎ ─────────",
+                                value=f"{interaction.user.mention}님의 순위 - {i}위({self.format_duration(seconds)})",
+                                inline=False
+                            )
+                            break
+
+                await interaction.followup.send(embed=embed)
+
+            except Exception as e:
+                await self.log(f"순위 확인 중 오류 발생: {e}")
+                await interaction.response.send_message("역할 순위 조회 중 오류가 발생했습니다.", ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(VoiceCommands(bot))
