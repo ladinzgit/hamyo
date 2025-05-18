@@ -203,7 +203,7 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
             await interaction.response.defer() # 시간이 오래 걸릴 것을 대비해 defer 처리
             
             # 총 시간 데이터 조회
-            tracked_channels = await self.data_manager.get_tracked_channels("voice")
+            tracked_channels = await self.get_expanded_tracked_channels()
             all_data, start_date, end_date = await self.data_manager.get_all_users_times(period, base_datetime, tracked_channels)
 
             user_totals = [(uid, sum(times.values())) for uid, times in all_data.items()]

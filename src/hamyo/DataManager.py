@@ -121,76 +121,102 @@ class DataManager:
             row = await cursor.fetchone()
             return row[0] if row else None
 
-    async def get_user_times(self, user_id: int, period: str, base_date: Optional[datetime] = None, channel_filter: Optional[List[int]] = None) -> Tuple[Dict[int, int], Optional[datetime], Optional[datetime]]:
+    async def get_user_times(
+        self,
+        user_id: int,
+        period: str,
+        base_date: Optional[datetime] = None,
+        channel_filter: Optional[List[int]] = None
+    ) -> Tuple[Dict[int, int], Optional[datetime], Optional[datetime]]:
         await self.ensure_initialized()
         if base_date is None:
             base_date = datetime.now()
 
-        result = {}
+        result: Dict[int, int] = {}
         start_date, end_date = await self.get_period_range(period, base_date)
-
         if not start_date or not end_date:
             return result, None, None
 
-        # 삭제된 채널을 자동으로 포함
+        # 삭제된 채널을 자동으로 포함하고, 빈 리스트인 경우 바로 리턴
         if channel_filter is not None:
-            async with self._db.execute("SELECT channel_id FROM deleted_channels") as cursor:
-                deleted_channel_ids = [row[0] async for row in cursor]
-            channel_filter = channel_filter + deleted_channel_ids
+            async with self._db.execute(
+                "SELECT channel_id FROM deleted_channels"
+            ) as cursor:
+                deleted_ids = [row[0] async for row in cursor]
+            channel_filter = channel_filter + deleted_ids
+            if not channel_filter:
+                return {}, start_date, end_date
 
         sql = """
-            SELECT date, channel_id, seconds FROM voice_times
-            WHERE user_id = ? AND date BETWEEN ? AND ?
+            SELECT date, channel_id, seconds
+              FROM voice_times
+             WHERE user_id = ?
+               AND date BETWEEN ? AND ?
         """
-        params = [user_id, start_date.strftime("%Y-%m-%d"), (end_date - timedelta(days=1)).strftime("%Y-%m-%d")]
+        params = [
+            user_id,
+            start_date.strftime("%Y-%m-%d"),
+            (end_date - timedelta(days=1)).strftime("%Y-%m-%d")
+        ]
 
-        if channel_filter:
-            placeholders = ','.join(['?'] * len(channel_filter))
+        # None이 아닌 경우만 IN 절 추가
+        if channel_filter is not None:
+            placeholders = ",".join("?" for _ in channel_filter)
             sql += f" AND channel_id IN ({placeholders})"
             params.extend(channel_filter)
 
         async with self._db.execute(sql, params) as cursor:
-            async for date_str, channel_id, seconds in cursor:
-                if channel_id not in result:
-                    result[channel_id] = 0
-                result[channel_id] += seconds
+            async for _date, cid, secs in cursor:
+                result[cid] = result.get(cid, 0) + secs
 
         return result, start_date, end_date
 
-    async def get_all_users_times(self, period: str, base_date: datetime, channel_filter: Optional[List[int]] = None) -> Tuple[Dict[int, Dict[str, int]], Optional[datetime], Optional[datetime]]:
+
+    async def get_all_users_times(
+        self,
+        period: str,
+        base_date: datetime,
+        channel_filter: Optional[List[int]] = None
+    ) -> Tuple[Dict[int, Dict[str, int]], Optional[datetime], Optional[datetime]]:
         await self.ensure_initialized()
         result: Dict[int, Dict[str, int]] = {}
         start_date, end_date = await self.get_period_range(period, base_date)
-
         if not start_date or not end_date:
             return result, start_date, end_date
 
-        # ✅ 삭제된 채널을 자동으로 포함
+        # 삭제된 채널을 자동으로 포함하고, 빈 리스트인 경우 바로 리턴
         if channel_filter is not None:
-            async with self._db.execute("SELECT channel_id FROM deleted_channels") as cursor:
-                deleted_channel_ids = [row[0] async for row in cursor]
-            channel_filter = channel_filter + deleted_channel_ids
+            async with self._db.execute(
+                "SELECT channel_id FROM deleted_channels"
+            ) as cursor:
+                deleted_ids = [row[0] async for row in cursor]
+            channel_filter = channel_filter + deleted_ids
+            if not channel_filter:
+                return {}, start_date, end_date
 
         sql = """
-            SELECT date, user_id, channel_id, seconds FROM voice_times
-            WHERE date BETWEEN ? AND ?
+            SELECT date, user_id, channel_id, seconds
+              FROM voice_times
+             WHERE date BETWEEN ? AND ?
         """
-        params = [start_date.strftime("%Y-%m-%d"), (end_date - timedelta(days=1)).strftime("%Y-%m-%d")]
+        params = [
+            start_date.strftime("%Y-%m-%d"),
+            (end_date - timedelta(days=1)).strftime("%Y-%m-%d")
+        ]
 
-        if channel_filter:
-            placeholders = ','.join(['?'] * len(channel_filter))
+        # None이 아닌 경우만 IN 절 추가
+        if channel_filter is not None:
+            placeholders = ",".join("?" for _ in channel_filter)
             sql += f" AND channel_id IN ({placeholders})"
             params.extend(channel_filter)
 
         async with self._db.execute(sql, params) as cursor:
-            async for date_str, user_id, channel_id, seconds in cursor:
-                if user_id not in result:
-                    result[user_id] = {}
-                if date_str not in result[user_id]:
-                    result[user_id][date_str] = 0
-                result[user_id][date_str] += seconds
+            async for dstr, uid, cid, secs in cursor:
+                user_map = result.setdefault(uid, {})
+                user_map[dstr] = user_map.get(dstr, 0) + secs
 
         return result, start_date, end_date
+
     
     async def get_period_range(self, period: str, base_datetime: datetime) -> Tuple[Optional[datetime], Optional[datetime]]:
         await self.ensure_initialized()
