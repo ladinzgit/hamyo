@@ -55,7 +55,7 @@ class VoiceConfig(commands.Cog):
         ),
         embed.add_field(
             name=f"*{command_name} 완전초기화", 
-            value="유저 음성 기록을 전부 삭제합니다.", 
+            value="유저 음성 기록을 전부 삭제합니다. **주의! 보이스 기록을 열람하는 다른 명령어가 있는 경우, 그 명령어에서도 모든 기록이 삭제됩니다.**", 
             inline=False
         )
 
@@ -116,7 +116,7 @@ class VoiceConfig(commands.Cog):
         if not await self.is_owner(ctx):
             return await ctx.send("관리자 권한이 필요합니다.")
 
-        await self.data_manager.reset_data("voice")
+        await self.data_manager.reset_data()
         await ctx.send("모든 사용자 기록 및 삭제 채널 정보가 초기화되었습니다.")
         await self.log(f"{ctx.author}({ctx.author.id})님에 의해 모든 사용자 기록 및 삭제 채널 정보가 초기화되었습니다.")
         
