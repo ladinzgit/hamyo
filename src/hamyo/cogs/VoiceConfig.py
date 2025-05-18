@@ -47,7 +47,12 @@ class VoiceConfig(commands.Cog):
             name=f"*{command_name} 채널제거 (채널)", 
             value="기존에 등록되어 있던 채널/카테고리를 제거합니다. (채널/카테고리 여러 개 지정 가능)", 
             inline=False
-        )
+        ),
+        embed.add_field(
+            name=f"*{command_name} 채널초기화", 
+            value="현재 등록되어 있는 모든 채널/카테고리를 제거합니다.", 
+            inline=False
+        ),
         embed.add_field(
             name=f"*{command_name} 완전초기화", 
             value="유저 음성 기록을 전부 삭제합니다.", 
@@ -84,7 +89,7 @@ class VoiceConfig(commands.Cog):
                 await self.log(f"{ctx.author}({ctx.author.id})님에 의해 추적 채널/카테고리에 {ch.mention}({ch.id})를 등록 완료하였습니다.")
 
         if added:
-            await ctx.reply(f"다음 채널/카테고리를 아기나리 추적에 등록했습니다:\n{', '.join(added)}")
+            await ctx.reply(f"다음 채널/카테고리를 보이스 추적에 등록했습니다:\n{', '.join(added)}")
         else:
             await ctx.reply("등록할 유효한 음성 채널이나 카테고리를 찾지 못했습니다.")
 
@@ -102,7 +107,7 @@ class VoiceConfig(commands.Cog):
                 await self.log(f"{ctx.author}({ctx.author.id})님에 의해 {ch.mention}({ch.id})채널 추적을 중지하였습니다.")
 
         if removed:
-            await ctx.send(f"다음 채널/카테고리를 아기나리 추적에서 제거했습니다:\n{', '.join(removed)}")
+            await ctx.send(f"다음 채널/카테고리를 보이스 추적에서 제거했습니다:\n{', '.join(removed)}")
         else:
             await ctx.send("제거할 유효한 채널을 찾지 못했습니다.")
 
@@ -111,8 +116,20 @@ class VoiceConfig(commands.Cog):
         if not await self.is_owner(ctx):
             return await ctx.send("관리자 권한이 필요합니다.")
 
-        await self.data_manager.reset_data()
+        await self.data_manager.reset_data("voice")
         await ctx.send("모든 사용자 기록 및 삭제 채널 정보가 초기화되었습니다.")
+        await self.log(f"{ctx.author}({ctx.author.id})님에 의해 모든 사용자 기록 및 삭제 채널 정보가 초기화되었습니다.")
+        
+    @voice.command(name="채널초기화")
+    async def reset_all_channel(self, ctx):
+        if not await self.is_owner(ctx):
+            await self.log(f"{ctx.author}({ctx.author.id})가 관리자 권한 없이 채널 제거를 시도했습니다.")
+            return await ctx.send("관리자 권한이 필요합니다.")
+
+        await self.data_manager.reset_tracked_channels("voice")
+        await ctx.send("모든 채널 기록이 초기화되었습니다.")
+        await self.log(f"{ctx.author}({ctx.author.id})님에 의해 모든 채널 기록이 초기화되었습니다.")
+
 
     @voice.command(name="데이터통합")
     async def migrate_all_data(self, ctx):

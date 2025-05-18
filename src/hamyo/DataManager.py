@@ -223,6 +223,18 @@ class DataManager:
         await self._db.execute("DELETE FROM voice_times")
         await self._db.execute("DELETE FROM deleted_channels")
         await self._db.commit()
+        
+    async def reset_tracked_channels(self, source: str):
+        """
+        트래킹된 채널 목록(tracked_channels)만 모두 삭제합니다.
+        voice_times, deleted_channels 테이블은 건드리지 않습니다.
+        """
+        await self.ensure_initialized()
+        await self._db.execute(
+            "DELETE FROM tracked_channels WHERE source = ?",
+            (source,)
+        )
+        await self._db.commit()
 
     async def migrate_multiple_user_times(self, user_times_paths: List[str], deleted_channels_path: str):
         await self.ensure_initialized()
