@@ -122,4 +122,3 @@ class BalanceDataManager:
 
 # 싱글턴 인스턴스
 balance_manager = BalanceDataManager()
-asyncio.run(balance_manager.init_db())
