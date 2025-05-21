@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from ..balance_data_manager import balance_manager
+from balance_data_manager import balance_manager
 
 def has_auth_role():
     async def predicate(ctx):

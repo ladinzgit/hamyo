@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from ..balance_data_manager import balance_manager
+from balance_data_manager import balance_manager
 
 class AdminSettings(commands.Cog):
     def __init__(self, bot):
