@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from ..data_manager import load_data, save_data
+from ..balance_data_manager import balance_manager
 
 class AdminSettings(commands.Cog):
     def __init__(self, bot):
@@ -10,25 +10,21 @@ class AdminSettings(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def settings(self, ctx):
         """Base command for admin settings."""
-        await ctx.send("사용 가능한 하위 명령어: 권한, 조건")
+        await ctx.send("사용 가능한 하위 명령어: 인증추가, 인증제거")
 
-    @settings.command(name="권한")
+    @settings.command(name="인증추가")
     @commands.has_permissions(administrator=True)
-    async def set_role_permission(self, ctx, role: discord.Role):
-        """Set the role required for executing certain commands."""
-        data = load_data()
-        data["required_role"] = role.id
-        save_data(data)
-        await ctx.send(f"권한이 {role.name}(으)로 설정되었습니다.")
+    async def add_auth_condition(self, ctx, *, condition: str):
+        """Add an authentication condition (auth item)."""
+        await balance_manager.add_auth_item(condition)
+        await ctx.send(f"인증 조건 '{condition}'이(가) 추가되었습니다.")
 
-    @settings.command(name="조건")
+    @settings.command(name="인증제거")
     @commands.has_permissions(administrator=True)
-    async def set_conditions(self, ctx, *, conditions: str):
-        """Set the conditions for the 인증 command."""
-        data = load_data()
-        data["conditions"] = conditions.split(",")
-        save_data(data)
-        await ctx.send(f"조건이 다음과 같이 설정되었습니다: {', '.join(data['conditions'])}")
+    async def remove_auth_condition(self, ctx, *, condition: str):
+        """Remove an authentication condition (auth item)."""
+        await balance_manager.remove_auth_item(condition)
+        await ctx.send(f"인증 조건 '{condition}'이(가) 제거되었습니다.")
 
 async def setup(bot):
     await bot.add_cog(AdminSettings(bot))
