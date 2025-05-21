@@ -6,11 +6,43 @@ class AdminSettings(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.group(name="설정", invoke_without_command=True)
+    @commands.group(name="온설정", invoke_without_command=True)
     @commands.has_permissions(administrator=True)
     async def settings(self, ctx):
-        """Base command for admin settings."""
-        await ctx.send("사용 가능한 하위 명령어: 인증추가, 인증제거, 인증목록, 인증역할추가, 인증역할제거, 인증역할목록, 화폐단위등록")
+        """관리자 설정 명령어 그룹"""
+        if not ctx.author.guild_permissions.administrator:
+            await ctx.send("관리자 권한이 필요합니다.")
+            return
+
+        embed = discord.Embed(
+            title="온 설정(관리자) 명령어 도움말",
+            description="아래는 사용 가능한 관리자 설정 명령어입니다.",
+            colour=discord.Colour.from_rgb(253, 237, 134)
+        )
+        embed.add_field(
+            name="인증 조건 관리",
+            value=(
+                "`*온설정 인증추가 <조건> <보상>` : 인증 조건과 보상 금액을 추가합니다.\n"
+                "`*온설정 인증제거 <조건>` : 인증 조건을 제거합니다.\n"
+                "`*온설정 인증목록` : 등록된 인증 조건 목록을 확인합니다."
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="인증 역할 관리",
+            value=(
+                "`*온설정 인증역할추가 @역할` : 인증/지급/회수 명령어 사용 권한 역할을 추가합니다.\n"
+                "`*온설정 인증역할제거 @역할` : 인증 명령어 사용 권한 역할을 제거합니다.\n"
+                "`*온설정 인증역할목록` : 등록된 인증 명령어 사용 역할 목록을 확인합니다."
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="화폐 단위 설정",
+            value="`*온설정 화폐단위등록 <이름> <이모지>` : 서버 내 화폐 단위를 설정합니다.",
+            inline=False
+        )
+        await ctx.reply(embed=embed)
 
     @settings.command(name="인증추가")
     @commands.has_permissions(administrator=True)
@@ -40,7 +72,7 @@ class AdminSettings(commands.Cog):
     @settings.command(name="인증역할추가")
     @commands.has_permissions(administrator=True)
     async def add_auth_role(self, ctx, role: discord.Role):
-        """Add a role that can use 인증/지급/뺏기 명령어."""
+        """Add a role that can use 인증/지급/회수 명령어."""
         await balance_manager.add_auth_role(role.id)
         await ctx.send(f"인증 명령어 사용 역할로 '{role.name}'이(가) 추가되었습니다.")
 
@@ -54,7 +86,7 @@ class AdminSettings(commands.Cog):
     @settings.command(name="인증역할목록")
     @commands.has_permissions(administrator=True)
     async def list_auth_roles(self, ctx):
-        """List all roles that can use 인증/지급/뺏기 명령어."""
+        """List all roles that can use 인증/지급/회수 명령어."""
         role_ids = await balance_manager.list_auth_roles()
         if not role_ids:
             await ctx.send("등록된 인증 명령어 사용 역할이 없습니다.")
