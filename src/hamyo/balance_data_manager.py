@@ -21,7 +21,20 @@ class BalanceDataManager:
             """)
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS auth (
-                    item TEXT PRIMARY KEY
+                    item TEXT PRIMARY KEY,
+                    reward_amount INTEGER DEFAULT 100
+                )
+            """)
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS auth_roles (
+                    role_id INTEGER PRIMARY KEY
+                )
+            """)
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS currency_unit (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    name TEXT,
+                    emoji TEXT
                 )
             """)
             await db.commit()
@@ -49,9 +62,9 @@ class BalanceDataManager:
             """, (amount, user_id))
             await db.commit()
 
-    async def add_auth_item(self, item):
+    async def add_auth_item(self, item, reward_amount):
         async with aiosqlite.connect(DB_FILE) as db:
-            await db.execute("INSERT OR IGNORE INTO auth (item) VALUES (?)", (item,))
+            await db.execute("INSERT OR REPLACE INTO auth (item, reward_amount) VALUES (?, ?)", (item, reward_amount))
             await db.commit()
 
     async def remove_auth_item(self, item):
@@ -64,11 +77,48 @@ class BalanceDataManager:
             async with db.execute("SELECT 1 FROM auth WHERE item = ?", (item,)) as cursor:
                 return await cursor.fetchone() is not None
 
-    async def give_if_authed(self, user_id, amount, item):
-        if await self.is_item_authed(item):
-            await self.give(user_id, amount)
-            return True
-        return False
+    async def get_auth_reward_amount(self, item):
+        async with aiosqlite.connect(DB_FILE) as db:
+            async with db.execute("SELECT reward_amount FROM auth WHERE item = ?", (item,)) as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else None
+
+    async def list_auth_items(self):
+        async with aiosqlite.connect(DB_FILE) as db:
+            async with db.execute("SELECT item, reward_amount FROM auth") as cursor:
+                rows = await cursor.fetchall()
+                return [{"item": row[0], "reward_amount": row[1]} for row in rows]
+
+    # 인증 역할 관련
+    async def add_auth_role(self, role_id):
+        async with aiosqlite.connect(DB_FILE) as db:
+            await db.execute("INSERT OR IGNORE INTO auth_roles (role_id) VALUES (?)", (role_id,))
+            await db.commit()
+
+    async def remove_auth_role(self, role_id):
+        async with aiosqlite.connect(DB_FILE) as db:
+            await db.execute("DELETE FROM auth_roles WHERE role_id = ?", (role_id,))
+            await db.commit()
+
+    async def list_auth_roles(self):
+        async with aiosqlite.connect(DB_FILE) as db:
+            async with db.execute("SELECT role_id FROM auth_roles") as cursor:
+                rows = await cursor.fetchall()
+                return [row[0] for row in rows]
+
+    # 화폐 단위 관련
+    async def set_currency_unit(self, name, emoji):
+        async with aiosqlite.connect(DB_FILE) as db:
+            await db.execute("INSERT OR REPLACE INTO currency_unit (id, name, emoji) VALUES (1, ?, ?)", (name, emoji))
+            await db.commit()
+
+    async def get_currency_unit(self):
+        async with aiosqlite.connect(DB_FILE) as db:
+            async with db.execute("SELECT name, emoji FROM currency_unit WHERE id = 1") as cursor:
+                row = await cursor.fetchone()
+                if row:
+                    return {"name": row[0], "emoji": row[1]}
+                return None
 
 # 싱글턴 인스턴스
 balance_manager = BalanceDataManager()
