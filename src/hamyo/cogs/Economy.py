@@ -17,6 +17,18 @@ class Economy(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def cog_load(self):
+        print(f"✅ {self.__class__.__name__} loaded successfully!")
+
+    async def log(self, message):
+        """Logger cog를 통해 로그 메시지 전송"""
+        try:
+            logger = self.bot.get_cog('Logger')
+            if logger:
+                await logger.log(message)
+        except Exception as e:
+            print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
+
     async def get_currency_unit(self):
         unit = await balance_manager.get_currency_unit()
         return f"{unit['name']} {unit['emoji']}" if unit else "코인"
@@ -65,6 +77,7 @@ class Economy(commands.Cog):
         await balance_manager.give(str(member.id), amount)
         unit = await self.get_currency_unit()
         await ctx.send(f"{amount} {unit} have been given to {member.mention}.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게 {amount} {unit} 지급.")
 
     @on.command(name="인증")
     @has_auth_role()
@@ -78,6 +91,7 @@ class Economy(commands.Cog):
         await balance_manager.give(str(member.id), reward_amount)
         unit = await self.get_currency_unit()
         await ctx.send(f"{member.mention} has been certified for {condition} and received {reward_amount} {unit}.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게 인증 '{condition}'로 {reward_amount} {unit} 지급.")
 
     @on.command(name="회수")
     @has_auth_role()
@@ -96,6 +110,7 @@ class Economy(commands.Cog):
         await balance_manager.take(user_id, amount)
         unit = await self.get_currency_unit()
         await ctx.send(f"{amount} {unit} have been taken from {member.mention}.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게서 {amount} {unit} 회수.")
 
 async def setup(bot):
     await bot.add_cog(Economy(bot))

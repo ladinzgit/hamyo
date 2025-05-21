@@ -6,6 +6,18 @@ class AdminSettings(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def cog_load(self):
+        print(f"✅ {self.__class__.__name__} loaded successfully!")
+
+    async def log(self, message):
+        """Logger cog를 통해 로그 메시지 전송"""
+        try:
+            logger = self.bot.get_cog('Logger')
+            if logger:
+                await logger.log(message)
+        except Exception as e:
+            print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
+
     @commands.group(name="온설정", invoke_without_command=True)
     @commands.has_permissions(administrator=True)
     async def settings(self, ctx):
@@ -43,6 +55,7 @@ class AdminSettings(commands.Cog):
             inline=False
         )
         await ctx.reply(embed=embed)
+        await self.log(f"{ctx.author}({ctx.author.id})이 온설정 명령어 도움말을 조회함.")
 
     @settings.command(name="인증추가")
     @commands.has_permissions(administrator=True)
@@ -50,6 +63,7 @@ class AdminSettings(commands.Cog):
         """Add an authentication condition (auth item) with reward amount."""
         await balance_manager.add_auth_item(condition, reward_amount)
         await ctx.send(f"인증 조건 '{condition}'(보상: {reward_amount})이(가) 추가되었습니다.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 인증 조건 '{condition}'(보상: {reward_amount}) 추가.")
 
     @settings.command(name="인증제거")
     @commands.has_permissions(administrator=True)
@@ -57,6 +71,7 @@ class AdminSettings(commands.Cog):
         """Remove an authentication condition (auth item)."""
         await balance_manager.remove_auth_item(condition)
         await ctx.send(f"인증 조건 '{condition}'이(가) 제거되었습니다.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 인증 조건 '{condition}' 제거.")
 
     @settings.command(name="인증목록")
     @commands.has_permissions(administrator=True)
@@ -68,6 +83,7 @@ class AdminSettings(commands.Cog):
         else:
             msg = "\n".join([f"{item['item']} (보상: {item['reward_amount']})" for item in items])
             await ctx.send(f"인증 조건 목록:\n{msg}")
+        await self.log(f"{ctx.author}({ctx.author.id})이 인증 조건 목록을 조회함.")
 
     @settings.command(name="인증역할추가")
     @commands.has_permissions(administrator=True)
@@ -75,6 +91,7 @@ class AdminSettings(commands.Cog):
         """Add a role that can use 인증/지급/회수 명령어."""
         await balance_manager.add_auth_role(role.id)
         await ctx.send(f"인증 명령어 사용 역할로 '{role.name}'이(가) 추가되었습니다.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 인증 명령어 사용 역할 '{role.name}'({role.id}) 추가.")
 
     @settings.command(name="인증역할제거")
     @commands.has_permissions(administrator=True)
@@ -82,6 +99,7 @@ class AdminSettings(commands.Cog):
         """Remove a role from 인증 명령어 사용 역할."""
         await balance_manager.remove_auth_role(role.id)
         await ctx.send(f"인증 명령어 사용 역할에서 '{role.name}'이(가) 제거되었습니다.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 인증 명령어 사용 역할 '{role.name}'({role.id}) 제거.")
 
     @settings.command(name="인증역할목록")
     @commands.has_permissions(administrator=True)
@@ -94,6 +112,7 @@ class AdminSettings(commands.Cog):
             roles = [discord.utils.get(ctx.guild.roles, id=rid) for rid in role_ids]
             msg = "\n".join([role.name if role else f"ID:{rid}" for role, rid in zip(roles, role_ids)])
             await ctx.send(f"인증 명령어 사용 역할 목록:\n{msg}")
+        await self.log(f"{ctx.author}({ctx.author.id})이 인증 명령어 사용 역할 목록을 조회함.")
 
     @settings.command(name="화폐단위등록")
     @commands.has_permissions(administrator=True)
@@ -101,6 +120,7 @@ class AdminSettings(commands.Cog):
         """Set the currency unit (name and emoji)."""
         await balance_manager.set_currency_unit(name, emoji)
         await ctx.send(f"화폐 단위가 '{name} {emoji}'로 설정되었습니다.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 화폐 단위를 '{name} {emoji}'로 설정.")
 
 async def setup(bot):
     await bot.add_cog(AdminSettings(bot))
