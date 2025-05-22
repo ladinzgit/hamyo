@@ -92,6 +92,9 @@ class Economy(commands.Cog):
             description=f"{member.mention}님에게 `{amount}`{unit}을 지급했슴묘!",
             colour=discord.Colour.from_rgb(151, 214, 181)
         )
+        embed.set_footer(text=f"요청자: {ctx.author}", icon_url=ctx.author.avatar.url)
+        embed.timestamp = ctx.message.created_at
+        
         await ctx.reply(embed=embed)
         await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게 {amount} 지급.")
 
@@ -101,12 +104,21 @@ class Economy(commands.Cog):
         """Certify a user for meeting a condition and reward them."""
         reward_amount = await balance_manager.get_auth_reward_amount(condition)
         if reward_amount is None:
-            await ctx.send(f"유효하지 않은 조건입니다. 인증 가능한 조건을 확인하세요.")
+            await ctx.reply(f"유효하지 않은 조건입니다. 인증 가능한 조건을 확인하세요.")
             return
 
         await balance_manager.give(str(member.id), reward_amount)
         unit = await self.get_currency_unit()
-        await ctx.send(f"{member.mention} has been certified for {condition} and received {reward_amount} {unit}.")
+        
+        embed = discord.Embed(
+            title=f"{unit}: 온 인증",
+            description=f"{member.mention}님에게 `{condition}` 인증 보상으로 `{reward_amount}`{unit}을 지급했슴묘!",
+            colour=discord.Colour.from_rgb(151, 214, 181)
+        )
+        embed.set_footer(text=f"요청자: {ctx.author}", icon_url=ctx.author.avatar.url)
+        embed.timestamp = ctx.message.created_at
+        
+        await ctx.reply(embed=embed)
         await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게 인증 '{condition}'로 {reward_amount} {unit} 지급.")
 
     @on.command(name="회수")
@@ -125,7 +137,16 @@ class Economy(commands.Cog):
 
         await balance_manager.take(user_id, amount)
         unit = await self.get_currency_unit()
-        await ctx.send(f"{amount} {unit} have been taken from {member.mention}.")
+        
+        embed = discord.Embed(
+            title=f"{unit}: 온 회수",
+            description=f"{member.mention}님에게서 `{amount}`{unit}을 회수했슴묘!",
+            colour=discord.Colour.from_rgb(151, 214, 181)
+        )
+        embed.set_footer(text=f"요청자: {ctx.author}", icon_url=ctx.author.avatar.url)
+        embed.timestamp = ctx.message.created_at
+        
+        await ctx.reply(embed=embed)
         await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게서 {amount} {unit} 회수.")
 
 async def setup(bot):
