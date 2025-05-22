@@ -86,13 +86,17 @@ class Economy(commands.Cog):
 
         await balance_manager.give(str(member.id), amount)
         unit = await self.get_currency_unit()
+        new_balance = await balance_manager.get_balance(str(member.id))
         
         embed = discord.Embed(
             title=f"{unit}: 온 지급",
             description=f"{member.mention}님에게 `{amount}`{unit}을 지급했슴묘!",
             colour=discord.Colour.from_rgb(151, 214, 181)
         )
-        embed.set_footer(text=f"요청자: {ctx.author}", icon_url=ctx.author.avatar.url)
+        embed.set_footer(
+            text=f"요청자: {ctx.author} | 지급 후 잔액: {new_balance}{unit}",
+            icon_url=ctx.author.avatar.url
+        )
         embed.timestamp = ctx.message.created_at
         
         await ctx.reply(embed=embed)
@@ -109,13 +113,17 @@ class Economy(commands.Cog):
 
         await balance_manager.give(str(member.id), reward_amount)
         unit = await self.get_currency_unit()
+        new_balance = await balance_manager.get_balance(str(member.id))
         
         embed = discord.Embed(
             title=f"{unit}: 온 인증",
             description=f"{member.mention}님에게 `{condition}` 인증 보상으로 `{reward_amount}`{unit}을 지급했슴묘!",
             colour=discord.Colour.from_rgb(151, 214, 181)
         )
-        embed.set_footer(text=f"요청자: {ctx.author}", icon_url=ctx.author.avatar.url)
+        embed.set_footer(
+            text=f"요청자: {ctx.author} | 지급 후 잔액: {new_balance}{unit}",
+            icon_url=ctx.author.avatar.url
+        )
         embed.timestamp = ctx.message.created_at
         
         await ctx.reply(embed=embed)
@@ -126,24 +134,28 @@ class Economy(commands.Cog):
     async def take_coins(self, ctx, member: discord.Member, amount: int):
         """Take a specific amount of coins from a user."""
         if amount <= 0:
-            await ctx.send("Amount must be greater than 0.")
+            await ctx.reply("금액은 0보다 커야 합니다.")
             return
 
         user_id = str(member.id)
         balance = await balance_manager.get_balance(user_id)
         if balance < amount:
-            await ctx.send(f"{member.mention} does not have enough coins to take.")
+            await ctx.reply(f"{member.display_name}은/는 잔액이 부족하여 `{amount}`{unit}을 회수할 수 없습니다.\n현재 {member.display_name}의 잔액: `{balance}`{unit}")
             return
 
         await balance_manager.take(user_id, amount)
         unit = await self.get_currency_unit()
+        new_balance = await balance_manager.get_balance(user_id)
         
         embed = discord.Embed(
             title=f"{unit}: 온 회수",
             description=f"{member.mention}님에게서 `{amount}`{unit}을 회수했슴묘!",
             colour=discord.Colour.from_rgb(151, 214, 181)
         )
-        embed.set_footer(text=f"요청자: {ctx.author}", icon_url=ctx.author.avatar.url)
+        embed.set_footer(
+            text=f"요청자: {ctx.author} | 회수 후 잔액: {new_balance}{unit}",
+            icon_url=ctx.author.avatar.url
+        )
         embed.timestamp = ctx.message.created_at
         
         await ctx.reply(embed=embed)
