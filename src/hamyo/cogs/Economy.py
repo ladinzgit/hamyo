@@ -40,7 +40,7 @@ class Economy(commands.Cog):
         embed = discord.Embed(
             title=f"온(경제) 명령어 도움말",
             description=f"서버 내 화폐 단위: {unit}\n\n아래는 사용 가능한 온(경제) 명령어입니다.",
-            colour=discord.Colour.from_rgb(253, 237, 134)
+            colour=discord.Colour.from_rgb(151, 214, 181)
         )
         embed.add_field(
             name="일반 명령어",
@@ -64,7 +64,14 @@ class Economy(commands.Cog):
         member = member or ctx.author
         balance = await balance_manager.get_balance(str(member.id))
         unit = await self.get_currency_unit()
-        await ctx.send(f"{member.mention} has {balance} {unit}.")
+        
+        embed = discord.Embed(
+            title=f"{unit}: 온 확인",
+            description=f"{member.mention}님의 잔액은 `{balance}`{unit}입니다!",
+            colour=discord.Colour.from_rgb(151, 214, 181)
+        )
+                
+        await ctx.reply(embed=embed)
 
     @on.command(name="지급")
     @has_auth_role()
