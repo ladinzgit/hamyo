@@ -67,10 +67,13 @@ class Economy(commands.Cog):
         
         embed = discord.Embed(
             title=f"{unit}: 온 확인",
-            description=f"{member.mention}님의 잔액은 `{balance}`{unit}입니다!",
+            description=f"{member.mention}님의 잔액은 `{balance}`{unit}임묘!",
             colour=discord.Colour.from_rgb(151, 214, 181)
         )
-                
+        embed.set_thumbnail(url=member.avatar.url)
+        embed.set_footer(text=f"요청자: {ctx.author}", icon_url=ctx.author.avatar.url)
+        embed.timestamp = ctx.message.created_at
+   
         await ctx.reply(embed=embed)
 
     @on.command(name="지급")
@@ -78,13 +81,19 @@ class Economy(commands.Cog):
     async def give_coins(self, ctx, member: discord.Member, amount: int):
         """Give a specific amount of coins to a user."""
         if amount <= 0:
-            await ctx.send("Amount must be greater than 0.")
+            await ctx.reply("금액은 0보다 커야 합니다.")
             return
 
         await balance_manager.give(str(member.id), amount)
         unit = await self.get_currency_unit()
-        await ctx.send(f"{amount} {unit} have been given to {member.mention}.")
-        await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게 {amount} {unit} 지급.")
+        
+        embed = discord.Embed(
+            title=f"{unit}: 온 지급",
+            description=f"{member.mention}님에게 `{amount}`{unit}을 지급했슴묘!",
+            colour=discord.Colour.from_rgb(151, 214, 181)
+        )
+        await ctx.reply(embed=embed)
+        await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게 {amount} 지급.")
 
     @on.command(name="인증")
     @has_auth_role()
