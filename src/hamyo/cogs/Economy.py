@@ -94,7 +94,7 @@ class Economy(commands.Cog):
             colour=discord.Colour.from_rgb(151, 214, 181)
         )
         embed.set_footer(
-            text=f"요청자: {ctx.author} | 지급 후 잔액: {new_balance}{unit}",
+            text=f"요청자: {ctx.author} | 지급 후 잔액: {new_balance}",
             icon_url=ctx.author.avatar.url
         )
         embed.timestamp = ctx.message.created_at
@@ -121,7 +121,7 @@ class Economy(commands.Cog):
             colour=discord.Colour.from_rgb(151, 214, 181)
         )
         embed.set_footer(
-            text=f"요청자: {ctx.author} | 지급 후 잔액: {new_balance}{unit}",
+            text=f"요청자: {ctx.author} | 지급 후 잔액: {new_balance}",
             icon_url=ctx.author.avatar.url
         )
         embed.timestamp = ctx.message.created_at
@@ -153,7 +153,7 @@ class Economy(commands.Cog):
             colour=discord.Colour.from_rgb(151, 214, 181)
         )
         embed.set_footer(
-            text=f"요청자: {ctx.author} | 회수 후 잔액: {new_balance}{unit}",
+            text=f"요청자: {ctx.author} | 회수 후 잔액: {new_balance}",
             icon_url=ctx.author.avatar.url
         )
         embed.timestamp = ctx.message.created_at
