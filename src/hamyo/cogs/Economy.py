@@ -31,7 +31,7 @@ class Economy(commands.Cog):
 
     async def get_currency_unit(self):
         unit = await balance_manager.get_currency_unit()
-        return f"{unit['name']} {unit['emoji']}" if unit else "코인"
+        return unit['emoji'] if unit else "코인"
 
     @commands.group(name="온", invoke_without_command=True)
     async def on(self, ctx):

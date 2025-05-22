@@ -47,7 +47,6 @@ class BalanceDataManager:
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS currency_unit (
                     id INTEGER PRIMARY KEY CHECK (id = 1),
-                    name TEXT,
                     emoji TEXT
                 )
             """)
@@ -132,19 +131,19 @@ class BalanceDataManager:
                 return [row[0] for row in rows]
 
     # 화폐 단위 관련
-    async def set_currency_unit(self, name, emoji):
+    async def set_currency_unit(self, emoji):
         await self.ensure_initialized()
         async with aiosqlite.connect(self.db_path) as db:
-            await db.execute("INSERT OR REPLACE INTO currency_unit (id, name, emoji) VALUES (1, ?, ?)", (name, emoji))
+            await db.execute("INSERT OR REPLACE INTO currency_unit (id, emoji) VALUES (1, ?)", (emoji,))
             await db.commit()
 
     async def get_currency_unit(self):
         await self.ensure_initialized()
         async with aiosqlite.connect(self.db_path) as db:
-            async with db.execute("SELECT name, emoji FROM currency_unit WHERE id = 1") as cursor:
+            async with db.execute("SELECT emoji FROM currency_unit WHERE id = 1") as cursor:
                 row = await cursor.fetchone()
                 if row:
-                    return {"name": row[0], "emoji": row[1]}
+                    return {"emoji": row[0]}
                 return None
 
 # 싱글턴 인스턴스

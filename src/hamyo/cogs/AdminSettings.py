@@ -51,7 +51,7 @@ class AdminSettings(commands.Cog):
         )
         embed.add_field(
             name="화폐 단위 설정",
-            value="`*온설정 화폐단위등록 <이름> <이모지>` : 서버 내 화폐 단위를 설정합니다.",
+            value="`*온설정 화폐단위등록 <이모지>` : 서버 내 화폐 단위를 설정합니다.",
             inline=False
         )
         await ctx.reply(embed=embed)
@@ -116,11 +116,11 @@ class AdminSettings(commands.Cog):
 
     @settings.command(name="화폐단위등록")
     @commands.has_permissions(administrator=True)
-    async def set_currency_unit(self, ctx, name: str, emoji: str):
-        """Set the currency unit (name and emoji)."""
-        await balance_manager.set_currency_unit(name, emoji)
-        await ctx.send(f"화폐 단위가 '{name} {emoji}'로 설정되었습니다.")
-        await self.log(f"{ctx.author}({ctx.author.id})이 화폐 단위를 '{name} {emoji}'로 설정.")
+    async def set_currency_unit(self, ctx, emoji: str):
+        """Set the currency unit (emoji only)."""
+        await balance_manager.set_currency_unit(emoji)
+        await ctx.send(f"화폐 단위가 '{emoji}'로 설정되었습니다.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 화폐 단위를 '{emoji}'로 설정.")
 
 async def setup(bot):
     await bot.add_cog(AdminSettings(bot))
