@@ -17,7 +17,7 @@ class DataManager:
             cls._instance._db = None
         return cls._instance
         
-    def __init__(self, db_path: str = "src/florence/data/voice_logs.db"):
+    def __init__(self, db_path: str = "data/voice_logs.db"):
         # Only set the db_path if this is a new instance
         if not hasattr(self, 'db_path'):
             self.db_path = db_path
@@ -137,18 +137,12 @@ class DataManager:
         if not start_date or not end_date:
             return result, None, None
 
-        # 삭제된 채널을 자동으로 포함하고, 빈 리스트인 경우 바로 리턴
-        if channel_filter is not None:
-            async with self._db.execute(
-                "SELECT channel_id FROM deleted_channels"
-            ) as cursor:
-                deleted_ids = [row[0] async for row in cursor]
-            channel_filter = channel_filter + deleted_ids
-            if not channel_filter:
-                return {}, start_date, end_date
+        # 빈 리스트면 바로 빈 결과 반환
+        if channel_filter is not None and not channel_filter:
+            return {}, start_date, end_date
 
         sql = """
-            SELECT date, channel_id, seconds
+            SELECT channel_id, SUM(seconds)
               FROM voice_times
              WHERE user_id = ?
                AND date BETWEEN ? AND ?
@@ -159,43 +153,37 @@ class DataManager:
             (end_date - timedelta(days=1)).strftime("%Y-%m-%d")
         ]
 
-        # None이 아닌 경우만 IN 절 추가
         if channel_filter is not None:
             placeholders = ",".join("?" for _ in channel_filter)
             sql += f" AND channel_id IN ({placeholders})"
             params.extend(channel_filter)
 
+        sql += " GROUP BY channel_id"
+
         async with self._db.execute(sql, params) as cursor:
-            async for _date, cid, secs in cursor:
-                result[cid] = result.get(cid, 0) + secs
+            async for cid, secs in cursor:
+                result[cid] = secs
 
         return result, start_date, end_date
-
 
     async def get_all_users_times(
         self,
         period: str,
         base_date: datetime,
         channel_filter: Optional[List[int]] = None
-    ) -> Tuple[Dict[int, Dict[str, int]], Optional[datetime], Optional[datetime]]:
+    ) -> Tuple[Dict[int, Dict[int, int]], Optional[datetime], Optional[datetime]]:
         await self.ensure_initialized()
-        result: Dict[int, Dict[str, int]] = {}
+        result: Dict[int, Dict[int, int]] = {}
         start_date, end_date = await self.get_period_range(period, base_date)
         if not start_date or not end_date:
             return result, start_date, end_date
 
-        # 삭제된 채널을 자동으로 포함하고, 빈 리스트인 경우 바로 리턴
-        if channel_filter is not None:
-            async with self._db.execute(
-                "SELECT channel_id FROM deleted_channels"
-            ) as cursor:
-                deleted_ids = [row[0] async for row in cursor]
-            channel_filter = channel_filter + deleted_ids
-            if not channel_filter:
-                return {}, start_date, end_date
+        # 빈 리스트면 바로 빈 결과 반환
+        if channel_filter is not None and not channel_filter:
+            return {}, start_date, end_date
 
         sql = """
-            SELECT date, user_id, channel_id, seconds
+            SELECT user_id, channel_id, SUM(seconds)
               FROM voice_times
              WHERE date BETWEEN ? AND ?
         """
@@ -204,16 +192,17 @@ class DataManager:
             (end_date - timedelta(days=1)).strftime("%Y-%m-%d")
         ]
 
-        # None이 아닌 경우만 IN 절 추가
         if channel_filter is not None:
             placeholders = ",".join("?" for _ in channel_filter)
             sql += f" AND channel_id IN ({placeholders})"
             params.extend(channel_filter)
 
+        sql += " GROUP BY user_id, channel_id"
+
         async with self._db.execute(sql, params) as cursor:
-            async for dstr, uid, cid, secs in cursor:
+            async for uid, cid, secs in cursor:
                 user_map = result.setdefault(uid, {})
-                user_map[dstr] = user_map.get(dstr, 0) + secs
+                user_map[cid] = secs
 
         return result, start_date, end_date
 
@@ -264,6 +253,10 @@ class DataManager:
 
     async def migrate_multiple_user_times(self, user_times_paths: List[str], deleted_channels_path: str):
         await self.ensure_initialized()
+        # ① 매번 깨끗한 상태에서 시작하기 위해 이전 삭제채널 기록을 모두 지웁니다.
+        await self._db.execute("DELETE FROM deleted_channels")
+
+        # ② user_times 마이그레이션
         for path in user_times_paths:
             if os.path.exists(path):
                 with open(path, 'r', encoding='utf-8') as f:
@@ -271,19 +264,85 @@ class DataManager:
                 for date_str, users in user_times.items():
                     for user_id, channels in users.items():
                         for channel_id, seconds in channels.items():
-                            await self._db.execute("""
+                            await self._db.execute(
+                                """
                                 INSERT INTO voice_times (date, user_id, channel_id, seconds)
                                 VALUES (?, ?, ?, ?)
                                 ON CONFLICT(date, user_id, channel_id) DO NOTHING
-                            """, (date_str, int(user_id), int(channel_id), int(seconds)))
+                                """,
+                                (date_str, int(user_id), int(channel_id), int(seconds))
+                            )
+
+        # ③ deleted_channels 로드
         if os.path.exists(deleted_channels_path):
             with open(deleted_channels_path, 'r', encoding='utf-8') as f:
                 deleted_channels = json.load(f)
-            for channel_id, data in deleted_channels.items():
-                category_id = data.get("category_id")
-                if category_id is not None:
-                    await self._db.execute("""
-                        INSERT OR REPLACE INTO deleted_channels (channel_id, category_id)
-                        VALUES (?, ?)
-                    """, (int(channel_id), int(category_id)))
+            for channel_id, payload in deleted_channels.items():
+                # JSON 구조가 { "채널ID": { "category_id": 숫자 } } 이므로 payload에서 꺼냅니다.
+                category_id = payload.get("category_id")
+                if category_id is None:
+                    continue
+                await self._db.execute(
+                    """
+                    INSERT OR REPLACE INTO deleted_channels (channel_id, category_id)
+                    VALUES (?, ?)
+                    """,
+                    (int(channel_id), int(category_id))
+                )
+
+        # ④ 최종 커밋
         await self._db.commit()
+        
+
+    async def migrate_deleted_channels(self, deleted_channels_paths: List[str]):
+        """
+        deleted_channels 테이블을 비우고, 여러 JSON 파일에서
+        삭제된 채널 정보를 중복 없이 한 번에 삽입합니다.
+        """
+        # DB 초기화 및 준비
+        await self.ensure_initialized()
+        # 1) 기존 레코드 삭제
+        await self._db.execute("DELETE FROM deleted_channels")
+
+        # 프로젝트 루트를 기준으로 경로 재해석
+        from pathlib import Path
+        base_dir = Path(__file__).resolve().parent.parent
+
+        # 2) 각 JSON 파일을 순회하며 데이터 병합
+        for fp in deleted_channels_paths:
+            path = Path(fp)
+            # 상대 경로가 없으면 data 디렉터리에서 찾기
+            if not path.exists():
+                path = base_dir / "data" / fp
+            if not path.exists():
+                continue
+
+            # JSON 로드
+            with open(path, 'r', encoding='utf-8') as f:
+                deleted = json.load(f)
+
+            # 중복 없이 INSERT OR REPLACE
+            for channel_id, payload in deleted.items():
+                category_id = payload.get("category_id")
+                if category_id is None:
+                    continue
+                await self._db.execute(
+                    "INSERT OR REPLACE INTO deleted_channels (channel_id, category_id) VALUES (?, ?)",
+                    (int(channel_id), int(category_id))
+                )
+
+        # 3) 커밋
+        await self._db.commit()
+
+    async def get_deleted_channels_by_categories(self, category_ids: List[int]) -> List[int]:
+        """주어진 카테고리ID 목록에 속한 삭제된 채널ID들을 반환합니다."""
+        if not category_ids:
+            return []
+        placeholders = ",".join("?" for _ in category_ids)
+        sql = f"SELECT channel_id FROM deleted_channels WHERE category_id IN ({placeholders})"
+        await self.ensure_initialized()
+        result = []
+        async with self._db.execute(sql, tuple(category_ids)) as cursor:
+            async for (channel_id,) in cursor:
+                result.append(channel_id)
+        return result

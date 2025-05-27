@@ -38,15 +38,30 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
         tracked_ids = await self.data_manager.get_tracked_channels("voice")
         expanded_ids = set()
 
+        # 1. 카테고리ID와 음성채널ID 분리
+        category_ids = set()
+        voice_channel_ids = set()
         for cid in tracked_ids:
             ch = self.bot.get_channel(cid)
-            if isinstance(ch, discord.VoiceChannel):
-                expanded_ids.add(ch.id)
-            elif isinstance(ch, discord.CategoryChannel):
-                for vc in ch.voice_channels:
+            if isinstance(ch, discord.CategoryChannel):
+                category_ids.add(cid)
+            elif isinstance(ch, discord.VoiceChannel):
+                voice_channel_ids.add(cid)
+
+        # 2. 카테고리ID로 등록된 경우, 해당 카테고리의 모든 하위 음성채널 포함
+        for cat_id in category_ids:
+            cat = self.bot.get_channel(cat_id)
+            if isinstance(cat, discord.CategoryChannel):
+                for vc in cat.voice_channels:
                     expanded_ids.add(vc.id)
-            else:
-                expanded_ids.add(cid)
+
+        # 3. 음성채널ID로 등록된 경우, 해당 음성채널만 포함
+        expanded_ids.update(voice_channel_ids)
+
+        # 4. 삭제된 채널 중, category_id가 등록된 카테고리ID에 포함된 것만 추가 (DataManager 메소드 사용)
+        if category_ids:
+            deleted_channel_ids = await self.data_manager.get_deleted_channels_by_categories(list(category_ids))
+            expanded_ids.update(deleted_channel_ids)
 
         return list(expanded_ids)
 
@@ -157,6 +172,9 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
                 value=f"**종합**: {self.format_duration(total_seconds)}",
                 inline=False
             )
+            
+            embed.set_thumbnail(url=user.display_avatar)
+            embed.set_footer(text="반영까지 최대 1분이 소요될 수 있습니다.")
 
             await interaction.followup.send(embed=embed)
             await self.log(f"{interaction.user}({interaction.user.id})님께서 {user}({user.id})님의 {period} 기록을 조회했습니다.")
@@ -251,7 +269,7 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
                         name = member.display_name if member else f"알 수 없음 ({uid})"
                         embed.add_field(
                             name="───────── ౨ৎ ─────────",
-                            value=f"{interaction.user.mention}님의 순위 - {i}위({self.format_duration(seconds)})",
+                            value=f"**{i}위 -** {interaction.user.mention}\n{self.format_duration(seconds)}",
                             inline=False
                         )
                         break
@@ -350,7 +368,7 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
                             name = member.display_name if member else f"알 수 없음 ({uid})"
                             embed.add_field(
                                 name="───────── ౨ৎ ─────────",
-                                value=f"{interaction.user.mention}님의 순위 - {i}위({self.format_duration(seconds)})",
+                                value=f"{i}위 - {interaction.user.mention}\n{self.format_duration(seconds)}",
                                 inline=False
                             )
                             break
