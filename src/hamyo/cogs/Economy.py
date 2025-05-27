@@ -89,8 +89,15 @@ class Economy(commands.Cog):
         new_balance = await balance_manager.get_balance(str(member.id))
         
         embed = discord.Embed(
-            title=f"{unit}: 온 지급",
-            description=f"{member.mention}님에게 `{amount}`{unit}을 지급했슴묘!",
+            title=f"{unit}、온 지급 ₍ᐢ..ᐢ₎",
+            description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀´ㅅ` )
+(⠀ {member.mention}에게 **{amount}**{unit} 줬다묘...✩
+(⠀ ⠀ ⠀좋은 곳에 쓰라묘.........
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+""",
             colour=discord.Colour.from_rgb(151, 214, 181)
         )
         embed.set_footer(
@@ -148,8 +155,15 @@ class Economy(commands.Cog):
         new_balance = await balance_manager.get_balance(user_id)
         
         embed = discord.Embed(
-            title=f"{unit}: 온 회수",
-            description=f"{member.mention}님에게서 `{amount}`{unit}을 회수했슴묘!",
+            title=f"{unit}、온 회수 ₍ᐢ..ᐢ₎",
+            description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀`ㅅ´ )
+(⠀ {member.mention}에게 **{amount}**{unit} 뺏었다묘...✩
+(⠀ ⠀ ⠀이제 내 것이다묘.....!
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+""",
             colour=discord.Colour.from_rgb(151, 214, 181)
         )
         embed.set_footer(

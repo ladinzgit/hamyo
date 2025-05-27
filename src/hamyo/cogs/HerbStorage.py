@@ -54,13 +54,38 @@ class HerbStorage(commands.Cog):
         await create_user_if_not_exists(user_id)
         return await db_remove_inventory_item(user_id, 'revive', name)
 
-    # Existing herb operations (unchanged)
-    async def update_herb_states(self, herb_id: int, sun=None, water=None, nutrient=None, vitality=None, stage=None, withered=None):
+    async def get_user_herb(self, user_id: int):
+        """
+        Return the current growing herb for the user, or None if not exists.
+        """
+        await create_user_if_not_exists(user_id)
+        db = await get_db()
+        cursor = await db.execute(
+            "SELECT * FROM herbs WHERE user_id = ? AND withered = 0 ORDER BY started_at DESC LIMIT 1;",
+            (user_id,)
+        )
+        row = await cursor.fetchone()
+        await db.close()
+        if row:
+            return dict(row)
+        return None
+
+    async def create_seed(self, user_id: int, species: str, rarity: str, started_at: str):
+        """
+        심기 명령어에서 호출. species가 unknown이면 GrowthCog에서 species를 확정해서 넘겨야 함.
+        """
+        await create_user_if_not_exists(user_id)
+        herb_id = await create_herb_for_user(user_id, species, rarity, started_at)
+        return herb_id
+
+    async def update_herb_states(self, herb_id: int, sun=None, water=None, nutrient=None, vitality=None, stage=None, withered=None, state_sun=None, state_water=None, state_nutrient=None, last_sun=None):
         """
         Update various state fields of a herb.
+        sun, water, nutrient, state_sun, state_water, state_nutrient, last_sun 등 키워드 인자 허용.
         """
         fields = []
         values = []
+        # 지원하는 모든 필드에 대해 처리
         if sun is not None:
             fields.append("state_sun = ?")
             values.append(sun)
@@ -70,6 +95,15 @@ class HerbStorage(commands.Cog):
         if nutrient is not None:
             fields.append("state_nutrient = ?")
             values.append(nutrient)
+        if state_sun is not None:
+            fields.append("state_sun = ?")
+            values.append(state_sun)
+        if state_water is not None:
+            fields.append("state_water = ?")
+            values.append(state_water)
+        if state_nutrient is not None:
+            fields.append("state_nutrient = ?")
+            values.append(state_nutrient)
         if vitality is not None:
             fields.append("vitality = ?")
             values.append(vitality)
@@ -79,6 +113,9 @@ class HerbStorage(commands.Cog):
         if withered is not None:
             fields.append("withered = ?")
             values.append(withered)
+        if last_sun is not None:
+            fields.append("last_sun = ?")
+            values.append(last_sun)
         if not fields:
             return
         query = f"UPDATE herbs SET {', '.join(fields)} WHERE herb_id = ?;"

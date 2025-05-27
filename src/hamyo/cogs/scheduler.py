@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands, tasks
 from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 class SchedulerCog(commands.Cog):
     """Cog to handle daily herb state updates at midnight KST."""
@@ -9,13 +10,16 @@ class SchedulerCog(commands.Cog):
         # Start the daily tick loop
         self.daily_tick.start()
 
-    @tasks.loop(time=time(hour=15, minute=0), reconnect=True)
+    @tasks.loop(
+        time=time(hour=0, minute=0, tzinfo=ZoneInfo("Asia/Seoul")),
+        reconnect=True
+    )
     async def daily_tick(self):
-        """Runs every day at 00:00 KST (15:00 UTC)."""
+        """Runs every day at 00:00 KST."""
         storage = self.bot.get_cog('HerbStorageCog')
         if not storage:
             return
-        now = datetime.utcnow() + timedelta(hours=9)
+        now = datetime.now(ZoneInfo("Asia/Seoul"))
         herbs = await storage.get_all_herbs()
         for record in herbs:
             herb_id, user_id, sun, water, nutrient, stage, vitality, started_str = record
