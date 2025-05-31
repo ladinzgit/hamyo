@@ -216,5 +216,15 @@ class AttendanceCog(commands.Cog):
             mentions = [f"<#{row[0]}>" for row in rows]
             await ctx.send("출석 명령어 허용 채널 목록:\n" + ", ".join(mentions))
 
+    @attendance_channel.command(name="초기화")
+    @only_in_guild()
+    @commands.has_permissions(administrator=True)
+    async def reset_attendance_records(self, ctx):
+        """모든 출석 기록을 초기화합니다. (관리자 전용)"""
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute("DELETE FROM attendance")
+            await db.commit()
+        await ctx.send("모든 출석 기록이 초기화되었습니다.")
+
 async def setup(bot):
     await bot.add_cog(AttendanceCog(bot))
