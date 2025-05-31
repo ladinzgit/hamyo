@@ -80,7 +80,10 @@ class AttendanceCog(commands.Cog):
                     """,
                     colour=discord.Colour.from_rgb(252, 252, 126)
                 )
-                embed.set_footer(text=f"현재 잔액: {balance}온")
+                embed.set_thumbnail(url=ctx.author.avatar.url)
+                embed.set_footer(text=f"현재 잔액: {balance}온 • 요청자: {ctx.author}", icon_url=ctx.author.avatar.url)
+                embed.timestamp = ctx.message.created_at
+                
                 await ctx.send(embed=embed)
             else:
                 last_date, count = row
@@ -109,7 +112,10 @@ class AttendanceCog(commands.Cog):
                         """,
                         colour=discord.Colour.from_rgb(252, 252, 126)
                     )
-                    embed.set_footer(text=f"현재 잔액: {balance}온")
+                    embed.set_thumbnail(url=ctx.author.avatar.url)
+                    embed.set_footer(text=f"현재 잔액: {balance}온 • 요청자: {ctx.author}", icon_url=ctx.author.avatar.url)
+                    embed.timestamp = ctx.message.created_at
+                    
                     await ctx.send(embed=embed)
 
     @attendance.command(name="순위")
