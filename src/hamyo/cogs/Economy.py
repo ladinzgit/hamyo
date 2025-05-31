@@ -4,12 +4,11 @@ from balance_data_manager import balance_manager
 
 GUILD_ID = 1368459027851509891
 
-def only_in_garden_guild():
+def only_in_guild():
     async def predicate(ctx):
         if ctx.guild and ctx.guild.id == GUILD_ID:
             return True
-        await ctx.send("이 명령어는 지정된 서버에서만 사용할 수 있습니다.")
-        return False
+        return False  # 메시지 없이 무반응
     return commands.check(predicate)
 
 def has_auth_role():
@@ -57,7 +56,7 @@ class Economy(commands.Cog):
         return unit['emoji'] if unit else "코인"
 
     @commands.group(name="온", invoke_without_command=True)
-    @only_in_garden_guild()
+    @only_in_guild()
     @in_allowed_channel()
     async def on(self, ctx):
         """온(경제) 관련 명령어 그룹"""
@@ -84,7 +83,7 @@ class Economy(commands.Cog):
         await ctx.reply(embed=embed)
 
     @on.command(name="확인")
-    @only_in_garden_guild()
+    @only_in_guild()
     @in_allowed_channel()
     async def check_balance(self, ctx, member: discord.Member = None):
         """Check the current balance of a user."""
@@ -109,7 +108,7 @@ class Economy(commands.Cog):
         await ctx.reply(embed=embed)
 
     @on.command(name="지급")
-    @only_in_garden_guild()
+    @only_in_guild()
     @in_allowed_channel()
     @commands.has_permissions(administrator=True)
     async def give_coins(self, ctx, member: discord.Member, amount: int):
@@ -144,7 +143,7 @@ class Economy(commands.Cog):
         await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게 {amount} 지급.")
 
     @on.command(name="인증")
-    @only_in_garden_guild()
+    @only_in_guild()
     @in_allowed_channel()
     @has_auth_role()
     async def certify(self, ctx, member: discord.Member, condition: str):
@@ -173,7 +172,7 @@ class Economy(commands.Cog):
         await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게 인증 '{condition}'로 {reward_amount} {unit} 지급.")
 
     @on.command(name="회수")
-    @only_in_garden_guild()
+    @only_in_guild()
     @in_allowed_channel()
     @commands.has_permissions(administrator=True)
     async def take_coins(self, ctx, member: discord.Member, amount: int):
