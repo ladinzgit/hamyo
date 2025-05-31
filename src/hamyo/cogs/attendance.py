@@ -46,10 +46,9 @@ class AttendanceCog(commands.Cog):
     @only_in_guild()
     async def attendance(self, ctx):
         """출석 체크"""
-        # 출석 허용 채널 체크
-        if not ctx.author.guild_permissions.administrator:
-            if not await is_attendance_allowed_channel(ctx.channel.id):
-                return  # 무반응
+        # 출석 허용 채널 체크 (관리자도 예외 없이 적용)
+        if not await is_attendance_allowed_channel(ctx.channel.id):
+            return  # 무반응
 
         now = datetime.now(KST)
         today = now.strftime("%Y-%m-%d")
