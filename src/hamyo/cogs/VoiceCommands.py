@@ -42,7 +42,7 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
         category_ids = set()
         voice_channel_ids = set()
         for cid in tracked_ids:
-            ch = self.bot.get_channel(cid)
+            ch = await self.bot.fetch_channel(cid)
             if isinstance(ch, discord.CategoryChannel):
                 category_ids.add(cid)
             elif isinstance(ch, discord.VoiceChannel):
@@ -50,7 +50,7 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
 
         # 2. 카테고리ID로 등록된 경우, 해당 카테고리의 모든 하위 음성채널 포함
         for cat_id in category_ids:
-            cat = self.bot.get_channel(cat_id)
+            cat = await self.bot.fetch_channel(cat_id)
             if isinstance(cat, discord.CategoryChannel):
                 for vc in cat.voice_channels:
                     expanded_ids.add(vc.id)
