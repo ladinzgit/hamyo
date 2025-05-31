@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from balance_data_manager import balance_manager
 
-class AdminSettings(commands.Cog):
+class OnAdminSettings(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
@@ -52,6 +52,20 @@ class AdminSettings(commands.Cog):
         embed.add_field(
             name="화폐 단위 설정",
             value="`*온설정 화폐단위등록 <이모지>` : 서버 내 화폐 단위를 설정합니다.",
+            inline=False
+        )
+        embed.add_field(
+            name="온(경제) 명령어 허용 채널 관리",
+            value=(
+                "`*온설정 온채널추가 <채널>` : 온(경제) 명령어를 사용할 수 있는 채널을 추가합니다.\n"
+                "`*온설정 온채널제거 <채널>` : 온(경제) 명령어 허용 채널에서 제거합니다.\n"
+                "`*온설정 온채널목록` : 온(경제) 명령어 허용 채널 목록을 확인합니다."
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="모든 유저 화폐 초기화",
+            value="`*온설정 온초기화` : 모든 유저의 온(화폐) 잔액을 초기화합니다.",
             inline=False
         )
         await ctx.reply(embed=embed)
@@ -122,5 +136,44 @@ class AdminSettings(commands.Cog):
         await ctx.send(f"화폐 단위가 '{emoji}'로 설정되었습니다.")
         await self.log(f"{ctx.author}({ctx.author.id})이 화폐 단위를 '{emoji}'로 설정.")
 
+    @settings.command(name="온채널추가")
+    @commands.has_permissions(administrator=True)
+    async def add_economy_channel(self, ctx, channel: discord.TextChannel = None):
+        """온(경제) 명령어를 사용할 수 있는 채널을 추가합니다."""
+        channel = channel or ctx.channel
+        await balance_manager.add_allowed_channel(channel.id)
+        await ctx.send(f"{channel.mention} 채널이 온(경제) 명령어 허용 채널로 추가되었습니다.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 온(경제) 명령어 허용 채널 '{channel.name}'({channel.id}) 추가.")
+
+    @settings.command(name="온채널제거")
+    @commands.has_permissions(administrator=True)
+    async def remove_economy_channel(self, ctx, channel: discord.TextChannel = None):
+        """온(경제) 명령어 허용 채널에서 제거합니다."""
+        channel = channel or ctx.channel
+        await balance_manager.remove_allowed_channel(channel.id)
+        await ctx.send(f"{channel.mention} 채널이 온(경제) 명령어 허용 채널에서 제거되었습니다.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 온(경제) 명령어 허용 채널 '{channel.name}'({channel.id}) 제거.")
+
+    @settings.command(name="온채널목록")
+    @commands.has_permissions(administrator=True)
+    async def list_economy_channels(self, ctx):
+        """온(경제) 명령어 허용 채널 목록을 확인합니다."""
+        ids = await balance_manager.list_allowed_channels()
+        if not ids:
+            await ctx.send("등록된 온(경제) 명령어 허용 채널이 없습니다.")
+        else:
+            mentions = [f"<#{cid}>" for cid in ids]
+            await ctx.send("온(경제) 명령어 허용 채널 목록:\n" + ", ".join(mentions))
+        await self.log(f"{ctx.author}({ctx.author.id})이 온(경제) 명령어 허용 채널 목록을 조회함.")
+
+    @settings.command(name="온초기화")
+    @commands.has_permissions(administrator=True)
+    async def reset_all_balances(self, ctx):
+        """모든 유저의 온(화폐) 잔액을 초기화합니다. (설정은 유지)"""
+        await balance_manager.reset_all_balances()
+        await ctx.send("모든 유저의 온(화폐) 잔액이 초기화되었습니다.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 모든 유저의 온(화폐) 잔액 초기화.")
+
+
 async def setup(bot):
-    await bot.add_cog(AdminSettings(bot))
+    await bot.add_cog(OnAdminSettings(bot))

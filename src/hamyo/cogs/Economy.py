@@ -13,6 +13,19 @@ def has_auth_role():
         return False
     return commands.check(predicate)
 
+def in_allowed_channel():
+    async def predicate(ctx):
+        if ctx.author.guild_permissions.administrator:
+            return True
+        
+        allowed_channels = await balance_manager.list_allowed_channels()
+        
+        # 허용 채널이 하나도 없으면 모든 채널 허용
+        if not allowed_channels or ctx.channel.id in allowed_channels:
+            return True
+        return False
+    return commands.check(predicate)
+
 class Economy(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -34,6 +47,7 @@ class Economy(commands.Cog):
         return unit['emoji'] if unit else "코인"
 
     @commands.group(name="온", invoke_without_command=True)
+    @in_allowed_channel()
     async def on(self, ctx):
         """온(경제) 관련 명령어 그룹"""
         unit = await self.get_currency_unit()
@@ -50,8 +64,8 @@ class Economy(commands.Cog):
         embed.add_field(
             name="관리자 전용 명령어",
             value=(
-                "`*온 지급 @유저 금액` : 특정 유저에게 온을 지급합니다. (권한 필요)\n"
-                "`*온 회수 @유저 금액` : 특정 유저의 온을 회수합니다. (권한 필요)\n"
+                "`*온 지급 @유저 금액` : 특정 유저에게 온을 지급합니다. (관리자 권한 필요)\n"
+                "`*온 회수 @유저 금액` : 특정 유저의 온을 회수합니다. (관리자 권한 필요)\n"
                 "`*온 인증 @유저 조건` : 인증 조건을 만족한 유저에게 온을 지급합니다. (권한 필요)"
             ),
             inline=False
@@ -59,17 +73,23 @@ class Economy(commands.Cog):
         await ctx.reply(embed=embed)
 
     @on.command(name="확인")
+    @in_allowed_channel()
     async def check_balance(self, ctx, member: discord.Member = None):
         """Check the current balance of a user."""
         member = member or ctx.author
         balance = await balance_manager.get_balance(str(member.id))
         unit = await self.get_currency_unit()
-        
         embed = discord.Embed(
-            title=f"{unit}: 온 확인",
-            description=f"{member.mention}님의 잔액은 `{balance}`{unit}임묘!",
+            title=f"{unit}、온 확인 ₍ᐢ..ᐢ₎",
+            description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀´ㅅ` )
+(⠀ {member.mention}에게는 **{balance}**{unit} 있다묘...✩
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+""",
             colour=discord.Colour.from_rgb(151, 214, 181)
-        )
+        )        
         embed.set_thumbnail(url=member.avatar.url)
         embed.set_footer(text=f"요청자: {ctx.author}", icon_url=ctx.author.avatar.url)
         embed.timestamp = ctx.message.created_at
@@ -77,7 +97,8 @@ class Economy(commands.Cog):
         await ctx.reply(embed=embed)
 
     @on.command(name="지급")
-    @has_auth_role()
+    @in_allowed_channel()
+    @commands.has_permissions(administrator=True)
     async def give_coins(self, ctx, member: discord.Member, amount: int):
         """Give a specific amount of coins to a user."""
         if amount <= 0:
@@ -110,6 +131,7 @@ class Economy(commands.Cog):
         await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게 {amount} 지급.")
 
     @on.command(name="인증")
+    @in_allowed_channel()
     @has_auth_role()
     async def certify(self, ctx, member: discord.Member, condition: str):
         """Certify a user for meeting a condition and reward them."""
@@ -137,7 +159,8 @@ class Economy(commands.Cog):
         await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게 인증 '{condition}'로 {reward_amount} {unit} 지급.")
 
     @on.command(name="회수")
-    @has_auth_role()
+    @in_allowed_channel()
+    @commands.has_permissions(administrator=True)
     async def take_coins(self, ctx, member: discord.Member, amount: int):
         """Take a specific amount of coins from a user."""
         if amount <= 0:
@@ -176,4 +199,5 @@ class Economy(commands.Cog):
         await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게서 {amount} {unit} 회수.")
 
 async def setup(bot):
+    
     await bot.add_cog(Economy(bot))

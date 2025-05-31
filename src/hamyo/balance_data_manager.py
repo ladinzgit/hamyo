@@ -50,6 +50,11 @@ class BalanceDataManager:
                     emoji TEXT
                 )
             """)
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS allowed_channels (
+                    channel_id INTEGER
+                )
+            """)
             await db.commit()
 
     async def get_balance(self, user_id):
@@ -145,6 +150,33 @@ class BalanceDataManager:
                 if row:
                     return {"emoji": row[0]}
                 return None
+
+    # Economy 명령어 허용 채널 관리
+    async def add_allowed_channel(self, channel_id):
+        await self.ensure_initialized()
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("INSERT INTO allowed_channels (channel_id) VALUES (?)", (channel_id,))
+            await db.commit()
+
+    async def remove_allowed_channel(self, channel_id):
+        await self.ensure_initialized()
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("DELETE FROM allowed_channels WHERE channel_id = ?", (channel_id,))
+            await db.commit()
+
+    async def list_allowed_channels(self):
+        await self.ensure_initialized()
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("SELECT channel_id FROM allowed_channels") as cursor:
+                rows = await cursor.fetchall()
+                return [row[0] for row in rows]
+
+    # 모든 유저 화폐 초기화 (설정 제외)
+    async def reset_all_balances(self):
+        await self.ensure_initialized()
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("DELETE FROM balances")
+            await db.commit()
 
 # 싱글턴 인스턴스
 balance_manager = BalanceDataManager()
