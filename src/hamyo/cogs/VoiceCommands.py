@@ -6,6 +6,21 @@ from DataManager import DataManager
 import pytz
 from typing import List
 
+GUILD_ID = 1368459027851509891
+
+def only_in_guild():
+    async def predicate(interaction_or_ctx):
+        guild = getattr(interaction_or_ctx, "guild", None)
+        if guild and guild.id == GUILD_ID:
+            return True
+        return False  # 메시지 없이 무반응
+    return app_commands.check(only_in_guild_predicate) if hasattr(app_commands, "check") else commands.check(only_in_guild)
+
+async def only_in_guild_predicate(interaction):
+    if interaction.guild and interaction.guild.id == GUILD_ID:
+        return True
+    return False  # 메시지 없이 무반응
+
 class VoiceCommands(commands.GroupCog, group_name="보이스"):
     def __init__(self, bot):
         self.bot = bot
@@ -66,6 +81,7 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
         return list(expanded_ids)
 
     @app_commands.command(name="확인", description="개인 누적 시간을 확인합니다.")
+    @only_in_guild()
     @app_commands.describe(
         user="확인할 사용자를 선택합니다. (미입력 시 현재 사용자)",
         period="확인할 기간을 선택합니다. (일간/주간/월간/누적, 미입력 시 오늘)",
@@ -185,6 +201,7 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
         
         
     @app_commands.command(name="순위", description="음성 채널 사용 시간 순위를 확인합니다.")
+    @only_in_guild()
     @app_commands.describe(
         period="확인할 기간을 선택합니다. (일간/주간/월간/누적, 기본값: 일간)",
         page="확인할 페이지를 선택합니다. (기본값: 1)",
@@ -283,6 +300,7 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
             
 
     @app_commands.command(name="역할순위", description="특정 역할 내에서 음성 채널 사용 시간 순위를 확인합니다.")
+    @only_in_guild()
     @app_commands.describe(
         role="순위를 조회할 디스코드 역할",
         period="확인할 기간을 선택합니다. (일간/주간/월간/누적, 기본값: 일간)",

@@ -2,11 +2,19 @@ import discord
 from discord.ext import commands
 from DataManager import DataManager
 
+GUILD_ID = 1368459027851509891
+
+def only_in_guild():
+    async def predicate(ctx):
+        if ctx.guild and ctx.guild.id == GUILD_ID:
+            return True
+        return False  # 메시지 없이 무반응
+    return commands.check(predicate)
+
 class VoiceConfig(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.data_manager = DataManager()
-        self.owner_ids = [277812129011204097, 1112033374484299837, 1248710347041538255, 1214783592022933528, 1267091238318899320]  # 관리자 ID
 
     async def cog_load(self):
         print(f"✅ {self.__class__.__name__} loaded successfully!")
@@ -20,16 +28,10 @@ class VoiceConfig(commands.Cog):
         except Exception as e:
             print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
 
-    async def is_owner(self, ctx):
-        return ctx.author.id in self.owner_ids
-    
     @commands.group(name="보이스", invoke_without_command=True)
+    @only_in_guild()
+    @commands.has_permissions(administrator=True)
     async def voice(self, ctx):  
-        if ctx.author.id not in self.owner_ids:
-            await self.log(f"{ctx.author}({ctx.author.id})가 관리자 권한 없이 명령어 조회를 시도했습니다.")
-            await ctx.send("관리자 권한이 필요합니다.")
-            return
-        
         command_name = ctx.invoked_with
         
         embed = discord.Embed(
@@ -76,11 +78,9 @@ class VoiceConfig(commands.Cog):
         await self.log(f"관리자 {ctx.author}({ctx.author.id})님께서 명령어 사용 방법을 조회하였습니다.")
 
     @voice.command(name="채널등록")
+    @only_in_guild()
+    @commands.has_permissions(administrator=True)
     async def register_channel(self, ctx, *channels: discord.abc.GuildChannel):
-        if not await self.is_owner(ctx):
-            await self.log(f"{ctx.author}({ctx.author.id})가 관리자 권한 없이 채널 등록을 시도했습니다.")
-            return await ctx.reply("관리자 권한이 필요합니다.")
-
         added = []
         for ch in channels:
             if isinstance(ch, (discord.VoiceChannel, discord.CategoryChannel)):
@@ -94,11 +94,9 @@ class VoiceConfig(commands.Cog):
             await ctx.reply("등록할 유효한 음성 채널이나 카테고리를 찾지 못했습니다.")
 
     @voice.command(name="채널제거")
+    @only_in_guild()
+    @commands.has_permissions(administrator=True)
     async def unregister_channel(self, ctx, *channels: discord.abc.GuildChannel):
-        if not await self.is_owner(ctx):
-            await self.log(f"{ctx.author}({ctx.author.id})가 관리자 권한 없이 채널 제거를 시도했습니다.")
-            return await ctx.send("관리자 권한이 필요합니다.")
-
         removed = []
         for ch in channels:
             if isinstance(ch, (discord.VoiceChannel, discord.CategoryChannel)):
@@ -112,30 +110,26 @@ class VoiceConfig(commands.Cog):
             await ctx.send("제거할 유효한 채널을 찾지 못했습니다.")
 
     @voice.command(name="완전초기화")
+    @only_in_guild()
+    @commands.has_permissions(administrator=True)
     async def reset_all(self, ctx):
-        if not await self.is_owner(ctx):
-            return await ctx.send("관리자 권한이 필요합니다.")
-
         await self.data_manager.reset_data()
         await ctx.send("모든 사용자 기록 및 삭제 채널 정보가 초기화되었습니다.")
         await self.log(f"{ctx.author}({ctx.author.id})님에 의해 모든 사용자 기록 및 삭제 채널 정보가 초기화되었습니다.")
         
     @voice.command(name="채널초기화")
+    @only_in_guild()
+    @commands.has_permissions(administrator=True)
     async def reset_all_channel(self, ctx):
-        if not await self.is_owner(ctx):
-            await self.log(f"{ctx.author}({ctx.author.id})가 관리자 권한 없이 채널 제거를 시도했습니다.")
-            return await ctx.send("관리자 권한이 필요합니다.")
-
         await self.data_manager.reset_tracked_channels("voice")
         await ctx.send("모든 채널 기록이 초기화되었습니다.")
         await self.log(f"{ctx.author}({ctx.author.id})님에 의해 모든 채널 기록이 초기화되었습니다.")
 
 
     @voice.command(name="데이터통합")
+    @only_in_guild()
+    @commands.has_permissions(administrator=True)
     async def migrate_all_data(self, ctx):
-        if not await self.is_owner(ctx):
-            return await ctx.send("관리자 권한이 필요합니다.")
-
         user_paths = ["src/florence/jsons/user_times.json", "src/florence/voice_sub/user_times.json"]
         deleted_path = "src/florence/jsons/deleted_channels.json"
         await self.data_manager.migrate_multiple_user_times(user_paths, deleted_path)

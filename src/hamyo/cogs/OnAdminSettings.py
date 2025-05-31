@@ -4,12 +4,11 @@ from balance_data_manager import balance_manager
 
 GUILD_ID = 1368459027851509891
 
-def only_in_garden_guild():
+def only_in_guild():
     async def predicate(ctx):
         if ctx.guild and ctx.guild.id == GUILD_ID:
             return True
-        await ctx.send("이 명령어는 지정된 서버에서만 사용할 수 있습니다.")
-        return False
+        return False  # 메시지 없이 무반응
     return commands.check(predicate)
 
 class OnAdminSettings(commands.Cog):
@@ -29,7 +28,7 @@ class OnAdminSettings(commands.Cog):
             print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
 
     @commands.group(name="온설정", invoke_without_command=True)
-    @only_in_garden_guild()
+    @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def settings(self, ctx):
         """관리자 설정 명령어 그룹"""
@@ -83,7 +82,7 @@ class OnAdminSettings(commands.Cog):
         await self.log(f"{ctx.author}({ctx.author.id})이 온설정 명령어 도움말을 조회함.")
 
     @settings.command(name="인증추가")
-    @only_in_garden_guild()
+    @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def add_auth_condition(self, ctx, condition: str, reward_amount: int):
         """Add an authentication condition (auth item) with reward amount."""
@@ -92,7 +91,7 @@ class OnAdminSettings(commands.Cog):
         await self.log(f"{ctx.author}({ctx.author.id})이 인증 조건 '{condition}'(보상: {reward_amount}) 추가.")
 
     @settings.command(name="인증제거")
-    @only_in_garden_guild()
+    @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def remove_auth_condition(self, ctx, *, condition: str):
         """Remove an authentication condition (auth item)."""
@@ -101,7 +100,7 @@ class OnAdminSettings(commands.Cog):
         await self.log(f"{ctx.author}({ctx.author.id})이 인증 조건 '{condition}' 제거.")
 
     @settings.command(name="인증목록")
-    @only_in_garden_guild()
+    @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def list_auth_conditions(self, ctx):
         """List all authentication conditions."""
@@ -114,7 +113,7 @@ class OnAdminSettings(commands.Cog):
         await self.log(f"{ctx.author}({ctx.author.id})이 인증 조건 목록을 조회함.")
 
     @settings.command(name="인증역할추가")
-    @only_in_garden_guild()
+    @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def add_auth_role(self, ctx, role: discord.Role):
         """Add a role that can use 인증/지급/회수 명령어."""
@@ -123,7 +122,7 @@ class OnAdminSettings(commands.Cog):
         await self.log(f"{ctx.author}({ctx.author.id})이 인증 명령어 사용 역할 '{role.name}'({role.id}) 추가.")
 
     @settings.command(name="인증역할제거")
-    @only_in_garden_guild()
+    @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def remove_auth_role(self, ctx, role: discord.Role):
         """Remove a role from 인증 명령어 사용 역할."""
@@ -132,7 +131,7 @@ class OnAdminSettings(commands.Cog):
         await self.log(f"{ctx.author}({ctx.author.id})이 인증 명령어 사용 역할 '{role.name}'({role.id}) 제거.")
 
     @settings.command(name="인증역할목록")
-    @only_in_garden_guild()
+    @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def list_auth_roles(self, ctx):
         """List all roles that can use 인증/지급/회수 명령어."""
@@ -146,7 +145,7 @@ class OnAdminSettings(commands.Cog):
         await self.log(f"{ctx.author}({ctx.author.id})이 인증 명령어 사용 역할 목록을 조회함.")
 
     @settings.command(name="화폐단위등록")
-    @only_in_garden_guild()
+    @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def set_currency_unit(self, ctx, emoji: str):
         """Set the currency unit (emoji only)."""
@@ -155,7 +154,7 @@ class OnAdminSettings(commands.Cog):
         await self.log(f"{ctx.author}({ctx.author.id})이 화폐 단위를 '{emoji}'로 설정.")
 
     @settings.command(name="온채널추가")
-    @only_in_garden_guild()
+    @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def add_economy_channel(self, ctx, channel: discord.TextChannel = None):
         """온(경제) 명령어를 사용할 수 있는 채널을 추가합니다."""
@@ -165,7 +164,7 @@ class OnAdminSettings(commands.Cog):
         await self.log(f"{ctx.author}({ctx.author.id})이 온(경제) 명령어 허용 채널 '{channel.name}'({channel.id}) 추가.")
 
     @settings.command(name="온채널제거")
-    @only_in_garden_guild()
+    @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def remove_economy_channel(self, ctx, channel: discord.TextChannel = None):
         """온(경제) 명령어 허용 채널에서 제거합니다."""
@@ -175,7 +174,7 @@ class OnAdminSettings(commands.Cog):
         await self.log(f"{ctx.author}({ctx.author.id})이 온(경제) 명령어 허용 채널 '{channel.name}'({channel.id}) 제거.")
 
     @settings.command(name="온채널목록")
-    @only_in_garden_guild()
+    @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def list_economy_channels(self, ctx):
         """온(경제) 명령어 허용 채널 목록을 확인합니다."""
@@ -188,7 +187,7 @@ class OnAdminSettings(commands.Cog):
         await self.log(f"{ctx.author}({ctx.author.id})이 온(경제) 명령어 허용 채널 목록을 조회함.")
 
     @settings.command(name="온초기화")
-    @only_in_garden_guild()
+    @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def reset_all_balances(self, ctx):
         """모든 유저의 온(화폐) 잔액을 초기화합니다. (설정은 유지)"""
