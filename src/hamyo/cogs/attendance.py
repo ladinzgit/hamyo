@@ -150,7 +150,8 @@ class AttendanceCog(commands.Cog):
         for i, (user_id, count) in enumerate(page_rows, start=start_index + 1):
             try:
                 user = await self.bot.fetch_user(user_id)
-                username = user.mention
+                # username = user.mention
+                username = user.display_name if hasattr(user, "display_name") else user.name
             except Exception:
                 username = f"Unknown({user_id})"
             if user_id == ctx.author.id:
@@ -159,7 +160,7 @@ class AttendanceCog(commands.Cog):
                 name_line = f"{i}위 - {username}"
             embed.add_field(
                 name=name_line,
-                value=f"출석 {count}회",
+                value=f"**누적 출석 {count}회**",
                 inline=False
             )
 
@@ -170,9 +171,14 @@ class AttendanceCog(commands.Cog):
                 author_rank = (idx, count)
                 break
         if author_rank and not any(user_id == ctx.author.id for user_id, _ in page_rows):
+            try:
+                user = await self.bot.fetch_user(ctx.author.id)
+                username = user.display_name if hasattr(user, "display_name") else user.name
+            except Exception:
+                username = f"Unknown({ctx.author.id})"
             embed.add_field(
                 name="───────── ౨ৎ ─────────",
-                value=f"**{author_rank[0]}위 - {ctx.author.mention} (You)**\n출석 {author_rank[1]}회",
+                value=f"**{author_rank[0]}위 - {username} (You)**\n**누적 출석 {author_rank[1]}회**",
                 inline=False
             )
 
