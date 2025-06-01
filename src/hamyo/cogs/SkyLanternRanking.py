@@ -44,6 +44,7 @@ class SkyLanternRanking(commands.Cog):
         )
         embed.set_footer(text="매시 정각마다 자동 갱신")
         embed.timestamp = now
+        embed.set_image(url="https://media.discordapp.net/attachments/1378305048429330502/1378320391696683178/raw.png?ex=683cd525&is=683b83a5&hm=297af19bb9da3aa9a7a5db268861cb3c7b0a1b67c6efbd9af022bd02a24265c2&=&format=webp&quality=lossless&width=1032&height=688")
         async for msg in channel.history(limit=10):
             if msg.author == self.bot.user:
                 await msg.delete()
