@@ -178,8 +178,14 @@ class SkyLanternEvent(commands.Cog):
             return
         if len(message.content.strip()) < 10:
             return
-        ok = await self.try_give_celebration(message.author.id)
-        await message.reply("hi")
+
+        try:
+            ok = await self.try_give_celebration(message.author.id)
+        except Exception as e:
+            await message.reply(f"오픈 응원글 지급 중 오류 발생: {e}")
+        else:
+            await message.reply(ok)
+            
         if ok:
             await message.reply(f"{message.author.mention}님, 오픈 응원글로 풍등 5개가 지급되었습니다!")
 
