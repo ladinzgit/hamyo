@@ -154,7 +154,21 @@ class SkyLanternEvent(commands.Cog):
     @commands.command(name="내풍등")
     async def my_lantern(self, ctx):
         count = await self.get_lantern_count(ctx.author.id)
-        await ctx.reply(f"{ctx.author.mention}님의 풍등 개수: {count}개")
+        embed = discord.Embed(
+            title=f"🏮 내 풍등 확인 ₍ᐢ..ᐢ₎",
+            description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀´ㅅ` )
+(⠀ {ctx.author.mention}님의 풍등 개수는 **{count}개** 입니다묘...✩
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+""",
+            colour=discord.Colour.from_rgb(252, 252, 126)
+        )
+        embed.set_thumbnail(url=ctx.author.avatar.url)
+        embed.set_footer(text=f"요청자: {ctx.author}", icon_url=ctx.author.avatar.url)
+        embed.timestamp = ctx.message.created_at if hasattr(ctx.message, "created_at") else None
+        await ctx.reply(embed=embed)
 
     # 오픈응원글 자동 지급 (on_message 이벤트에서 호출)
     async def handle_celebration_message(self, message):
