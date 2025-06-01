@@ -170,8 +170,10 @@ class SkyLanternEvent(commands.Cog):
         embed.timestamp = ctx.message.created_at if hasattr(ctx.message, "created_at") else None
         await ctx.reply(embed=embed)
 
-    # 오픈응원글 자동 지급 (on_message 이벤트에서 호출)
-    async def handle_celebration_message(self, message):
+    # 오픈응원글 자동 지급 (on_message 이벤트에서 직접 처리)
+    async def on_message(self, message):
+        if message.author.bot:
+            return
         if message.channel.id != CHANNEL_CELEBRATION:
             return
         if len(message.content.strip()) < 10:
@@ -185,11 +187,3 @@ class SkyLanternEvent(commands.Cog):
 async def setup(bot):
     cog = SkyLanternEvent(bot)
     await bot.add_cog(cog)
-    # celebration 자동 지급을 위해 on_message hook 등록
-    @bot.listen("on_message")
-    async def _celebration_hook(message):
-        if message.author.bot:
-            return
-        cog = bot.get_cog("SkyLanternEvent")
-        if cog:
-            await cog.handle_celebration_message(message)
