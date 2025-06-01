@@ -25,6 +25,7 @@ async def is_attendance_allowed_channel(channel_id):
 class AttendanceCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.skylantern = None
 
     async def cog_load(self):
         async with aiosqlite.connect(DB_PATH) as db:
@@ -41,6 +42,7 @@ class AttendanceCog(commands.Cog):
                 )
             """)
             await db.commit()
+        self.skylantern = self.bot.get_cog("SkyLanternEvent")
 
     @commands.group(name="출석", invoke_without_command=True)
     @only_in_guild()
@@ -58,6 +60,8 @@ class AttendanceCog(commands.Cog):
             cur = await db.execute("SELECT last_date, count FROM attendance WHERE user_id=?", (user_id,))
             row = await cur.fetchone()
 
+            lantern_given = False  # 풍등 지급 여부 플래그
+
             if row is None:
                 await db.execute(
                     "INSERT INTO attendance (user_id, last_date, count) VALUES (?, ?, ?)",
@@ -66,6 +70,11 @@ class AttendanceCog(commands.Cog):
                 await db.commit()
                 # 온 지급
                 await balance_manager.give(str(user_id), 100)
+                # 풍등 지급
+                if self.skylantern and await self.skylantern.is_event_period():
+                    ok = await self.skylantern.give_lantern(user_id, "attendance")
+                    if ok:
+                        lantern_given = True
                 balance = await balance_manager.get_balance(str(user_id))
                 embed = discord.Embed(
                     title=f"출석 ₍ᐢ..ᐢ₎",
@@ -98,6 +107,11 @@ class AttendanceCog(commands.Cog):
                     await db.commit()
                     # 온 지급
                     await balance_manager.give(str(user_id), 100)
+                    # 풍등 지급
+                    if self.skylantern and await self.skylantern.is_event_period():
+                        ok = await self.skylantern.give_lantern(user_id, "attendance")
+                        if ok:
+                            lantern_given = True
                     balance = await balance_manager.get_balance(str(user_id))
                     embed = discord.Embed(
                         title=f"출석 ₍ᐢ..ᐢ₎",
@@ -117,6 +131,15 @@ class AttendanceCog(commands.Cog):
                     embed.timestamp = ctx.message.created_at
                     
                     await ctx.send(embed=embed)
+
+            # 풍등 지급 안내 메시지 (embed와 별개로)
+            if lantern_given:
+                lantern_channel = ctx.guild.get_channel(1378353273194545162)
+                mention = lantern_channel.mention if lantern_channel else "<#1378353273194545162>"
+                await ctx.send(
+                    f"{ctx.author.mention}님, 출석 체크로 풍등 1개가 지급되었습니다!\n"
+                    f"현재 보유 풍등 개수는 {mention} 채널에서 `/내풍등` 명령어로 확인할 수 있습니다."
+                )
 
     @attendance.command(name="순위")
     async def ranking(self, ctx, page: int = 1):

@@ -38,9 +38,12 @@ def in_allowed_channel():
 class Economy(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.skylantern = None
 
     async def cog_load(self):
         print(f"✅ {self.__class__.__name__} loaded successfully!")
+        # SkyLanternEvent Cog 참조
+        self.skylantern = self.bot.get_cog("SkyLanternEvent")
 
     async def log(self, message):
         """Logger cog를 통해 로그 메시지 전송"""
@@ -154,6 +157,20 @@ class Economy(commands.Cog):
             return
 
         await balance_manager.give(str(member.id), reward_amount)
+        lantern_given = False
+        lantern_type = None
+        # 풍등 지급: 업/추천 조건일 때만
+        if self.skylantern and await self.skylantern.is_event_period():
+            if condition == "업":
+                ok = await self.skylantern.give_lantern(member.id, "up")
+                if ok:
+                    lantern_given = True
+                    lantern_type = "업"
+            elif condition == "추천":
+                ok = await self.skylantern.give_lantern(member.id, "recommend")
+                if ok:
+                    lantern_given = True
+                    lantern_type = "추천"
         unit = await self.get_currency_unit()
         new_balance = await balance_manager.get_balance(str(member.id))
         
@@ -170,6 +187,16 @@ class Economy(commands.Cog):
         
         await ctx.reply(embed=embed)
         await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게 인증 '{condition}'로 {reward_amount} {unit} 지급.")
+
+        # 풍등 지급 안내 메시지 (embed와 별개로)
+        if lantern_given:
+            lantern_channel = ctx.guild.get_channel(1378353273194545162)
+            mention = lantern_channel.mention if lantern_channel else "<#1378353273194545162>"
+            lantern_count = 2 if lantern_type == "업" else 3
+            await ctx.send(
+                f"{member.mention}님, `{lantern_type}` 인증으로 풍등 {lantern_count}개가 지급되었습니다!\n"
+                f"현재 보유 풍등 개수는 {mention} 채널에서 `/내풍등` 명령어로 확인할 수 있습니다."
+            )
 
     @on.command(name="회수")
     @only_in_guild()
