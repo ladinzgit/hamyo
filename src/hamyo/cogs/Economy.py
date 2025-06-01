@@ -85,9 +85,10 @@ class Economy(commands.Cog):
         embed.add_field(
             name="관리자 전용 명령어",
             value=(
-                "`*온 지급 @유저 금액` : 특정 유저에게 온을 지급합니다. (관리자 권한 필요)\n"
+                "`*온 지급 @유저 금액 [횟수]` : 특정 유저에게 온을 지급합니다. (관리자 권한 필요)\n"
                 "`*온 회수 @유저 금액` : 특정 유저의 온을 회수합니다. (관리자 권한 필요)\n"
-                "`*온 인증 @유저 조건` : 인증 조건을 만족한 유저에게 온을 지급합니다. (권한 필요)"
+                "`*온 인증 @유저 조건 [횟수]` : 인증 조건을 만족한 유저에게 온을 지급합니다. (권한 필요)\n"
+                "예시: `*온 지급 @유저 1000 10` → 10000 지급, `*온 인증 @유저 업 10` → 업 인증 10회분 지급"
             ),
             inline=False
         )
@@ -122,13 +123,14 @@ class Economy(commands.Cog):
     @only_in_guild()
     @in_allowed_channel()
     @commands.has_permissions(administrator=True)
-    async def give_coins(self, ctx, member: discord.Member, amount: int):
-        """Give a specific amount of coins to a user."""
-        if amount <= 0:
-            await ctx.reply("금액은 0보다 커야 합니다.")
+    async def give_coins(self, ctx, member: discord.Member, amount: int, count: int = 1):
+        """Give a specific amount of coins to a user, multiplied by count."""
+        if amount <= 0 or count <= 0:
+            await ctx.reply("금액과 횟수는 0보다 커야 합니다.")
             return
 
-        await balance_manager.give(str(member.id), amount)
+        total = amount * count
+        await balance_manager.give(str(member.id), total)
         unit = await self.get_currency_unit()
         new_balance = await balance_manager.get_balance(str(member.id))
         
@@ -138,8 +140,8 @@ class Economy(commands.Cog):
 ⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
 ╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
 (⠀⠀⠀´ㅅ` )
-(⠀ {member.mention}에게 **{amount}**{unit} 줬다묘...✩
-(⠀ ⠀ ⠀좋은 곳에 쓰라묘.........
+(⠀ {member.mention}에게 **{total}**{unit} 줬다묘...✩
+(⠀ ⠀ ⠀좋은 곳에 쓰라묘......... (단일 지급액: {amount}, 횟수: {count})
 ╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
 """,
             colour=discord.Colour.from_rgb(151, 214, 181)
@@ -151,20 +153,25 @@ class Economy(commands.Cog):
         embed.timestamp = ctx.message.created_at
         
         await ctx.reply(embed=embed)
-        await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게 {amount} 지급.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게 {total}({amount}*{count}) 지급.")
 
     @on.command(name="인증")
     @only_in_guild()
     @in_allowed_channel()
     @has_auth_role()
-    async def certify(self, ctx, member: discord.Member, condition: str):
-        """Certify a user for meeting a condition and reward them."""
+    async def certify(self, ctx, member: discord.Member, condition: str, count: int = 1):
+        """Certify a user for meeting a condition and reward them, multiplied by count."""
+        if count <= 0:
+            await ctx.reply("횟수는 0보다 커야 합니다.")
+            return
+
         reward_amount = await balance_manager.get_auth_reward_amount(condition)
         if reward_amount is None:
             await ctx.reply(f"유효하지 않은 조건입니다. 인증 가능한 조건을 확인하세요.")
             return
 
-        await balance_manager.give(str(member.id), reward_amount)
+        total = reward_amount * count
+        await balance_manager.give(str(member.id), total)
         lantern_given = False
         lantern_type = None
 
@@ -172,12 +179,12 @@ class Economy(commands.Cog):
         skylantern = self.bot.get_cog("SkyLanternEvent")
         if skylantern and await skylantern.is_event_period():
             if condition == "업":
-                ok = await skylantern.give_lantern(member.id, "up")
+                ok = await skylantern.give_lantern(member.id, "up", count)
                 if ok:
                     lantern_given = True
                     lantern_type = "업"
             elif condition == "추천":
-                ok = await skylantern.give_lantern(member.id, "recommend")
+                ok = await skylantern.give_lantern(member.id, "recommend", count)
                 if ok:
                     lantern_given = True
                     lantern_type = "추천"
@@ -187,7 +194,7 @@ class Economy(commands.Cog):
 
         embed = discord.Embed(
             title=f"{unit}: 온 인증",
-            description=f"{member.mention}님에게 `{condition}` 인증 보상으로 `{reward_amount}`{unit}을 지급했슴묘!",
+            description=f"{member.mention}님에게 `{condition} {count}회` 인증 보상으로 `{total}`{unit}을 지급했슴묘! (단일 지급액: {reward_amount}, 횟수: {count})",
             colour=discord.Colour.from_rgb(151, 214, 181)
         )
         embed.set_footer(
@@ -197,13 +204,13 @@ class Economy(commands.Cog):
         embed.timestamp = ctx.message.created_at
 
         await ctx.reply(embed=embed)
-        await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게 인증 '{condition}'로 {reward_amount} {unit} 지급.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게 인증 '{condition} {count}회'로 {total}({reward_amount}*{count}) {unit} 지급.")
 
         # 풍등 지급 안내 메시지 (embed와 별개로)
         if lantern_given:
             lantern_channel, channel_id = await get_my_lantern_channel_id(ctx.guild)
             mention = lantern_channel.mention if lantern_channel else f"<#{channel_id}>"
-            lantern_count = 2 if lantern_type == "업" else 3
+            lantern_count = 2 * count if lantern_type == "업" else 3 * count
             await ctx.send(
                 f"{member.mention}님, `{lantern_type}` 인증으로 풍등 {lantern_count}개가 지급되었습니다!\n"
                 f"현재 보유 풍등 개수는 {mention} 채널에서 `/내풍등` 명령어로 확인할 수 있습니다."

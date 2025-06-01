@@ -39,12 +39,12 @@ class SkyLanternRanking(commands.Cog):
             desc += f"{i}위 <@{user_id}>: {count}개\n"
         embed = discord.Embed(
             title="풍등 랭킹 TOP 5",
-            description=desc or "아직 풍등을 날린 사람이 없습니다묘,,",
+            description=desc or "아직 풍등을 날린 사람이 없다묘,,",
             colour=discord.Colour.orange()
         )
         embed.set_footer(text="매시 정각마다 자동 갱신")
         embed.timestamp = now
-        embed.set_image(url="https://media.discordapp.net/attachments/1378305048429330502/1378320391696683178/raw.png?ex=683cd525&is=683b83a5&hm=297af19bb9da3aa9a7a5db268861cb3c7b0a1b67c6efbd9af022bd02a24265c2&=&format=webp&quality=lossless&width=1032&height=688")
+        embed.set_image(url="https://media.discordapp.net/attachments/1378305048429330502/1378740945448599632/0a000aa455f55f22.gif?ex=683db411&is=683c6291&hm=d784f4509417aa0d0848c3d47a159218b64a0c207790cd39bf9ad577c57a31cc&=")
         async for msg in channel.history(limit=10):
             if msg.author == self.bot.user:
                 await msg.delete()

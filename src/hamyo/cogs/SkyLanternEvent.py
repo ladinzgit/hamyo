@@ -44,7 +44,7 @@ class SkyLanternEvent(commands.Cog):
                     start, end = EVENT_START, EVENT_END
         return start <= now_kst() <= end
 
-    async def get_channel_ids():
+    async def get_channel_ids(self):
         async with aiosqlite.connect(DB_PATH) as db:
             async with db.execute("SELECT ranking_channel_id, celebration_channel_id, my_lantern_channel_id FROM config WHERE id=1") as cur:
                 row = await cur.fetchone()
@@ -106,15 +106,17 @@ class SkyLanternEvent(commands.Cog):
             await db.commit()
 
     # 풍등 지급
-    async def give_lantern(self, user_id: int, key: str):
+    async def give_lantern(self, user_id: int, key: str, count: int = 1):
         if not await self.is_event_period():
+            return False
+        if count <= 0:  # count 유효성 검사
             return False
         async with aiosqlite.connect(DB_PATH) as db:
             async with db.execute("SELECT amount FROM reward_config WHERE key=?", (key,)) as cur:
                 row = await cur.fetchone()
                 if not row:
                     return False
-                amount = row[0]
+                amount = row[0] * count  # 기본 지급량 × count
             await db.execute("""
                 INSERT INTO lanterns (user_id, count)
                 VALUES (?, ?)
