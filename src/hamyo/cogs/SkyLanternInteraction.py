@@ -6,7 +6,7 @@ import pytz
 import asyncio
 
 KST = pytz.timezone("Asia/Seoul")
-MAIN_CHANNEL_ID = 123456789012345678  # 실제 메인채팅 채널 ID로 교체
+MAIN_CHANNEL_ID = 1368617001970569297
 
 def make_math_problem():
     op = random.choice(['+', '-', '*'])

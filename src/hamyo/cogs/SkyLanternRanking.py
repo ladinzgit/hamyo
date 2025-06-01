@@ -9,14 +9,14 @@ class SkyLanternRanking(commands.Cog):
         self.skylantern = None
 
     async def cog_load(self):
-        self.skylantern = self.bot.get_cog("SkyLanternEvent")
         self.update_ranking.start()
 
     @tasks.loop(hours=1)
     async def update_ranking(self):
-        if not self.skylantern:
+        skylantern = self.bot.get_cog("SkyLanternEvent")
+        if not skylantern:
             return
-        top = await self.skylantern.get_top_lanterns(5)
+        top = await skylantern.get_top_lanterns(5)
         channel = self.bot.get_channel(CHANNEL_RANKING)
         if not channel:
             return
