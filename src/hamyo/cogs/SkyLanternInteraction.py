@@ -4,6 +4,7 @@ import random
 from datetime import datetime, timedelta, time as dt_time
 import pytz
 import asyncio
+import aiosqlite
 
 KST = pytz.timezone("Asia/Seoul")
 MAIN_CHANNEL_ID = 1368617001970569297
@@ -40,6 +41,12 @@ def random_times_for_today(n=3):
         t = (base + timedelta(seconds=offset)).time()
         times.add(t.replace(second=0, microsecond=0))
     return sorted(times)
+
+async def get_my_lantern_channel_id():
+    async with aiosqlite.connect("data/skylantern_event.db") as db:
+        async with db.execute("SELECT my_lantern_channel_id FROM config WHERE id=1") as cur:
+            row = await cur.fetchone()
+            return row[0] if row and row[0] else 1378353273194545162
 
 class SkyLanternInteraction(commands.Cog):
     def __init__(self, bot):
@@ -106,8 +113,9 @@ class SkyLanternInteraction(commands.Cog):
             if self.skylantern:
                 ok = await self.skylantern.try_give_interaction(message.author.id, self.round)
                 if ok:
-                    lantern_channel = message.guild.get_channel(1378353273194545162) if message.guild else None
-                    mention = lantern_channel.mention if lantern_channel else "<#1378353273194545162>"
+                    channel_id = await get_my_lantern_channel_id()
+                    lantern_channel = message.guild.get_channel(channel_id) if message.guild else None
+                    mention = lantern_channel.mention if lantern_channel else f"<#{channel_id}>"
                     await message.reply(
                         f"{message.author.mention}님, 정답! 풍등 2개 지급!\n"
                         f"현재 보유 풍등 개수는 {mention} 채널에서 `/내풍등` 명령어로 확인할 수 있습니다."

@@ -1,7 +1,12 @@
 import discord
 from discord.ext import commands, tasks
+import aiosqlite
 
-CHANNEL_RANKING = 1378352416571002880
+async def get_ranking_channel_id():
+    async with aiosqlite.connect("data/skylantern_event.db") as db:
+        async with db.execute("SELECT ranking_channel_id FROM config WHERE id=1") as cur:
+            row = await cur.fetchone()
+            return row[0] if row and row[0] else 1378352416571002880
 
 class SkyLanternRanking(commands.Cog):
     def __init__(self, bot):
@@ -17,7 +22,8 @@ class SkyLanternRanking(commands.Cog):
         if not skylantern:
             return
         top = await skylantern.get_top_lanterns(5)
-        channel = self.bot.get_channel(CHANNEL_RANKING)
+        channel_id = await get_ranking_channel_id()
+        channel = self.bot.get_channel(channel_id)
         if not channel:
             return
         desc = ""

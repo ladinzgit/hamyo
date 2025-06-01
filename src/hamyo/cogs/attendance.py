@@ -22,6 +22,13 @@ async def is_attendance_allowed_channel(channel_id):
             row = await cur.fetchone()
             return row is not None
 
+async def get_my_lantern_channel_id(guild):
+    async with aiosqlite.connect("data/skylantern_event.db") as db:
+        async with db.execute("SELECT my_lantern_channel_id FROM config WHERE id=1") as cur:
+            row = await cur.fetchone()
+            channel_id = row[0] if row and row[0] else 1378353273194545162
+    return guild.get_channel(channel_id) if guild else None, channel_id
+
 class AttendanceCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -134,8 +141,8 @@ class AttendanceCog(commands.Cog):
 
             # 풍등 지급 안내 메시지 (embed와 별개로)
             if lantern_given:
-                lantern_channel = ctx.guild.get_channel(1378353273194545162)
-                mention = lantern_channel.mention if lantern_channel else "<#1378353273194545162>"
+                lantern_channel, channel_id = await get_my_lantern_channel_id(ctx.guild)
+                mention = lantern_channel.mention if lantern_channel else f"<#{channel_id}>"
                 await ctx.send(
                     f"{ctx.author.mention}님, 출석 체크로 풍등 1개가 지급되었습니다!\n"
                     f"현재 보유 풍등 개수는 {mention} 채널에서 `/내풍등` 명령어로 확인할 수 있습니다."

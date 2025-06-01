@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from balance_data_manager import balance_manager
+import aiosqlite
 
 GUILD_ID = 1368459027851509891
 
@@ -34,6 +35,13 @@ def in_allowed_channel():
             return True
         return False
     return commands.check(predicate)
+
+async def get_my_lantern_channel_id(guild):
+    async with aiosqlite.connect("data/skylantern_event.db") as db:
+        async with db.execute("SELECT my_lantern_channel_id FROM config WHERE id=1") as cur:
+            row = await cur.fetchone()
+            channel_id = row[0] if row and row[0] else 1378353273194545162
+    return guild.get_channel(channel_id) if guild else None, channel_id
 
 class Economy(commands.Cog):
     def __init__(self, bot):
@@ -190,8 +198,8 @@ class Economy(commands.Cog):
 
         # 풍등 지급 안내 메시지 (embed와 별개로)
         if lantern_given:
-            lantern_channel = ctx.guild.get_channel(1378353273194545162)
-            mention = lantern_channel.mention if lantern_channel else "<#1378353273194545162>"
+            lantern_channel, channel_id = await get_my_lantern_channel_id(ctx.guild)
+            mention = lantern_channel.mention if lantern_channel else f"<#{channel_id}>"
             lantern_count = 2 if lantern_type == "업" else 3
             await ctx.send(
                 f"{member.mention}님, `{lantern_type}` 인증으로 풍등 {lantern_count}개가 지급되었습니다!\n"
