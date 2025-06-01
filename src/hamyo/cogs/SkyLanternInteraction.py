@@ -111,17 +111,16 @@ class SkyLanternInteraction(commands.Cog):
         self.last_problem_date = None
 
     async def cog_load(self):
-        self.skylantern = self.bot.get_cog("SkyLanternEvent")
-        # Economy 로그 시스템 가져오기
-        self.logger = self.bot.get_cog("Economy")
-        # 봇 시작 시 오늘의 시간 불러오기 또는 생성
-        await self.init_today_times()
-        self.schedule_today_problems.start()
+        print(f"✅ {self.__class__.__name__} loaded successfully!")
 
     async def log(self, message):
-        # Economy.py의 log 메소드 활용
-        if self.logger and hasattr(self.logger, "log"):
-            await self.logger.log(message)
+        """Logger cog를 통해 로그 메시지 전송"""
+        try:
+            logger = self.bot.get_cog('Logger')
+            if logger:
+                await logger.log(message)
+        except Exception as e:
+            print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
 
     async def init_today_times(self):
         loaded = await load_today_times()
@@ -202,10 +201,34 @@ class SkyLanternInteraction(commands.Cog):
                     mention = lantern_channel.mention if lantern_channel else f"<#{channel_id}>"
                     await message.reply(
                         f"{message.author.mention}님, 정답이다묘! 풍등 2개 지급해주게따묘...☆\n"
-                        f"현재 보유 풍등 개수는 {mention} 채널에서 `/내풍등` 명령어로 확인할 수 있습니다묘!"
+                        f"현재 보유 풍등 개수는 {mention} 채널에서 `*내풍등` 명령어로 확인할 수 있습니다묘!"
                     )
             if len(self.answered_users) >= 3:
                 self.active = False
+
+    @commands.command(name="시간확인")
+    async def check_times(self, ctx):
+        """오늘의 하묘 출제 예정 시간을 확인합니다."""
+        if not self.today_times:
+            await ctx.send("오늘의 하묘 출제 시간이 아직 설정되지 않았습니다.")
+            return
+        times_str = ", ".join(t.strftime("%H:%M") for t in self.today_times)
+        await ctx.send(f"오늘({datetime.now(KST).strftime('%Y-%m-%d')})의 하묘 출제 예정 시간은:\n{times_str}")
+
+    @commands.command(name="시간다시뽑기")
+    @commands.has_permissions(administrator=True)
+    async def reroll_times(self, ctx):
+        """오늘의 하묘 출제 시간을 즉시 새로 뽑고 저장합니다. (관리자 전용)"""
+        self.today_times = random_times_for_today(3)
+        await save_today_times(self.today_times)
+        await self.log(f"[하묘] {ctx.author}({ctx.author.id})님이 수동으로 오늘의 상호작용 시간을 다시 뽑았습니다: {', '.join(t.strftime('%H:%M') for t in self.today_times)}")
+        # 예약된 문제도 새로 예약
+        now = datetime.now(KST).time()
+        for idx, t in enumerate(self.today_times):
+            if t > now:
+                asyncio.create_task(self.problem_at_time(idx+1, t))
+        times_str = ", ".join(t.strftime("%H:%M") for t in self.today_times)
+        await ctx.send(f"오늘({datetime.now(KST).strftime('%Y-%m-%d')})의 하묘 출제 시간이 새로 설정되었습니다:\n{times_str}")
 
 async def setup(bot):
     await bot.add_cog(SkyLanternInteraction(bot))

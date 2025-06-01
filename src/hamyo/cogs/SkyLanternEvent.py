@@ -153,8 +153,8 @@ class SkyLanternEvent(commands.Cog):
                     return False
             await db.execute("INSERT INTO celebration_log (user_id) VALUES (?)", (str(user_id),))
             await db.commit()
-        await self.give_lantern(user_id, "celebration")
-        return True
+        ok = await self.give_lantern(user_id, "celebration")
+        return ok
 
     # 하묘 상호작용 지급 (선착순 3명)
     async def try_give_interaction(self, user_id: int, round_num: int):
