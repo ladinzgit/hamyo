@@ -33,7 +33,7 @@ class SkyLanternConfig(commands.Cog):
     @lantern_config.group(name="채널", invoke_without_command=True)
     @commands.has_permissions(administrator=True)
     async def channel_config(self, ctx):
-        await ctx.send("하위 명령어: 랭킹, 응원글, 내풍등")
+        await ctx.send("하위 명령어: 랭킹, 응원글, 내풍등, 메인채팅")
 
     @channel_config.command(name="랭킹")
     @commands.has_permissions(administrator=True)
@@ -61,6 +61,15 @@ class SkyLanternConfig(commands.Cog):
             await db.execute("UPDATE config SET my_lantern_channel_id=? WHERE id=1", (channel.id,))
             await db.commit()
         await ctx.send(f"냬_풍등_확인 채널이 {channel.mention}로 설정되었습니다.")
+
+    @channel_config.command(name="메인채팅")
+    @commands.has_permissions(administrator=True)
+    async def set_main_channel(self, ctx, channel: discord.TextChannel):
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute("ALTER TABLE config ADD COLUMN main_channel_id INTEGER")
+            await db.execute("UPDATE config SET main_channel_id=? WHERE id=1", (channel.id,))
+            await db.commit()
+        await ctx.send(f"메인채팅 채널이 {channel.mention}로 설정되었습니다.")
 
 async def setup(bot):
     await bot.add_cog(SkyLanternConfig(bot))

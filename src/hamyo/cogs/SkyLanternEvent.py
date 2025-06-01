@@ -29,37 +29,37 @@ INTERACTION_LIMIT = 3  # 하묘 선착순 지급 인원
 def now_kst():
     return datetime.now(KST)
 
-async def is_event_period():
-    async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute("SELECT start, end FROM config LIMIT 1") as cur:
-            row = await cur.fetchone()
-            if row:
-                start = datetime.fromisoformat(row[0])
-                end = datetime.fromisoformat(row[1])
-            else:
-                start, end = EVENT_START, EVENT_END
-    return start <= now_kst() <= end
-
-async def get_channel_ids():
-    async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute("SELECT ranking_channel_id, celebration_channel_id, my_lantern_channel_id FROM config WHERE id=1") as cur:
-            row = await cur.fetchone()
-            if row:
-                return {
-                    "ranking": row[0],
-                    "celebration": row[1],
-                    "my_lantern": row[2]
-                }
-            # fallback to hardcoded if not set
-            return {
-                "ranking": 1378352416571002880,
-                "celebration": 1378353093200183316,
-                "my_lantern": 1378353273194545162
-            }
-
 class SkyLanternEvent(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    async def is_event_period(self):
+        async with aiosqlite.connect(DB_PATH) as db:
+            async with db.execute("SELECT start, end FROM config LIMIT 1") as cur:
+                row = await cur.fetchone()
+                if row:
+                    start = datetime.fromisoformat(row[0])
+                    end = datetime.fromisoformat(row[1])
+                else:
+                    start, end = EVENT_START, EVENT_END
+        return start <= now_kst() <= end
+
+    async def get_channel_ids():
+        async with aiosqlite.connect(DB_PATH) as db:
+            async with db.execute("SELECT ranking_channel_id, celebration_channel_id, my_lantern_channel_id FROM config WHERE id=1") as cur:
+                row = await cur.fetchone()
+                if row:
+                    return {
+                        "ranking": row[0],
+                        "celebration": row[1],
+                        "my_lantern": row[2]
+                    }
+                # fallback to hardcoded if not set
+                return {
+                    "ranking": 1378352416571002880,
+                    "celebration": 1378353093200183316,
+                    "my_lantern": 1378353273194545162
+                }
 
     async def cog_load(self):
         async with aiosqlite.connect(DB_PATH) as db:
@@ -107,7 +107,7 @@ class SkyLanternEvent(commands.Cog):
 
     # 풍등 지급
     async def give_lantern(self, user_id: int, key: str):
-        if not await is_event_period():
+        if not await self.is_event_period():
             return False
         async with aiosqlite.connect(DB_PATH) as db:
             async with db.execute("SELECT amount FROM reward_config WHERE key=?", (key,)) as cur:
@@ -138,7 +138,7 @@ class SkyLanternEvent(commands.Cog):
 
     # celebration(오픈응원글) 자동 지급
     async def try_give_celebration(self, user_id: int):
-        if not await is_event_period():
+        if not await self.is_event_period():
             return False
         async with aiosqlite.connect(DB_PATH) as db:
             async with db.execute("SELECT 1 FROM celebration_log WHERE user_id=?", (str(user_id),)) as cur:
@@ -151,7 +151,7 @@ class SkyLanternEvent(commands.Cog):
 
     # 하묘 상호작용 지급 (선착순 3명)
     async def try_give_interaction(self, user_id: int, round_num: int):
-        if not await is_event_period():
+        if not await self.is_event_period():
             return False
         today = now_kst().strftime("%Y-%m-%d")
         async with aiosqlite.connect(DB_PATH) as db:
@@ -170,6 +170,9 @@ class SkyLanternEvent(commands.Cog):
     # 내풍등 확인 명령어
     @commands.command(name="내풍등")
     async def my_lantern(self, ctx):
+        channel_ids = await self.get_channel_ids()
+        if ctx.channel.id != channel_ids["my_lantern"]:
+            return
         count = await self.get_lantern_count(ctx.author.id)
         embed = discord.Embed(
             title=f"🏮 내 풍등 확인 ₍ᐢ..ᐢ₎",
@@ -188,10 +191,13 @@ class SkyLanternEvent(commands.Cog):
         await ctx.reply(embed=embed)
 
     # 오픈응원글 자동 지급 (on_message 이벤트에서 직접 처리)
+    @commands.Cog.listener()
     async def on_message(self, message):
         if message.author.bot:
             return
-        channel_ids = await get_channel_ids()
+        channel_ids = await self.get_channel_ids()
+        if not channel_ids["celebration"]:
+            return  # celebration 채널이 설정되지 않은 경우
         if message.channel.id != channel_ids["celebration"]:
             return
         if len(message.content.strip()) < 10:
@@ -200,12 +206,9 @@ class SkyLanternEvent(commands.Cog):
             ok = await self.try_give_celebration(message.author.id)
         except Exception as e:
             await message.reply(f"오픈 응원글 지급 중 오류 발생: {e}")
-        else:
-            await message.reply(ok)
+            return
         if ok:
             await message.reply(f"{message.author.mention}님, 오픈 응원글로 풍등 5개가 지급되었습니다!")
-
-    # 관리자: 지급량/기간 설정 등은 SkyLanternConfig.py에서 구현
 
 async def setup(bot):
     cog = SkyLanternEvent(bot)

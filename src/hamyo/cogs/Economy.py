@@ -3,11 +3,11 @@ from discord.ext import commands
 from balance_data_manager import balance_manager
 import aiosqlite
 
-GUILD_ID = 1368459027851509891
+GUILD_ID = [1368459027851509891, 1378632284068122685]
 
 def only_in_guild():
     async def predicate(ctx):
-        if ctx.guild and ctx.guild.id == GUILD_ID:
+        if ctx.guild and ctx.guild.id in GUILD_ID:
             return True
         return False  # 메시지 없이 무반응
     return commands.check(predicate)
@@ -167,21 +167,24 @@ class Economy(commands.Cog):
         await balance_manager.give(str(member.id), reward_amount)
         lantern_given = False
         lantern_type = None
-        # 풍등 지급: 업/추천 조건일 때만
-        if self.skylantern and await self.skylantern.is_event_period():
+
+        # SkyLanternEvent cog를 지급 시점마다 안전하게 참조
+        skylantern = self.bot.get_cog("SkyLanternEvent")
+        if skylantern and await skylantern.is_event_period():
             if condition == "업":
-                ok = await self.skylantern.give_lantern(member.id, "up")
+                ok = await skylantern.give_lantern(member.id, "up")
                 if ok:
                     lantern_given = True
                     lantern_type = "업"
             elif condition == "추천":
-                ok = await self.skylantern.give_lantern(member.id, "recommend")
+                ok = await skylantern.give_lantern(member.id, "recommend")
                 if ok:
                     lantern_given = True
                     lantern_type = "추천"
+
         unit = await self.get_currency_unit()
         new_balance = await balance_manager.get_balance(str(member.id))
-        
+
         embed = discord.Embed(
             title=f"{unit}: 온 인증",
             description=f"{member.mention}님에게 `{condition}` 인증 보상으로 `{reward_amount}`{unit}을 지급했슴묘!",
@@ -192,7 +195,7 @@ class Economy(commands.Cog):
             icon_url=ctx.author.avatar.url
         )
         embed.timestamp = ctx.message.created_at
-        
+
         await ctx.reply(embed=embed)
         await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게 인증 '{condition}'로 {reward_amount} {unit} 지급.")
 

@@ -2,11 +2,11 @@ import discord
 from discord.ext import commands
 from balance_data_manager import balance_manager
 
-GUILD_ID = 1368459027851509891
+GUILD_ID = [1368459027851509891, 1378632284068122685]
 
 def only_in_guild():
     async def predicate(ctx):
-        if ctx.guild and ctx.guild.id == GUILD_ID:
+        if ctx.guild and ctx.guild.id in GUILD_ID:
             return True
         return False  # 메시지 없이 무반응
     return commands.check(predicate)

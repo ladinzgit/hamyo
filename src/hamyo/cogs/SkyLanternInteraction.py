@@ -7,7 +7,12 @@ import asyncio
 import aiosqlite
 
 KST = pytz.timezone("Asia/Seoul")
-MAIN_CHANNEL_ID = 1368617001970569297
+
+async def get_main_channel_id():
+    async with aiosqlite.connect("data/skylantern_event.db") as db:
+        async with db.execute("SELECT main_channel_id FROM config WHERE id=1") as cur:
+            row = await cur.fetchone()
+            return row[0] if row and row[0] else 1368617001970569297
 
 def make_math_problem():
     op = random.choice(['+', '-', '*'])
@@ -17,7 +22,6 @@ def make_math_problem():
         q = f"{a} + {b}"
         a_str = str(a + b)
     elif op == '-':
-        # 음수 방지
         a, b = max(a, b), min(a, b)
         q = f"{a} - {b}"
         a_str = str(a - b)
@@ -30,10 +34,8 @@ def get_today_kst():
     return datetime.now(KST).date()
 
 def random_times_for_today(n=3):
-    # 08:00~익일 02:00(=26:00) 사이에서 랜덤하게 n개 시각 반환
     base = datetime.now(KST).replace(hour=8, minute=0, second=0, microsecond=0)
-    # 익일 02:00 = 오늘 26:00
-    end = base + timedelta(hours=18)  # 08:00 + 18시간 = 26:00(=익일 02:00)
+    end = base + timedelta(hours=18)
     seconds_range = int((end - base).total_seconds())
     times = set()
     while len(times) < n:
@@ -67,19 +69,15 @@ class SkyLanternInteraction(commands.Cog):
 
     @tasks.loop(time=dt_time(0, 1, tzinfo=KST))
     async def schedule_today_problems(self):
-        # 매일 00:01에 오늘의 문제 출제 시각을 정함
         self.today_times = random_times_for_today(3)
         self.last_problem_date = get_today_kst()
-        # 문제 출제 예약
         for idx, t in enumerate(self.today_times):
             asyncio.create_task(self.problem_at_time(idx+1, t))
 
     async def problem_at_time(self, round_num, t):
-        # t는 KST 기준 time 객체
         now = datetime.now(KST)
         target_dt = datetime.combine(get_today_kst(), t, tzinfo=KST)
         if now > target_dt:
-            # 이미 지난 시각이면 skip
             return
         await asyncio.sleep((target_dt - now).total_seconds())
         await self.spawn_problem(round_num)
@@ -90,23 +88,29 @@ class SkyLanternInteraction(commands.Cog):
         self.answered_users = set()
         q, a = make_math_problem()
         self.current_answer = a
-        channel = self.bot.get_channel(MAIN_CHANNEL_ID)
+        main_channel_id = await get_main_channel_id()
+        channel = self.bot.get_channel(main_channel_id)
         if channel:
             msg = await channel.send(f"하묘가 나타났다! 수학문제: `{q}` 정답을 이 채널에 입력해 주세요! (선착순 3명 풍등 지급)")
             self.problem_message_id = msg.id
-        # 10분 후 자동 종료
         await asyncio.sleep(600)
         self.active = False
         self.current_answer = None
         self.answered_users = set()
         self.problem_message_id = None
 
+    @commands.command(name="하묘테스트")
+    @commands.has_permissions(administrator=True)
+    async def test_hamyo(self, ctx):
+        """테스트용: 메인채팅에 즉시 하묘 문제 출제"""
+        await self.spawn_problem(round_num=99)  # 테스트용 라운드 번호
+
     @commands.Cog.listener()
     async def on_message(self, message):
-        # 정답은 메인 채널에서만, 문제 활성화 중에만 인정
         if not self.active or message.author.bot:
             return
-        if message.channel.id != MAIN_CHANNEL_ID:
+        main_channel_id = await get_main_channel_id()
+        if message.channel.id != main_channel_id:
             return
         if message.content.strip() == self.current_answer and message.author.id not in self.answered_users:
             self.answered_users.add(message.author.id)

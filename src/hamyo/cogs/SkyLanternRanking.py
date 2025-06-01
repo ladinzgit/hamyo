@@ -1,6 +1,10 @@
 import discord
 from discord.ext import commands, tasks
 import aiosqlite
+from datetime import datetime, timedelta
+import pytz
+
+KST = pytz.timezone("Asia/Seoul")
 
 async def get_ranking_channel_id():
     async with aiosqlite.connect("data/skylantern_event.db") as db:
@@ -16,8 +20,12 @@ class SkyLanternRanking(commands.Cog):
     async def cog_load(self):
         self.update_ranking.start()
 
-    @tasks.loop(hours=1)
+    @tasks.loop(minutes=1)
     async def update_ranking(self):
+        now = datetime.now(KST)
+        if now.minute != 0:
+            return  # 정각이 아니면 아무것도 하지 않음
+
         skylantern = self.bot.get_cog("SkyLanternEvent")
         if not skylantern:
             return
@@ -34,6 +42,8 @@ class SkyLanternRanking(commands.Cog):
             description=desc or "아직 풍등을 날린 사람이 없습니다.",
             colour=discord.Colour.orange()
         )
+        embed.set_footer(text="매시 정각마다 자동 갱신")
+        embed.timestamp = now
         async for msg in channel.history(limit=10):
             if msg.author == self.bot.user:
                 await msg.delete()
