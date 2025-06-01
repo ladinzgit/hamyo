@@ -194,7 +194,7 @@ class Economy(commands.Cog):
 
         embed = discord.Embed(
             title=f"{unit}: 온 인증",
-            description=f"{member.mention}님에게 `{condition} {count}회` 인증 보상으로 `{total}`{unit}을 지급했슴묘! (단일 지급액: {reward_amount}, 횟수: {count})",
+            description=f"{member.mention}님에게 `{condition} {count}회` 인증 보상으로 `{total}`{unit}을 지급했슴묘!",
             colour=discord.Colour.from_rgb(151, 214, 181)
         )
         embed.set_footer(
