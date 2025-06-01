@@ -39,7 +39,7 @@ class SkyLanternRanking(commands.Cog):
             desc += f"{i}위 <@{user_id}>: {count}개\n"
         embed = discord.Embed(
             title="풍등 랭킹 TOP 5",
-            description=desc or "아직 풍등을 날린 사람이 없습니다.",
+            description=desc or "아직 풍등을 날린 사람이 없습니다묘,,",
             colour=discord.Colour.orange()
         )
         embed.set_footer(text="매시 정각마다 자동 갱신")

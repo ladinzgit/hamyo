@@ -180,7 +180,7 @@ class SkyLanternEvent(commands.Cog):
 ⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
 ╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
 (⠀⠀⠀´ㅅ` )
-(⠀ {ctx.author.mention}님의 풍등 개수는 **{count}개** 입니다묘...✩
+(⠀ {ctx.author.mention}님의 풍등 개수는 **{count}개** 이다묘...✩
 ╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
 """,
             colour=discord.Colour.from_rgb(252, 252, 126)
@@ -208,7 +208,7 @@ class SkyLanternEvent(commands.Cog):
             await message.reply(f"오픈 응원글 지급 중 오류 발생: {e}")
             return
         if ok:
-            await message.reply(f"{message.author.mention}님, 오픈 응원글로 풍등 5개가 지급되었습니다!")
+            await message.reply(f"{message.author.mention}님, 오픈 응원글로 풍등 5개를 지급했다묘...✩")
 
 async def setup(bot):
     cog = SkyLanternEvent(bot)

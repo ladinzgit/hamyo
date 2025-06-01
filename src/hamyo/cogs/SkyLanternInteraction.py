@@ -34,15 +34,26 @@ def get_today_kst():
     return datetime.now(KST).date()
 
 def random_times_for_today(n=3):
+    # 08:00 오늘 ~ 24:00(=16시간) 사이에서 랜덤 n개, 최소 10분 텀 보장
     base = datetime.now(KST).replace(hour=8, minute=0, second=0, microsecond=0)
-    end = base + timedelta(hours=18)
-    seconds_range = int((end - base).total_seconds())
-    times = set()
-    while len(times) < n:
-        offset = random.randint(0, seconds_range)
-        t = (base + timedelta(seconds=offset)).time()
-        times.add(t.replace(second=0, microsecond=0))
-    return sorted(times)
+    end = base + timedelta(hours=16)  # 08:00~24:00
+    min_gap = 600  # 10분(초)
+    total_seconds = int((end - base).total_seconds())
+    attempts = 0
+    while True:
+        # n개 랜덤 초 추출, 정렬
+        offsets = sorted(random.sample(range(0, total_seconds), n))
+        # 텀 체크: 모든 차이가 10분 이상이면 통과
+        if all((offsets[i+1] - offsets[i]) >= min_gap for i in range(n-1)):
+            break
+        attempts += 1
+        if attempts > 1000:
+            # fallback: 강제 등간격
+            offsets = [int(i * total_seconds / (n + 1)) for i in range(1, n+1)]
+            break
+    times = [(base + timedelta(seconds=offset)).time().replace(second=0, microsecond=0)
+             for offset in offsets]
+    return times
 
 async def get_my_lantern_channel_id():
     async with aiosqlite.connect("data/skylantern_event.db") as db:
@@ -91,7 +102,7 @@ class SkyLanternInteraction(commands.Cog):
         main_channel_id = await get_main_channel_id()
         channel = self.bot.get_channel(main_channel_id)
         if channel:
-            msg = await channel.send(f"하묘가 나타났다! 수학문제: `{q}` 정답을 이 채널에 입력해 주세요! (선착순 3명 풍등 지급)")
+            msg = await channel.send(f"하묘가 나타났다묘! 수학문제: `{q}` 정답을 이 채널에 입력해 달라묘!!! (선착순 3명 풍등 지급)")
             self.problem_message_id = msg.id
         await asyncio.sleep(600)
         self.active = False
@@ -121,8 +132,8 @@ class SkyLanternInteraction(commands.Cog):
                     lantern_channel = message.guild.get_channel(channel_id) if message.guild else None
                     mention = lantern_channel.mention if lantern_channel else f"<#{channel_id}>"
                     await message.reply(
-                        f"{message.author.mention}님, 정답! 풍등 2개 지급!\n"
-                        f"현재 보유 풍등 개수는 {mention} 채널에서 `/내풍등` 명령어로 확인할 수 있습니다."
+                        f"{message.author.mention}님, 정답이다묘! 풍등 2개 지급해주게따묘...☆\n"
+                        f"현재 보유 풍등 개수는 {mention} 채널에서 `/내풍등` 명령어로 확인할 수 있습니다묘!"
                     )
             if len(self.answered_users) >= 3:
                 self.active = False
