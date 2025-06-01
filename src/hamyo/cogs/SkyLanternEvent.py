@@ -107,23 +107,28 @@ class SkyLanternEvent(commands.Cog):
 
     # 풍등 지급
     async def give_lantern(self, user_id: int, key: str, count: int = 1):
-        if not await self.is_event_period():
+        """풍등 지급"""
+        try:
+            if not await self.is_event_period():
+                return False
+            if count <= 0:  # count 유효성 검사
+                return False
+            async with aiosqlite.connect(DB_PATH) as db:
+                async with db.execute("SELECT amount FROM reward_config WHERE key=?", (key,)) as cur:
+                    row = await cur.fetchone()
+                    if not row:
+                        return False
+                    amount = row[0] * count  # 기본 지급량 × count
+                await db.execute("""
+                    INSERT INTO lanterns (user_id, count)
+                    VALUES (?, ?)
+                    ON CONFLICT(user_id) DO UPDATE SET count = count + excluded.count
+                """, (str(user_id), amount))
+                await db.commit()
+            return True
+        except Exception as e:
+            print(f"풍등 지급 중 오류 발생: {e}")
             return False
-        if count <= 0:  # count 유효성 검사
-            return False
-        async with aiosqlite.connect(DB_PATH) as db:
-            async with db.execute("SELECT amount FROM reward_config WHERE key=?", (key,)) as cur:
-                row = await cur.fetchone()
-                if not row:
-                    return False
-                amount = row[0] * count  # 기본 지급량 × count
-            await db.execute("""
-                INSERT INTO lanterns (user_id, count)
-                VALUES (?, ?)
-                ON CONFLICT(user_id) DO UPDATE SET count = count + excluded.count
-            """, (str(user_id), amount))
-            await db.commit()
-        return True
 
     # 풍등 개수 조회
     async def get_lantern_count(self, user_id: int):

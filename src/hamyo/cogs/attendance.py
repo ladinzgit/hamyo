@@ -63,11 +63,16 @@ class AttendanceCog(commands.Cog):
         today = now.strftime("%Y-%m-%d")
         user_id = ctx.author.id
 
+        lantern_given = False  # 풍등 지급 여부 플래그
+
+        # 풍등 지급 시도 (출석 처리 전에 먼저 시도)
+        skylantern = self.bot.get_cog("SkyLanternEvent")  # 매번 새로 참조
+        if skylantern and await skylantern.is_event_period():
+            lantern_given = await skylantern.give_lantern(user_id, "attendance")
+
         async with aiosqlite.connect(DB_PATH) as db:
             cur = await db.execute("SELECT last_date, count FROM attendance WHERE user_id=?", (user_id,))
             row = await cur.fetchone()
-
-            lantern_given = False  # 풍등 지급 여부 플래그
 
             if row is None:
                 await db.execute(
@@ -77,11 +82,6 @@ class AttendanceCog(commands.Cog):
                 await db.commit()
                 # 온 지급
                 await balance_manager.give(str(user_id), 100)
-                # 풍등 지급
-                if self.skylantern and await self.skylantern.is_event_period():
-                    ok = await self.skylantern.give_lantern(user_id, "attendance")
-                    if ok:
-                        lantern_given = True
                 balance = await balance_manager.get_balance(str(user_id))
                 embed = discord.Embed(
                     title=f"출석 ₍ᐢ..ᐢ₎",
@@ -114,11 +114,6 @@ class AttendanceCog(commands.Cog):
                     await db.commit()
                     # 온 지급
                     await balance_manager.give(str(user_id), 100)
-                    # 풍등 지급
-                    if self.skylantern and await self.skylantern.is_event_period():
-                        ok = await self.skylantern.give_lantern(user_id, "attendance")
-                        if ok:
-                            lantern_given = True
                     balance = await balance_manager.get_balance(str(user_id))
                     embed = discord.Embed(
                         title=f"출석 ₍ᐢ..ᐢ₎",
