@@ -13,7 +13,7 @@ CHANNEL_CELEBRATION = 1378353093200183316
 CHANNEL_MY_LANTERN = 1378353273194545162
 
 # 이벤트 기간 (기본값, 관리자 명령어로 변경 가능)
-EVENT_START = datetime(2025, 6, 2, 0, 0, 0, tzinfo=KST)
+EVENT_START = datetime(2025, 6, 1, 0, 0, 0, tzinfo=KST)
 EVENT_END = datetime(2025, 6, 15, 23, 59, 59, tzinfo=KST)
 
 # 지급량 상수 (관리자 명령어로 변경 가능)
@@ -179,6 +179,7 @@ class SkyLanternEvent(commands.Cog):
         if len(message.content.strip()) < 10:
             return
         ok = await self.try_give_celebration(message.author.id)
+        await message.reply("hi")
         if ok:
             await message.reply(f"{message.author.mention}님, 오픈 응원글로 풍등 5개가 지급되었습니다!")
 
