@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 import aiosqlite
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 from balance_data_manager import balance_manager  # 추가
 
@@ -251,6 +251,51 @@ class AttendanceCog(commands.Cog):
         else:
             mentions = [f"<#{row[0]}>" for row in rows]
             await ctx.send("출석 명령어 허용 채널 목록:\n" + ", ".join(mentions))
+
+    @attendance_channel.command(name="유저초기화")
+    @only_in_guild()
+    @commands.has_permissions(administrator=True)
+    async def reset_user_attendance(self, ctx, user: discord.Member):
+        """특정 유저의 오늘 출석을 초기화합니다. (관리자 전용)"""
+        today = datetime.now(KST).strftime("%Y-%m-%d")
+        
+        async with aiosqlite.connect(DB_PATH) as db:
+            # 먼저 현재 상태 확인
+            cur = await db.execute(
+                "SELECT last_date, count FROM attendance WHERE user_id=?", 
+                (user.id,)
+            )
+            row = await cur.fetchone()
+            
+            if not row:
+                await ctx.send(f"{user.mention}님은 아직 출석 기록이 없습니다.")
+                return
+                
+            last_date, count = row
+            if last_date != today:
+                await ctx.send(f"{user.mention}님은 오늘 출석하지 않았습니다.")
+                return
+            
+            # 출석 횟수 차감 및 날짜 초기화
+            new_count = max(0, count - 1)  # 음수 방지
+            await db.execute("""
+                UPDATE attendance 
+                SET last_date = ?, count = ? 
+                WHERE user_id = ?
+            """, (
+                (datetime.now(KST) - timedelta(days=1)).strftime("%Y-%m-%d"),
+                new_count,
+                user.id
+            ))
+            await db.commit()
+            
+            # 온도 회수 (100온 회수)
+            await balance_manager.take(str(user.id), 100)
+            
+            await ctx.send(
+                f"✅ {user.mention}님의 오늘 출석이 초기화되었습니다.\n"
+                f"출석 횟수가 {count}회 → {new_count}회로 조정되었고, 지급된 100온도 회수되었습니다."
+            )
 
     @attendance_channel.command(name="초기화")
     @only_in_guild()
