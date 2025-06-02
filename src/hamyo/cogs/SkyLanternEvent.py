@@ -192,8 +192,8 @@ class SkyLanternEvent(commands.Cog):
 """,
             colour=discord.Colour.from_rgb(252, 252, 126)
         )
-        embed.set_thumbnail(url=ctx.author.avatar.url)
-        embed.set_footer(text=f"요청자: {ctx.author}", icon_url=ctx.author.avatar.url)
+        embed.set_thumbnail(url=ctx.author.display_avatar)
+        embed.set_footer(text=f"요청자: {ctx.author}", icon_url=ctx.author.display_avatar)
         embed.timestamp = ctx.message.created_at if hasattr(ctx.message, "created_at") else None
         await ctx.reply(embed=embed)
 

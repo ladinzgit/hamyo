@@ -113,8 +113,8 @@ class Economy(commands.Cog):
 """,
             colour=discord.Colour.from_rgb(151, 214, 181)
         )        
-        embed.set_thumbnail(url=member.avatar.url)
-        embed.set_footer(text=f"요청자: {ctx.author}", icon_url=ctx.author.avatar.url)
+        embed.set_thumbnail(url=member.display_avatar.url)
+        embed.set_footer(text=f"요청자: {ctx.author}", icon_url=member.display_avatar.url)
         embed.timestamp = ctx.message.created_at
    
         await ctx.reply(embed=embed)
@@ -148,7 +148,7 @@ class Economy(commands.Cog):
         )
         embed.set_footer(
             text=f"요청자: {ctx.author} | 지급 후 잔액: {new_balance}",
-            icon_url=ctx.author.avatar.url
+            icon_url=ctx.author.display_avatar.url
         )
         embed.timestamp = ctx.message.created_at
         
@@ -199,7 +199,7 @@ class Economy(commands.Cog):
         )
         embed.set_footer(
             text=f"요청자: {ctx.author} | 지급 후 잔액: {new_balance}",
-            icon_url=ctx.author.avatar.url
+            icon_url=ctx.author.display_avatar.url
         )
         embed.timestamp = ctx.message.created_at
 
@@ -250,7 +250,7 @@ class Economy(commands.Cog):
         )
         embed.set_footer(
             text=f"요청자: {ctx.author} | 회수 후 잔액: {new_balance}",
-            icon_url=ctx.author.avatar.url
+            icon_url=ctx.author.display_avatar.url
         )
         embed.timestamp = ctx.message.created_at
         
