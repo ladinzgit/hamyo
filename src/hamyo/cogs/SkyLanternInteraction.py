@@ -118,6 +118,10 @@ class SkyLanternInteraction(commands.Cog):
         for idx, t in enumerate(self.today_times):
             if t > now:
                 asyncio.create_task(self.problem_at_time(idx+1, t))
+        await self.log(
+            f"[하묘] 봇 재시작/로드: 오늘({datetime.now(KST).strftime('%Y-%m-%d')}) 남은 상호작용 시간 예약: "
+            f"{', '.join(t.strftime('%H:%M') for t in self.today_times if t > now)}"
+        )
         self.schedule_today_problems.start()
 
     async def log(self, message):
@@ -145,6 +149,10 @@ class SkyLanternInteraction(commands.Cog):
         self.today_times = random_times_for_today(3)
         await save_today_times(self.today_times)
         await self.log(f"[하묘] 오늘({datetime.now(KST).strftime('%Y-%m-%d')})의 상호작용 시간(갱신): {', '.join(t.strftime('%H:%M') for t in self.today_times)}")
+        await self.log(
+            f"[하묘] 자정 갱신: 오늘({datetime.now(KST).strftime('%Y-%m-%d')}) 상호작용 시간: "
+            f"{', '.join(t.strftime('%H:%M') for t in self.today_times)}"
+        )
         self.last_problem_date = get_today_kst()
         for idx, t in enumerate(self.today_times):
             asyncio.create_task(self.problem_at_time(idx+1, t))
@@ -159,6 +167,10 @@ class SkyLanternInteraction(commands.Cog):
         for idx, t in enumerate(self.today_times):
             if t > now:
                 asyncio.create_task(self.problem_at_time(idx+1, t))
+        await self.log(
+            f"[하묘] 스케줄러 루프: 오늘({datetime.now(KST).strftime('%Y-%m-%d')}) 남은 상호작용 시간 예약: "
+            f"{', '.join(t.strftime('%H:%M') for t in self.today_times if t > now)}"
+        )
 
     async def problem_at_time(self, round_num, t):
         now = datetime.now(KST)
@@ -231,6 +243,10 @@ class SkyLanternInteraction(commands.Cog):
         self.today_times = random_times_for_today(3)
         await save_today_times(self.today_times)
         await self.log(f"[하묘] {ctx.author}({ctx.author.id})님이 수동으로 오늘의 상호작용 시간을 다시 뽑았습니다: {', '.join(t.strftime('%H:%M') for t in self.today_times)}")
+        await self.log(
+            f"[하묘] {ctx.author}({ctx.author.id})님이 수동으로 오늘({datetime.now(KST).strftime('%Y-%m-%d')})의 상호작용 시간을 다시 뽑음: "
+            f"{', '.join(t.strftime('%H:%M') for t in self.today_times)}"
+        )
         # 예약된 문제도 새로 예약
         now = datetime.now(KST).time()
         for idx, t in enumerate(self.today_times):
