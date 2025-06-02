@@ -54,59 +54,26 @@ class AttendanceCog(commands.Cog):
     @commands.group(name="출석", invoke_without_command=True)
     @only_in_guild()
     async def attendance(self, ctx):
-        """출석 체크"""
-        # 출석 허용 채널 체크 (관리자도 예외 없이 적용)
-        if not await is_attendance_allowed_channel(ctx.channel.id):
-            return  # 무반응
+        try:
+            """출석 체크"""
+            # 출석 허용 채널 체크 (관리자도 예외 없이 적용)
+            if not await is_attendance_allowed_channel(ctx.channel.id):
+                return  # 무반응
 
-        now = datetime.now(KST)
-        today = now.strftime("%Y-%m-%d")
-        user_id = ctx.author.id
+            now = datetime.now(KST)
+            today = now.strftime("%Y-%m-%d")
+            user_id = ctx.author.id
 
-        attendance_success = False  # 출석 성공 여부 플래그
+            attendance_success = False  # 출석 성공 여부 플래그
 
-        async with aiosqlite.connect(DB_PATH) as db:
-            cur = await db.execute("SELECT last_date, count FROM attendance WHERE user_id=?", (user_id,))
-            row = await cur.fetchone()
+            async with aiosqlite.connect(DB_PATH) as db:
+                cur = await db.execute("SELECT last_date, count FROM attendance WHERE user_id=?", (user_id,))
+                row = await cur.fetchone()
 
-            if row is None:
-                await db.execute(
-                    "INSERT INTO attendance (user_id, last_date, count) VALUES (?, ?, ?)",
-                    (user_id, today, 1)
-                )
-                await db.commit()
-                # 온 지급
-                await balance_manager.give(str(user_id), 100)
-                balance = await balance_manager.get_balance(str(user_id))
-                embed = discord.Embed(
-                    title=f"출석 ₍ᐢ..ᐢ₎",
-                    description=f"""
-                    ⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
-                    ╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
-                    (⠀⠀⠀´ㅅ` )
-                    (⠀ {ctx.author.mention}님, 첫 출석 완료했다묘...✩
-                        누적 1회 출석했다묘...✩
-                        자동으로 100온도 지급했다묘...✩
-                    ╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
-                    """,
-                    colour=discord.Colour.from_rgb(252, 252, 126)
-                )
-                embed.set_thumbnail(url=ctx.author.avatar.url)
-                embed.set_footer(text=f"현재 잔액: {balance}온 • 요청자: {ctx.author}", icon_url=ctx.author.avatar.url)
-                embed.timestamp = ctx.message.created_at
-                
-                await ctx.send(embed=embed)
-                attendance_success = True
-            else:
-                last_date, count = row
-                if last_date == today:
-                    await ctx.send(f"⚠️ {ctx.author.mention} 오늘 이미 출석했다묘! (누적 {count}회)")
-                    return
-                else:
-                    count += 1
+                if row is None:
                     await db.execute(
-                        "UPDATE attendance SET last_date=?, count=? WHERE user_id=?",
-                        (today, count, user_id)
+                        "INSERT INTO attendance (user_id, last_date, count) VALUES (?, ?, ?)",
+                        (user_id, today, 1)
                     )
                     await db.commit()
                     # 온 지급
@@ -118,8 +85,8 @@ class AttendanceCog(commands.Cog):
                         ⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
                         ╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
                         (⠀⠀⠀´ㅅ` )
-                        (⠀ {ctx.author.mention}님, 출석 완료했다묘...✩
-                            누적 {count}회 출석했다묘...✩
+                        (⠀ {ctx.author.mention}님, 첫 출석 완료했다묘...✩
+                            누적 1회 출석했다묘...✩
                             자동으로 100온도 지급했다묘...✩
                         ╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
                         """,
@@ -131,25 +98,62 @@ class AttendanceCog(commands.Cog):
                     
                     await ctx.send(embed=embed)
                     attendance_success = True
-
-        # 출석 성공 시에만 풍등 지급 시도
-        if attendance_success:
-            skylantern = self.bot.get_cog("SkyLanternEvent")
-            if skylantern and await skylantern.is_event_period():
-                lantern_given = await skylantern.give_lantern(user_id, "attendance")
-                
-                if lantern_given:
-                    # 풍등 지급 안내 메시지
-                    lantern_channel, channel_id = await get_my_lantern_channel_id(ctx.guild)
-                    mention = lantern_channel.mention if lantern_channel else f"<#{channel_id}>"
-                    await ctx.send(
-                        f"{ctx.author.mention}님, 출석 체크로 풍등 1개가 지급되었습니다!\n"
-                        f"현재 보유 풍등 개수는 {mention} 채널에서 `*내풍등` 명령어로 확인할 수 있습니다."
-                    )
                 else:
-                    await ctx.send(
-                        f"{ctx.author.mention}님, 풍등 지급이 실패했습니다. 관리자에게 문의해주세요."
-                    )
+                    last_date, count = row
+                    if last_date == today:
+                        await ctx.send(f"⚠️ {ctx.author.mention} 오늘 이미 출석했다묘! (누적 {count}회)")
+                        return
+                    else:
+                        count += 1
+                        await db.execute(
+                            "UPDATE attendance SET last_date=?, count=? WHERE user_id=?",
+                            (today, count, user_id)
+                        )
+                        await db.commit()
+                        # 온 지급
+                        await balance_manager.give(str(user_id), 100)
+                        balance = await balance_manager.get_balance(str(user_id))
+                        embed = discord.Embed(
+                            title=f"출석 ₍ᐢ..ᐢ₎",
+                            description=f"""
+                            ⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+                            ╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+                            (⠀⠀⠀´ㅅ` )
+                            (⠀ {ctx.author.mention}님, 출석 완료했다묘...✩
+                                누적 {count}회 출석했다묘...✩
+                                자동으로 100온도 지급했다묘...✩
+                            ╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+                            """,
+                            colour=discord.Colour.from_rgb(252, 252, 126)
+                        )
+                        embed.set_thumbnail(url=ctx.author.avatar.url)
+                        embed.set_footer(text=f"현재 잔액: {balance}온 • 요청자: {ctx.author}", icon_url=ctx.author.avatar.url)
+                        embed.timestamp = ctx.message.created_at
+                        
+                        await ctx.send(embed=embed)
+                        attendance_success = True
+
+            # 출석 성공 시에만 풍등 지급 시도
+            if attendance_success:
+                skylantern = self.bot.get_cog("SkyLanternEvent")
+                if skylantern and await skylantern.is_event_period():
+                    lantern_given = await skylantern.give_lantern(user_id, "attendance")
+                    
+                    if lantern_given:
+                        # 풍등 지급 안내 메시지
+                        lantern_channel, channel_id = await get_my_lantern_channel_id(ctx.guild)
+                        mention = lantern_channel.mention if lantern_channel else f"<#{channel_id}>"
+                        await ctx.send(
+                            f"{ctx.author.mention}님, 출석 체크로 풍등 1개가 지급되었습니다!\n"
+                            f"현재 보유 풍등 개수는 {mention} 채널에서 `*내풍등` 명령어로 확인할 수 있습니다."
+                        )
+                    else:
+                        await ctx.send(
+                            f"{ctx.author.mention}님, 풍등 지급이 실패했습니다. 관리자에게 문의해주세요."
+                        )
+        except Exception as e:
+            await ctx.send(f"출석 처리 중 오류가 발생했습니다. 관리자에게 문의해주세요.: {str(e)}")
+            raise
 
     @attendance.command(name="순위")
     async def ranking(self, ctx, page: int = 1):
