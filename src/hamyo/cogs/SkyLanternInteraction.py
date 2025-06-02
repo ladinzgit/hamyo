@@ -193,8 +193,10 @@ class SkyLanternInteraction(commands.Cog):
             return
         if message.content.strip() == self.current_answer and message.author.id not in self.answered_users:
             self.answered_users.add(message.author.id)
-            if self.skylantern:
-                ok = await self.skylantern.try_give_interaction(message.author.id, self.round)
+            # 항상 최신 SkyLanternEvent cog를 참조
+            skylantern = self.bot.get_cog("SkyLanternEvent")
+            if skylantern:
+                ok = await skylantern.try_give_interaction(message.author.id, self.round)
                 if ok:
                     channel_id = await get_my_lantern_channel_id()
                     lantern_channel = message.guild.get_channel(channel_id) if message.guild else None
