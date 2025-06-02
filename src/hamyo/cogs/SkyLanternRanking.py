@@ -29,16 +29,30 @@ class SkyLanternRanking(commands.Cog):
         skylantern = self.bot.get_cog("SkyLanternEvent")
         if not skylantern:
             return
-        top = await skylantern.get_top_lanterns(5)
+        top = await skylantern.get_top_lanterns(20)  # 넉넉히 받아서 동점자 처리
+        # 동점자 처리 및 상위 10위까지 추출
+        ranking = []
+        prev_count = None
+        rank = 0
+        real_rank = 0
+        for user_id, count in top:
+            real_rank += 1
+            if prev_count != count:
+                rank = real_rank
+            if rank > 10:
+                break
+            ranking.append((rank, user_id, count))
+            prev_count = count
+
         channel_id = await get_ranking_channel_id()
         channel = self.bot.get_channel(channel_id)
         if not channel:
             return
         desc = ""
-        for i, (user_id, count) in enumerate(top, 1):
-            desc += f"{i}위 <@{user_id}>: {count}개\n"
+        for rank, user_id, count in ranking:
+            desc += f"{rank}위 <@{user_id}>: {count}개\n"
         embed = discord.Embed(
-            title="풍등 랭킹 TOP 5",
+            title="풍등 랭킹 TOP 10",
             description=desc or "아직 풍등을 날린 사람이 없다묘,,",
             colour=discord.Colour.orange()
         )
