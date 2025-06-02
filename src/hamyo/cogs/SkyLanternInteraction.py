@@ -112,6 +112,13 @@ class SkyLanternInteraction(commands.Cog):
 
     async def cog_load(self):
         print(f"✅ {self.__class__.__name__} loaded successfully!")
+        await self.init_today_times()
+        # 봇 재시작 시 오늘 남은 시간에 대해 예약
+        now = datetime.now(KST).time()
+        for idx, t in enumerate(self.today_times):
+            if t > now:
+                asyncio.create_task(self.problem_at_time(idx+1, t))
+        self.schedule_today_problems.start()
 
     async def log(self, message):
         """Logger cog를 통해 로그 메시지 전송"""

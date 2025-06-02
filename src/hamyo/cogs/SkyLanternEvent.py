@@ -248,6 +248,41 @@ class SkyLanternEvent(commands.Cog):
             print(f"수동 풍등 지급 중 오류 발생: {e}")
             return False
 
+    # 풍등 수동 회수 명령어 (관리자 전용)
+    @commands.command(name="풍등회수")
+    @commands.has_permissions(administrator=True)
+    async def take_lantern_manual(self, ctx, member: discord.Member, amount: int):
+        """관리자가 특정 유저의 풍등을 수동 회수합니다."""
+        if amount <= 0:
+            await ctx.send("회수할 풍등 개수는 1개 이상이어야 합니다.")
+            return
+        ok = await self.manual_take_lantern(member.id, amount)
+        if ok:
+            await ctx.send(f"{member.mention}님에게서 풍등 {amount}개를 수동 회수했습니다.")
+        else:
+            await ctx.send("풍등 회수에 실패했습니다. (잔여 풍등이 부족할 수 있습니다.)")
+
+    async def manual_take_lantern(self, user_id: int, amount: int):
+        """관리자 수동 풍등 회수 (이벤트 기간 무관, reward_config 무관, 직접 개수 입력)"""
+        try:
+            if amount <= 0:
+                return False
+            async with aiosqlite.connect(DB_PATH) as db:
+                # 현재 풍등 개수 확인
+                async with db.execute("SELECT count FROM lanterns WHERE user_id=?", (str(user_id),)) as cur:
+                    row = await cur.fetchone()
+                    current = row[0] if row else 0
+                if current < amount:
+                    return False
+                await db.execute("""
+                    UPDATE lanterns SET count = count - ? WHERE user_id = ?
+                """, (amount, str(user_id)))
+                await db.commit()
+            return True
+        except Exception as e:
+            print(f"수동 풍등 회수 중 오류 발생: {e}")
+            return False
+
 async def setup(bot):
     cog = SkyLanternEvent(bot)
     await bot.add_cog(cog)

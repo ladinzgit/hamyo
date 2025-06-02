@@ -63,12 +63,7 @@ class AttendanceCog(commands.Cog):
         today = now.strftime("%Y-%m-%d")
         user_id = ctx.author.id
 
-        lantern_given = False  # 풍등 지급 여부 플래그
-
-        # 풍등 지급 시도 (출석 처리 전에 먼저 시도)
-        skylantern = self.bot.get_cog("SkyLanternEvent")  # 매번 새로 참조
-        if skylantern and await skylantern.is_event_period():
-            lantern_given = await skylantern.give_lantern(user_id, "attendance")
+        attendance_success = False  # 출석 성공 여부 플래그
 
         async with aiosqlite.connect(DB_PATH) as db:
             cur = await db.execute("SELECT last_date, count FROM attendance WHERE user_id=?", (user_id,))
@@ -101,10 +96,12 @@ class AttendanceCog(commands.Cog):
                 embed.timestamp = ctx.message.created_at
                 
                 await ctx.send(embed=embed)
+                attendance_success = True
             else:
                 last_date, count = row
                 if last_date == today:
                     await ctx.send(f"⚠️ {ctx.author.mention} 오늘 이미 출석했다묘! (누적 {count}회)")
+                    return
                 else:
                     count += 1
                     await db.execute(
@@ -133,15 +130,26 @@ class AttendanceCog(commands.Cog):
                     embed.timestamp = ctx.message.created_at
                     
                     await ctx.send(embed=embed)
+                    attendance_success = True
 
-            # 풍등 지급 안내 메시지 (embed와 별개로)
-            if lantern_given:
-                lantern_channel, channel_id = await get_my_lantern_channel_id(ctx.guild)
-                mention = lantern_channel.mention if lantern_channel else f"<#{channel_id}>"
-                await ctx.send(
-                    f"{ctx.author.mention}님, 출석 체크로 풍등 1개가 지급되었습니다!\n"
-                    f"현재 보유 풍등 개수는 {mention} 채널에서 `/내풍등` 명령어로 확인할 수 있습니다."
-                )
+        # 출석 성공 시에만 풍등 지급 시도
+        if attendance_success:
+            skylantern = self.bot.get_cog("SkyLanternEvent")
+            if skylantern and await skylantern.is_event_period():
+                lantern_given = await skylantern.give_lantern(user_id, "attendance")
+                
+                if lantern_given:
+                    # 풍등 지급 안내 메시지
+                    lantern_channel, channel_id = await get_my_lantern_channel_id(ctx.guild)
+                    mention = lantern_channel.mention if lantern_channel else f"<#{channel_id}>"
+                    await ctx.send(
+                        f"{ctx.author.mention}님, 출석 체크로 풍등 1개가 지급되었습니다!\n"
+                        f"현재 보유 풍등 개수는 {mention} 채널에서 `*내풍등` 명령어로 확인할 수 있습니다."
+                    )
+                else:
+                    await ctx.send(
+                        f"{ctx.author.mention}님, 풍등 지급이 실패했습니다. 관리자에게 문의해주세요."
+                    )
 
     @attendance.command(name="순위")
     async def ranking(self, ctx, page: int = 1):
