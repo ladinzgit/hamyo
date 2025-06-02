@@ -43,17 +43,17 @@ def random_times_for_today(n=3):
     total_seconds = int((end - base).total_seconds())
     attempts = 0
     while True:
-        # n개 랜덤 초 추출, 정렬
         offsets = sorted(random.sample(range(0, total_seconds), n))
-        # 텀 체크: 모든 차이가 10분 이상이면 통과
         if all((offsets[i+1] - offsets[i]) >= min_gap for i in range(n-1)):
             break
         attempts += 1
         if attempts > 1000:
-            # fallback: 강제 등간격
             offsets = [int(i * total_seconds / (n + 1)) for i in range(1, n+1)]
             break
-    times = [(base + timedelta(seconds=offset)).time().replace(second=0, microsecond=0)
+    # 기존 코드: .time().replace(second=0, microsecond=0)
+    # 문제: tzinfo가 없는 naive time 객체로 반환됨
+    # 수정: datetime 객체로 반환하여 tzinfo를 유지하고, 예약 시에도 tzinfo를 유지
+    times = [(base + timedelta(seconds=offset)).astimezone(KST).time().replace(second=0, microsecond=0)
              for offset in offsets]
     return times
 
@@ -189,9 +189,16 @@ class SkyLanternInteraction(commands.Cog):
             f"{', '.join(t.strftime('%H:%M') for t in self.today_times if t > now)}"
         )
 
+    # --- 예약 함수에서 tzinfo 처리 주의 ---
+    # problem_at_time에서 target_dt 생성 시 tzinfo=KST를 반드시 유지해야 함
     async def problem_at_time(self, round_num, t):
         now = datetime.now(KST)
-        target_dt = datetime.combine(get_today_kst(), t, tzinfo=KST)
+        # t가 tz-aware가 아니면, tzinfo=KST로 보정
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=KST)
+        target_dt = datetime.combine(get_today_kst(), t)
+        if target_dt.tzinfo is None:
+            target_dt = KST.localize(target_dt)
         if now > target_dt:
             return
         await asyncio.sleep((target_dt - now).total_seconds())
