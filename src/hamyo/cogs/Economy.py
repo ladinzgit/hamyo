@@ -141,7 +141,7 @@ class Economy(commands.Cog):
 ╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
 (⠀⠀⠀´ㅅ` )
 (⠀ {member.mention}에게 **{total}**{unit} 줬다묘...✩
-(⠀ ⠀ ⠀좋은 곳에 쓰라묘......... (단일 지급액: {amount}, 횟수: {count})
+(⠀ ⠀ ⠀좋은 곳에 쓰라묘.........
 ╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
 """,
             colour=discord.Colour.from_rgb(151, 214, 181)
