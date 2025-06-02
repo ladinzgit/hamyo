@@ -109,20 +109,35 @@ class SkyLanternInteraction(commands.Cog):
         self.problem_message_id = None
         self.problem_task = None
         self.last_problem_date = None
+        self.scheduled_tasks = {}  # {round_num: asyncio.Task}
 
     async def cog_load(self):
         print(f"✅ {self.__class__.__name__} loaded successfully!")
         await self.init_today_times()
         # 봇 재시작 시 오늘 남은 시간에 대해 예약
         now = datetime.now(KST).time()
+        self.cancel_all_scheduled_tasks()
         for idx, t in enumerate(self.today_times):
             if t > now:
-                asyncio.create_task(self.problem_at_time(idx+1, t))
+                self.schedule_problem(idx+1, t)
         await self.log(
             f"[하묘] 봇 재시작/로드: 오늘({datetime.now(KST).strftime('%Y-%m-%d')}) 남은 상호작용 시간 예약: "
             f"{', '.join(t.strftime('%H:%M') for t in self.today_times if t > now)}"
         )
         self.schedule_today_problems.start()
+
+    def schedule_problem(self, round_num, t):
+        # 이미 예약된 라운드면 예약하지 않음
+        if round_num in self.scheduled_tasks and not self.scheduled_tasks[round_num].done():
+            return
+        task = asyncio.create_task(self.problem_at_time(round_num, t))
+        self.scheduled_tasks[round_num] = task
+
+    def cancel_all_scheduled_tasks(self):
+        for task in self.scheduled_tasks.values():
+            if not task.done():
+                task.cancel()
+        self.scheduled_tasks.clear()
 
     async def log(self, message):
         """Logger cog를 통해 로그 메시지 전송"""
@@ -154,8 +169,9 @@ class SkyLanternInteraction(commands.Cog):
             f"{', '.join(t.strftime('%H:%M') for t in self.today_times)}"
         )
         self.last_problem_date = get_today_kst()
+        self.cancel_all_scheduled_tasks()
         for idx, t in enumerate(self.today_times):
-            asyncio.create_task(self.problem_at_time(idx+1, t))
+            self.schedule_problem(idx+1, t)
 
     # 봇 재시작 시에도 예약
     @schedule_today_problems.before_loop
@@ -164,9 +180,10 @@ class SkyLanternInteraction(commands.Cog):
         await self.init_today_times()
         # 예약이 안 된 시간만 예약
         now = datetime.now(KST).time()
+        self.cancel_all_scheduled_tasks()
         for idx, t in enumerate(self.today_times):
             if t > now:
-                asyncio.create_task(self.problem_at_time(idx+1, t))
+                self.schedule_problem(idx+1, t)
         await self.log(
             f"[하묘] 스케줄러 루프: 오늘({datetime.now(KST).strftime('%Y-%m-%d')}) 남은 상호작용 시간 예약: "
             f"{', '.join(t.strftime('%H:%M') for t in self.today_times if t > now)}"
@@ -179,6 +196,8 @@ class SkyLanternInteraction(commands.Cog):
             return
         await asyncio.sleep((target_dt - now).total_seconds())
         await self.spawn_problem(round_num)
+        # 문제 출제 후 예약 task 제거
+        self.scheduled_tasks.pop(round_num, None)
 
     async def spawn_problem(self, round_num):
         self.round = round_num
@@ -223,7 +242,7 @@ class SkyLanternInteraction(commands.Cog):
                     mention = lantern_channel.mention if lantern_channel else f"<#{channel_id}>"
                     await message.reply(
                         f"{message.author.mention}님, 정답이다묘! 풍등 2개 지급해주게따묘...☆\n"
-                        f"현재 보유 풍등 개수는 {mention} 채널에서 `*내풍등` 명령어로 확인할 수 있습니다묘!"
+                        f"현재 보유 풍등 개수는 {mention} 채널에서 `*내풍등` 명령어로 확인할 수 있다묘!"
                     )
             if len(self.answered_users) >= 3:
                 self.active = False
@@ -250,9 +269,10 @@ class SkyLanternInteraction(commands.Cog):
         )
         # 예약된 문제도 새로 예약
         now = datetime.now(KST).time()
+        self.cancel_all_scheduled_tasks()
         for idx, t in enumerate(self.today_times):
             if t > now:
-                asyncio.create_task(self.problem_at_time(idx+1, t))
+                self.schedule_problem(idx+1, t)
         times_str = ", ".join(t.strftime("%H:%M") for t in self.today_times)
         await ctx.send(f"오늘({datetime.now(KST).strftime('%Y-%m-%d')})의 하묘 출제 시간이 새로 설정되었습니다:\n{times_str}")
 
