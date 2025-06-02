@@ -213,7 +213,7 @@ class Economy(commands.Cog):
             lantern_count = 2 * count if lantern_type == "업" else 3 * count
             await ctx.send(
                 f"{member.mention}님, `{lantern_type}` 인증으로 풍등 {lantern_count}개가 지급되었습니다!\n"
-                f"현재 보유 풍등 개수는 {mention} 채널에서 `/내풍등` 명령어로 확인할 수 있습니다."
+                f"현재 보유 풍등 개수는 {mention} 채널에서 `*내풍등` 명령어로 확인할 수 있습니다."
             )
 
     @on.command(name="회수")
