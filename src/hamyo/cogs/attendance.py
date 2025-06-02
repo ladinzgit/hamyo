@@ -93,7 +93,7 @@ class AttendanceCog(commands.Cog):
                         colour=discord.Colour.from_rgb(252, 252, 126)
                     )
                     # 썸네일/푸터 아이콘 URL 안전 처리
-                    avatar_url = ctx.author.avatar.url if getattr(ctx.author, "avatar", None) and ctx.author.avatar else ctx.author.default_avatar.url
+                    avatar_url = ctx.author.display_avatar.url
                     embed.set_thumbnail(url=avatar_url)
                     embed.set_footer(text=f"현재 잔액: {balance}온 • 요청자: {ctx.author}", icon_url=avatar_url)
                     embed.timestamp = ctx.message.created_at
@@ -129,7 +129,7 @@ class AttendanceCog(commands.Cog):
                             colour=discord.Colour.from_rgb(252, 252, 126)
                         )
                         # 썸네일/푸터 아이콘 URL 안전 처리
-                        avatar_url = ctx.author.avatar.url if getattr(ctx.author, "avatar", None) and ctx.author.avatar else ctx.author.default_avatar.url
+                        avatar_url = ctx.author.display_avatar.url
                         embed.set_thumbnail(url=avatar_url)
                         embed.set_footer(text=f"현재 잔액: {balance}온 • 요청자: {ctx.author}", icon_url=avatar_url)
                         embed.timestamp = ctx.message.created_at
