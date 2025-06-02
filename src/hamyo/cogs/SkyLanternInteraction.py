@@ -170,7 +170,7 @@ class SkyLanternInteraction(commands.Cog):
         main_channel_id = await get_main_channel_id()
         channel = self.bot.get_channel(main_channel_id)
         if channel:
-            msg = await channel.send(f"하묘가 나타났다묘! 수학문제: `{q}` 정답을 이 채널에 입력해 달라묘!!! (선착순 3명 풍등 지급)")
+            msg = await channel.send(f"하묘가 나타났다묘! 수학문제: `{q}` `정답 그대로` 이 채널에 입력해 달라묘!!! (선착순 3명 풍등 지급)")
             self.problem_message_id = msg.id
         await asyncio.sleep(600)
         self.active = False
