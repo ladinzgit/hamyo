@@ -112,10 +112,6 @@ class SkyLanternInteraction(commands.Cog):
     async def cog_load(self):
         print(f"✅ {self.__class__.__name__} loaded successfully!")
         await self.init_today_times()
-        await self.log(
-            f"봇 재시작/로드: 오늘({datetime.now(KST).strftime('%Y-%m-%d')}) 상호작용 시간: "
-            f"{', '.join(t.strftime('%H:%M') for t in self.today_times)}"
-        )
         await self.schedule_next_task()
         self.schedule_today_problems.start()
 
