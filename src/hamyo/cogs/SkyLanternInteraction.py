@@ -102,42 +102,50 @@ class SkyLanternInteraction(commands.Cog):
         self.bot = bot
         self.skylantern = None
         self.today_times = []
-        self.round = 0
         self.active = False
         self.current_answer = None
         self.answered_users = set()
-        self.problem_message_id = None
         self.problem_task = None
         self.last_problem_date = None
-        self.scheduled_tasks = {}  # {round_num: asyncio.Task}
+        self.scheduled_task = None  # 단일 예약 task
 
     async def cog_load(self):
         print(f"✅ {self.__class__.__name__} loaded successfully!")
         await self.init_today_times()
-        # 봇 재시작 시 오늘 남은 시간에 대해 예약
-        now = datetime.now(KST).time()
-        self.cancel_all_scheduled_tasks()
-        for idx, t in enumerate(self.today_times):
-            if t > now:
-                self.schedule_problem(idx+1, t)
         await self.log(
-            f"[하묘] 봇 재시작/로드: 오늘({datetime.now(KST).strftime('%Y-%m-%d')}) 남은 상호작용 시간 예약: "
-            f"{', '.join(t.strftime('%H:%M') for t in self.today_times if t > now)}"
+            f"봇 재시작/로드: 오늘({datetime.now(KST).strftime('%Y-%m-%d')}) 상호작용 시간: "
+            f"{', '.join(t.strftime('%H:%M') for t in self.today_times)}"
         )
+        await self.schedule_next_task()
         self.schedule_today_problems.start()
 
-    def schedule_problem(self, round_num, t):
-        # 이미 예약된 라운드면 예약하지 않음
-        if round_num in self.scheduled_tasks and not self.scheduled_tasks[round_num].done():
-            return
-        task = asyncio.create_task(self.problem_at_time(round_num, t))
-        self.scheduled_tasks[round_num] = task
+    async def schedule_next_task(self):
+        # 예약된 task가 있으면 취소
+        if self.scheduled_task and not self.scheduled_task.done():
+            self.scheduled_task.cancel()
+        now = datetime.now(KST)
+        # 오늘 남은 시간 중 가장 가까운 시간 찾기
+        next_idx = None
+        for idx, t in enumerate(self.today_times):
+            target_dt = datetime.combine(get_today_kst(), t, tzinfo=KST)
+            if target_dt > now:
+                next_idx = idx
+                break
+        if next_idx is not None:
+            t = self.today_times[next_idx]
+            target_dt = datetime.combine(get_today_kst(), t, tzinfo=KST)
+            delay = (target_dt - now).total_seconds()
+            await self.log(f"다음 문제 예약: {t.strftime('%H:%M')} (남은 시간 {int(delay)}초)")
+            self.scheduled_task = asyncio.create_task(self._sleep_and_spawn(delay))
+        else:
+            await self.log("오늘 남은 예약 시간이 없습니다. 다음 타임을 예약하지 않습니다.")
 
-    def cancel_all_scheduled_tasks(self):
-        for task in self.scheduled_tasks.values():
-            if not task.done():
-                task.cancel()
-        self.scheduled_tasks.clear()
+    async def _sleep_and_spawn(self, delay):
+        try:
+            await asyncio.sleep(delay)
+            await self.spawn_problem()
+        except asyncio.CancelledError:
+            pass
 
     async def log(self, message):
         """Logger cog를 통해 로그 메시지 전송"""
@@ -152,62 +160,36 @@ class SkyLanternInteraction(commands.Cog):
         loaded = await load_today_times()
         if loaded:
             self.today_times = loaded
-            await self.log(f"[하묘] 오늘({datetime.now(KST).strftime('%Y-%m-%d')})의 상호작용 시간(복구): {', '.join(t.strftime('%H:%M') for t in self.today_times)}")
+            await self.log(f"오늘({datetime.now(KST).strftime('%Y-%m-%d')})의 상호작용 시간(복구): {', '.join(t.strftime('%H:%M') for t in self.today_times)}")
         else:
             self.today_times = random_times_for_today(3)
             await save_today_times(self.today_times)
-            await self.log(f"[하묘] 오늘({datetime.now(KST).strftime('%Y-%m-%d')})의 상호작용 시간(신규): {', '.join(t.strftime('%H:%M') for t in self.today_times)}")
+            await self.log(f"오늘({datetime.now(KST).strftime('%Y-%m-%d')})의 상호작용 시간(신규): {', '.join(t.strftime('%H:%M') for t in self.today_times)}")
 
     @tasks.loop(time=dt_time(0, 1, tzinfo=KST))
     async def schedule_today_problems(self):
         # 자정마다 새로운 시간 생성 및 저장
         self.today_times = random_times_for_today(3)
         await save_today_times(self.today_times)
-        await self.log(f"[하묘] 오늘({datetime.now(KST).strftime('%Y-%m-%d')})의 상호작용 시간(갱신): {', '.join(t.strftime('%H:%M') for t in self.today_times)}")
+        await self.log(f"오늘({datetime.now(KST).strftime('%Y-%m-%d')})의 상호작용 시간(갱신): {', '.join(t.strftime('%H:%M') for t in self.today_times)}")
         await self.log(
-            f"[하묘] 자정 갱신: 오늘({datetime.now(KST).strftime('%Y-%m-%d')}) 상호작용 시간: "
+            f"자정 갱신: 오늘({datetime.now(KST).strftime('%Y-%m-%d')}) 상호작용 시간: "
             f"{', '.join(t.strftime('%H:%M') for t in self.today_times)}"
         )
         self.last_problem_date = get_today_kst()
-        self.cancel_all_scheduled_tasks()
-        for idx, t in enumerate(self.today_times):
-            self.schedule_problem(idx+1, t)
+        await self.schedule_next_task()
 
-    # 봇 재시작 시에도 예약
     @schedule_today_problems.before_loop
     async def before_schedule_today_problems(self):
         await self.bot.wait_until_ready()
         await self.init_today_times()
-        # 예약이 안 된 시간만 예약
-        now = datetime.now(KST).time()
-        self.cancel_all_scheduled_tasks()
-        for idx, t in enumerate(self.today_times):
-            if t > now:
-                self.schedule_problem(idx+1, t)
+        await self.schedule_next_task()
         await self.log(
-            f"[하묘] 스케줄러 루프: 오늘({datetime.now(KST).strftime('%Y-%m-%d')}) 남은 상호작용 시간 예약: "
-            f"{', '.join(t.strftime('%H:%M') for t in self.today_times if t > now)}"
+            f"스케줄러 루프: 오늘({datetime.now(KST).strftime('%Y-%m-%d')}) 상호작용 시간: "
+            f"{', '.join(t.strftime('%H:%M') for t in self.today_times)}"
         )
 
-    # --- 예약 함수에서 tzinfo 처리 주의 ---
-    # problem_at_time에서 target_dt 생성 시 tzinfo=KST를 반드시 유지해야 함
-    async def problem_at_time(self, round_num, t):
-        now = datetime.now(KST)
-        # t가 tz-aware가 아니면, tzinfo=KST로 보정
-        if t.tzinfo is None:
-            t = t.replace(tzinfo=KST)
-        target_dt = datetime.combine(get_today_kst(), t)
-        if target_dt.tzinfo is None:
-            target_dt = KST.localize(target_dt)
-        if now > target_dt:
-            return
-        await asyncio.sleep((target_dt - now).total_seconds())
-        await self.spawn_problem(round_num)
-        # 문제 출제 후 예약 task 제거
-        self.scheduled_tasks.pop(round_num, None)
-
-    async def spawn_problem(self, round_num):
-        self.round = round_num
+    async def spawn_problem(self):
         self.active = True
         self.answered_users = set()
         q, a = make_math_problem()
@@ -215,20 +197,19 @@ class SkyLanternInteraction(commands.Cog):
         main_channel_id = await get_main_channel_id()
         channel = self.bot.get_channel(main_channel_id)
         if channel:
-            msg = await channel.send(f"하묘가 나타났다묘! 수학문제: `{q}` `정답 그대로` 이 채널에 입력해 달라묘!!!"  
-                                     "\n(선착순 3명 풍등 지급, 10분 제한)")
-            self.problem_message_id = msg.id
+            await channel.send(f"하묘가 나타났다묘! 수학문제: `{q}` `정답 그대로` 이 채널에 입력해 달라묘!!!"  
+                                "\n(선착순 3명 풍등 지급, 10분 제한)")
+        # 10분 후 자동 종료 및 다음 예약
+        asyncio.create_task(self._problem_timeout())
+
+    async def _problem_timeout(self):
         await asyncio.sleep(600)
+        if not self.active:
+            return  # 이미 종료됨(3명 정답 등)
         self.active = False
         self.current_answer = None
         self.answered_users = set()
-        self.problem_message_id = None
-
-    @commands.command(name="하묘테스트")
-    @commands.has_permissions(administrator=True)
-    async def test_hamyo(self, ctx):
-        """테스트용: 메인채팅에 즉시 하묘 문제 출제"""
-        await self.spawn_problem(round_num=99)  # 테스트용 라운드 번호
+        await self.schedule_next_task()
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -237,12 +218,13 @@ class SkyLanternInteraction(commands.Cog):
         main_channel_id = await get_main_channel_id()
         if message.channel.id != main_channel_id:
             return
+        if self.current_answer is None:
+            return
         if message.content.strip() == self.current_answer and message.author.id not in self.answered_users:
             self.answered_users.add(message.author.id)
-            # 항상 최신 SkyLanternEvent cog를 참조
             skylantern = self.bot.get_cog("SkyLanternEvent")
             if skylantern:
-                ok = await skylantern.try_give_interaction(message.author.id, self.round)
+                ok = await skylantern.try_give_interaction(message.author.id, None)  # round_num 제거
                 if ok:
                     channel_id = await get_my_lantern_channel_id()
                     lantern_channel = message.guild.get_channel(channel_id) if message.guild else None
@@ -252,7 +234,11 @@ class SkyLanternInteraction(commands.Cog):
                         f"현재 보유 풍등 개수는 {mention} 채널에서 `*내풍등` 명령어로 확인할 수 있다묘!"
                     )
             if len(self.answered_users) >= 3:
-                self.active = False
+                if self.active:
+                    self.active = False
+                    self.current_answer = None
+                    self.answered_users = set()
+                    await self.schedule_next_task()
 
     @commands.command(name="시간확인")
     async def check_times(self, ctx):
@@ -269,17 +255,12 @@ class SkyLanternInteraction(commands.Cog):
         """오늘의 하묘 출제 시간을 즉시 새로 뽑고 저장합니다. (관리자 전용)"""
         self.today_times = random_times_for_today(3)
         await save_today_times(self.today_times)
-        await self.log(f"[하묘] {ctx.author}({ctx.author.id})님이 수동으로 오늘의 상호작용 시간을 다시 뽑았습니다: {', '.join(t.strftime('%H:%M') for t in self.today_times)}")
+        await self.log(f"{ctx.author}({ctx.author.id})님이 수동으로 오늘의 상호작용 시간을 다시 뽑았습니다: {', '.join(t.strftime('%H:%M') for t in self.today_times)}")
         await self.log(
-            f"[하묘] {ctx.author}({ctx.author.id})님이 수동으로 오늘({datetime.now(KST).strftime('%Y-%m-%d')})의 상호작용 시간을 다시 뽑음: "
+            f"{ctx.author}({ctx.author.id})님이 수동으로 오늘({datetime.now(KST).strftime('%Y-%m-%d')})의 상호작용 시간을 다시 뽑음: "
             f"{', '.join(t.strftime('%H:%M') for t in self.today_times)}"
         )
-        # 예약된 문제도 새로 예약
-        now = datetime.now(KST).time()
-        self.cancel_all_scheduled_tasks()
-        for idx, t in enumerate(self.today_times):
-            if t > now:
-                self.schedule_problem(idx+1, t)
+        await self.schedule_next_task()
         times_str = ", ".join(t.strftime("%H:%M") for t in self.today_times)
         await ctx.send(f"오늘({datetime.now(KST).strftime('%Y-%m-%d')})의 하묘 출제 시간이 새로 설정되었습니다:\n{times_str}")
 
