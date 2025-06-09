@@ -228,7 +228,7 @@ class SkyLanternInteraction(commands.Cog):
             self.answered_users.add(message.author.id)
             skylantern = self.bot.get_cog("SkyLanternEvent")
             if skylantern:
-                ok = await skylantern.try_give_interaction(message.author.id)  # round_num 제거
+                ok = await skylantern.give_lantern(message.author.id, "interaction")
                 if ok:
                     channel_id = await get_my_lantern_channel_id()
                     lantern_channel = message.guild.get_channel(channel_id) if message.guild else None

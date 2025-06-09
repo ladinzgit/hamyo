@@ -166,22 +166,6 @@ class SkyLanternEvent(commands.Cog):
         ok = await self.give_lantern(user_id, "celebration")
         return ok
 
-    # 하묘 상호작용 지급 (선착순 3명)
-    async def try_give_interaction(self, user_id: int):
-        if not await self.is_event_period():
-            return False
-        today = now_kst().strftime("%Y-%m-%d")
-        async with aiosqlite.connect(DB_PATH) as db:
-            # 하루 최대 3번만 지급되도록 수정
-            async with db.execute("SELECT COUNT(*) FROM interaction_log WHERE date=? AND user_id=?", (today, str(user_id))) as cur:
-                cnt = (await cur.fetchone())[0]
-                if cnt >= 3:  # INTERACTION_LIMIT 대신 하드코딩된 3 사용
-                    return False
-            await db.execute("INSERT INTO interaction_log (date, round, user_id) VALUES (?, ?, ?)", (today, 0, str(user_id)))
-            await db.commit()
-        await self.give_lantern(user_id, "interaction")
-        return True
-
     # 내풍등 확인 명령어
     @commands.command(name="내풍등")
     async def my_lantern(self, ctx):
