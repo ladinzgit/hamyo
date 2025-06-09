@@ -66,8 +66,7 @@ async def get_my_lantern_channel_id():
 async def save_today_times(times):
     today = datetime.now(KST).strftime("%Y-%m-%d")
     async with aiosqlite.connect(INTERACTION_DB_PATH) as db:
-        # 테이블 구조를 항상 5개 컬럼으로 강제 (마이그레이션)
-        await db.execute("DROP TABLE IF EXISTS interaction_times")
+        # DROP TABLE IF EXISTS interaction_times  # <-- 이 줄 삭제
         await db.execute("""
             CREATE TABLE IF NOT EXISTS interaction_times (
                 date TEXT PRIMARY KEY,
@@ -87,8 +86,7 @@ async def save_today_times(times):
 async def load_today_times():
     today = datetime.now(KST).strftime("%Y-%m-%d")
     async with aiosqlite.connect(INTERACTION_DB_PATH) as db:
-        # 테이블 구조를 항상 5개 컬럼으로 강제 (마이그레이션)
-        await db.execute("DROP TABLE IF EXISTS interaction_times")
+        # DROP TABLE IF EXISTS interaction_times  # <-- 이 줄 삭제
         await db.execute("""
             CREATE TABLE IF NOT EXISTS interaction_times (
                 date TEXT PRIMARY KEY,
@@ -120,8 +118,9 @@ class SkyLanternInteraction(commands.Cog):
     async def cog_load(self):
         print(f"✅ {self.__class__.__name__} loaded successfully!")
         await self.init_today_times()
-        await self.schedule_next_task()
+        # await self.schedule_next_task()  # <-- 이 시점에서 today_times가 없으면 새로 뽑히는 문제의 원인
         self.schedule_today_problems.start()
+        await self.schedule_next_task()  # <-- 반드시 schedule_today_problems.start() 이후에 호출
 
     async def schedule_next_task(self):
         # 예약된 task가 있으면 취소
