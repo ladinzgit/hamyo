@@ -313,15 +313,5 @@ class AttendanceCog(commands.Cog):
                 f"출석 횟수가 {count}회 → {new_count}회로 조정되었고, 지급된 100온도 회수되었습니다."
             )
 
-    @attendance_channel.command(name="초기화")
-    @only_in_guild()
-    @commands.has_permissions(administrator=True)
-    async def reset_attendance_records(self, ctx):
-        """모든 출석 기록을 초기화합니다. (관리자 전용)"""
-        async with aiosqlite.connect(DB_PATH) as db:
-            await db.execute("DELETE FROM attendance")
-            await db.commit()
-        await ctx.send("모든 출석 기록이 초기화되었습니다.")
-
 async def setup(bot):
     await bot.add_cog(AttendanceCog(bot))
