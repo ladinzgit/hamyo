@@ -210,7 +210,7 @@ class Economy(commands.Cog):
         if lantern_given:
             lantern_channel, channel_id = await get_my_lantern_channel_id(ctx.guild)
             mention = lantern_channel.mention if lantern_channel else f"<#{channel_id}>"
-            lantern_count = 2 * count if lantern_type == "업" else 3 * count
+            lantern_count = 2 if lantern_type == "업" else 5  # 업=2개, 추천=5개 하드코딩
             await ctx.send(
                 f"{member.mention}님, `{lantern_type}` 인증으로 풍등 {lantern_count}개가 지급되었습니다!\n"
                 f"현재 보유 풍등 개수는 {mention} 채널에서 `*내풍등` 명령어로 확인할 수 있습니다."

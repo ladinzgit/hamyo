@@ -66,32 +66,40 @@ async def get_my_lantern_channel_id():
 async def save_today_times(times):
     today = datetime.now(KST).strftime("%Y-%m-%d")
     async with aiosqlite.connect(INTERACTION_DB_PATH) as db:
+        # 테이블 구조를 항상 5개 컬럼으로 강제 (마이그레이션)
+        await db.execute("DROP TABLE IF EXISTS interaction_times")
         await db.execute("""
             CREATE TABLE IF NOT EXISTS interaction_times (
                 date TEXT PRIMARY KEY,
                 time1 TEXT,
                 time2 TEXT,
-                time3 TEXT
+                time3 TEXT,
+                time4 TEXT,
+                time5 TEXT
             )
         """)
         await db.execute("""
-            INSERT OR REPLACE INTO interaction_times (date, time1, time2, time3)
-            VALUES (?, ?, ?, ?)
+            INSERT OR REPLACE INTO interaction_times (date, time1, time2, time3, time4, time5)
+            VALUES (?, ?, ?, ?, ?, ?)
         """, (today, *(t.strftime("%H:%M") for t in times)))
         await db.commit()
 
 async def load_today_times():
     today = datetime.now(KST).strftime("%Y-%m-%d")
     async with aiosqlite.connect(INTERACTION_DB_PATH) as db:
+        # 테이블 구조를 항상 5개 컬럼으로 강제 (마이그레이션)
+        await db.execute("DROP TABLE IF EXISTS interaction_times")
         await db.execute("""
             CREATE TABLE IF NOT EXISTS interaction_times (
                 date TEXT PRIMARY KEY,
                 time1 TEXT,
                 time2 TEXT,
-                time3 TEXT
+                time3 TEXT,
+                time4 TEXT,
+                time5 TEXT
             )
         """)
-        async with db.execute("SELECT time1, time2, time3 FROM interaction_times WHERE date=?", (today,)) as cur:
+        async with db.execute("SELECT time1, time2, time3, time4, time5 FROM interaction_times WHERE date=?", (today,)) as cur:
             row = await cur.fetchone()
             if row and all(row):
                 return [datetime.strptime(t, "%H:%M").time() for t in row]
@@ -220,13 +228,13 @@ class SkyLanternInteraction(commands.Cog):
             self.answered_users.add(message.author.id)
             skylantern = self.bot.get_cog("SkyLanternEvent")
             if skylantern:
-                ok = await skylantern.try_give_interaction(message.author.id, None)  # round_num 제거
+                ok = await skylantern.try_give_interaction(message.author.id)  # round_num 제거
                 if ok:
                     channel_id = await get_my_lantern_channel_id()
                     lantern_channel = message.guild.get_channel(channel_id) if message.guild else None
                     mention = lantern_channel.mention if lantern_channel else f"<#{channel_id}>"
                     await message.reply(
-                        f"{message.author.mention}님, 정답이다묘! 풍등 2개 지급해주게따묘...☆\n"
+                        f"{message.author.mention}님, 정답이다묘! 풍등 3개 지급해주게따묘...☆\n"
                         f"현재 보유 풍등 개수는 {mention} 채널에서 `*내풍등` 명령어로 확인할 수 있다묘!"
                     )
             if len(self.answered_users) >= 3:

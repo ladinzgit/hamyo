@@ -21,8 +21,8 @@ LANTERN_REWARD = {
     "celebration": 5,
     "attendance": 1,
     "up": 2,
-    "recommend": 3,
-    "interaction": 2
+    "recommend": 5,
+    "interaction": 3
 }
 INTERACTION_LIMIT = 3  # 하묘 선착순 지급 인원
 
@@ -111,14 +111,24 @@ class SkyLanternEvent(commands.Cog):
         try:
             if not await self.is_event_period():
                 return False
-            if count <= 0:  # count 유효성 검사
+            if count <= 0:
                 return False
+
+            # 지급량 하드코딩
+            if key == "celebration":
+                amount = 5 * count
+            elif key == "attendance":
+                amount = 1 * count
+            elif key == "up":
+                amount = 2 * count
+            elif key == "recommend":
+                amount = 5 * count
+            elif key == "interaction":
+                amount = 3 * count
+            else:
+                return False
+
             async with aiosqlite.connect(DB_PATH) as db:
-                async with db.execute("SELECT amount FROM reward_config WHERE key=?", (key,)) as cur:
-                    row = await cur.fetchone()
-                    if not row:
-                        return False
-                    amount = row[0] * count  # 기본 지급량 × count
                 await db.execute("""
                     INSERT INTO lanterns (user_id, count)
                     VALUES (?, ?)
@@ -157,19 +167,17 @@ class SkyLanternEvent(commands.Cog):
         return ok
 
     # 하묘 상호작용 지급 (선착순 3명)
-    async def try_give_interaction(self, user_id: int, round_num: int):
+    async def try_give_interaction(self, user_id: int):
         if not await self.is_event_period():
             return False
         today = now_kst().strftime("%Y-%m-%d")
         async with aiosqlite.connect(DB_PATH) as db:
-            async with db.execute("SELECT COUNT(*) FROM interaction_log WHERE date=? AND round=?", (today, round_num)) as cur:
+            # 하루 최대 3번만 지급되도록 수정
+            async with db.execute("SELECT COUNT(*) FROM interaction_log WHERE date=? AND user_id=?", (today, str(user_id))) as cur:
                 cnt = (await cur.fetchone())[0]
-                if cnt >= INTERACTION_LIMIT:
+                if cnt >= 3:  # INTERACTION_LIMIT 대신 하드코딩된 3 사용
                     return False
-            async with db.execute("SELECT 1 FROM interaction_log WHERE date=? AND round=? AND user_id=?", (today, round_num, str(user_id))) as cur:
-                if await cur.fetchone():
-                    return False
-            await db.execute("INSERT INTO interaction_log (date, round, user_id) VALUES (?, ?, ?)", (today, round_num, str(user_id)))
+            await db.execute("INSERT INTO interaction_log (date, round, user_id) VALUES (?, ?, ?)", (today, 0, str(user_id)))
             await db.commit()
         await self.give_lantern(user_id, "interaction")
         return True
