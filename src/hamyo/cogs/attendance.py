@@ -148,7 +148,7 @@ class AttendanceCog(commands.Cog):
                         lantern_channel, channel_id = await get_my_lantern_channel_id(ctx.guild)
                         mention = lantern_channel.mention if lantern_channel else f"<#{channel_id}>"
                         await ctx.send(
-                            f"{ctx.author.mention}님, 출석 체크로 풍등 1개가 지급되었습니다!\n"
+                            f"{ctx.author.mention}님, 출석 체크로 풍등 2개가 지급되었습니다!\n"
                             f"현재 보유 풍등 개수는 {mention} 채널에서 `*내풍등` 명령어로 확인할 수 있습니다."
                         )
                     else:

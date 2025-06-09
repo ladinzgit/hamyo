@@ -118,7 +118,7 @@ class SkyLanternEvent(commands.Cog):
             if key == "celebration":
                 amount = 5 * count
             elif key == "attendance":
-                amount = 1 * count
+                amount = 2 * count
             elif key == "up":
                 amount = 2 * count
             elif key == "recommend":
