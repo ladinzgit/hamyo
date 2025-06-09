@@ -18,8 +18,8 @@ async def get_main_channel_id():
 
 def make_math_problem():
     op = random.choice(['+', '-', '*'])
-    a = random.randint(1, 9)
-    b = random.randint(1, 9)
+    a = random.randint(10, 99)
+    b = random.randint(10, 99)
     if op == '+':
         q = f"{a} + {b}"
         a_str = str(a + b)
@@ -35,7 +35,7 @@ def make_math_problem():
 def get_today_kst():
     return datetime.now(KST).date()
 
-def random_times_for_today(n=3):
+def random_times_for_today(n=5):
     # 08:00 오늘 ~ 24:00(=16시간) 사이에서 랜덤 n개, 최소 10분 텀 보장
     base = datetime.now(KST).replace(hour=8, minute=0, second=0, microsecond=0)
     end = base + timedelta(hours=16)  # 08:00~24:00
@@ -158,14 +158,14 @@ class SkyLanternInteraction(commands.Cog):
             self.today_times = loaded
             await self.log(f"오늘({datetime.now(KST).strftime('%Y-%m-%d')})의 상호작용 시간(복구): {', '.join(t.strftime('%H:%M') for t in self.today_times)}")
         else:
-            self.today_times = random_times_for_today(3)
+            self.today_times = random_times_for_today(5)
             await save_today_times(self.today_times)
             await self.log(f"오늘({datetime.now(KST).strftime('%Y-%m-%d')})의 상호작용 시간(신규): {', '.join(t.strftime('%H:%M') for t in self.today_times)}")
 
     @tasks.loop(time=dt_time(0, 1, tzinfo=KST))
     async def schedule_today_problems(self):
         # 자정마다 새로운 시간 생성 및 저장
-        self.today_times = random_times_for_today(3)
+        self.today_times = random_times_for_today(5)
         await save_today_times(self.today_times)
         await self.log(f"오늘({datetime.now(KST).strftime('%Y-%m-%d')})의 상호작용 시간(갱신): {', '.join(t.strftime('%H:%M') for t in self.today_times)}")
         await self.log(
@@ -249,7 +249,7 @@ class SkyLanternInteraction(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def reroll_times(self, ctx):
         """오늘의 하묘 출제 시간을 즉시 새로 뽑고 저장합니다. (관리자 전용)"""
-        self.today_times = random_times_for_today(3)
+        self.today_times = random_times_for_today(5)
         await save_today_times(self.today_times)
         await self.log(f"{ctx.author}({ctx.author.id})님이 수동으로 오늘의 상호작용 시간을 다시 뽑았습니다: {', '.join(t.strftime('%H:%M') for t in self.today_times)}")
         await self.log(
