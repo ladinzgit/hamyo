@@ -64,5 +64,26 @@ class SkyLanternRanking(commands.Cog):
                 await msg.delete()
         await channel.send(embed=embed)
 
+    @commands.command(name="all_rank")
+    @commands.has_permissions(administrator=True)
+    async def all_rank(self, ctx):
+        """DB에 있는 모든 유저의 유저ID - 풍등 개수 목록을 출력합니다. (관리자 전용)"""
+        async with aiosqlite.connect("data/skylantern_event.db") as db:
+            async with db.execute("SELECT user_id, count FROM lanterns ORDER BY count DESC, user_id ASC") as cur:
+                rows = await cur.fetchall()
+        if not rows:
+            await ctx.send("풍등을 가진 유저가 없습니다.")
+            return
+        lines = [f"<@{user_id}> ({user_id}) : {count}개" for user_id, count in rows]
+        # Discord 메시지 길이 제한(2000자) 대응
+        chunk = ""
+        for line in lines:
+            if len(chunk) + len(line) + 1 > 1900:
+                await ctx.send(f"```{chunk}```")
+                chunk = ""
+            chunk += line + "\n"
+        if chunk:
+            await ctx.send(f"```{chunk}```")
+
 async def setup(bot):
     await bot.add_cog(SkyLanternRanking(bot))
