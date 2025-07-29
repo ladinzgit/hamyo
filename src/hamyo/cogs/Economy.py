@@ -36,22 +36,12 @@ def in_allowed_channel():
         return False
     return commands.check(predicate)
 
-async def get_my_lantern_channel_id(guild):
-    async with aiosqlite.connect("data/skylantern_event.db") as db:
-        async with db.execute("SELECT my_lantern_channel_id FROM config WHERE id=1") as cur:
-            row = await cur.fetchone()
-            channel_id = row[0] if row and row[0] else 1378353273194545162
-    return guild.get_channel(channel_id) if guild else None, channel_id
-
 class Economy(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.skylantern = None
 
     async def cog_load(self):
         print(f"✅ {self.__class__.__name__} loaded successfully!")
-        # SkyLanternEvent Cog 참조
-        self.skylantern = self.bot.get_cog("SkyLanternEvent")
 
     async def log(self, message):
         """Logger cog를 통해 로그 메시지 전송"""
@@ -172,22 +162,6 @@ class Economy(commands.Cog):
 
         total = reward_amount * count
         await balance_manager.give(str(member.id), total)
-        lantern_given = False
-        lantern_type = None
-
-        # SkyLanternEvent cog를 지급 시점마다 안전하게 참조
-        skylantern = self.bot.get_cog("SkyLanternEvent")
-        if skylantern and await skylantern.is_event_period():
-            if condition == "업":
-                ok = await skylantern.give_lantern(member.id, "up", count)
-                if ok:
-                    lantern_given = True
-                    lantern_type = "업"
-            elif condition == "추천":
-                ok = await skylantern.give_lantern(member.id, "recommend", count)
-                if ok:
-                    lantern_given = True
-                    lantern_type = "추천"
 
         unit = await self.get_currency_unit()
         new_balance = await balance_manager.get_balance(str(member.id))

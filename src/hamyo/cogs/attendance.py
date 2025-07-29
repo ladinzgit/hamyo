@@ -22,17 +22,9 @@ async def is_attendance_allowed_channel(channel_id):
             row = await cur.fetchone()
             return row is not None
 
-async def get_my_lantern_channel_id(guild):
-    async with aiosqlite.connect("data/skylantern_event.db") as db:
-        async with db.execute("SELECT my_lantern_channel_id FROM config WHERE id=1") as cur:
-            row = await cur.fetchone()
-            channel_id = row[0] if row and row[0] else 1378353273194545162
-    return guild.get_channel(channel_id) if guild else None, channel_id
-
 class AttendanceCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.skylantern = None
 
     async def cog_load(self):
         async with aiosqlite.connect(DB_PATH) as db:
@@ -49,7 +41,6 @@ class AttendanceCog(commands.Cog):
                 )
             """)
             await db.commit()
-        self.skylantern = self.bot.get_cog("SkyLanternEvent")
 
     @commands.group(name="출석", invoke_without_command=True)
     @only_in_guild()
@@ -137,24 +128,6 @@ class AttendanceCog(commands.Cog):
                         await ctx.send(embed=embed)
                         attendance_success = True
 
-            # 출석 성공 시에만 풍등 지급 시도
-            if attendance_success:
-                skylantern = self.bot.get_cog("SkyLanternEvent")
-                if skylantern and await skylantern.is_event_period():
-                    lantern_given = await skylantern.give_lantern(user_id, "attendance")
-                    
-                    if lantern_given:
-                        # 풍등 지급 안내 메시지
-                        lantern_channel, channel_id = await get_my_lantern_channel_id(ctx.guild)
-                        mention = lantern_channel.mention if lantern_channel else f"<#{channel_id}>"
-                        await ctx.send(
-                            f"{ctx.author.mention}님, 출석 체크로 풍등 2개가 지급되었습니다!\n"
-                            f"현재 보유 풍등 개수는 {mention} 채널에서 `*내풍등` 명령어로 확인할 수 있습니다."
-                        )
-                    else:
-                        await ctx.send(
-                            f"{ctx.author.mention}님, 풍등 지급이 실패했습니다. 관리자에게 문의해주세요."
-                        )
         except Exception as e:
             await ctx.send(f"출석 처리 중 오류가 발생했습니다. 관리자에게 문의해주세요.: {str(e)}")
             raise
