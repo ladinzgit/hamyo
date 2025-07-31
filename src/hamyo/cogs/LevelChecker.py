@@ -319,7 +319,7 @@ class LevelChecker(commands.Cog):
                 await message.add_reaction('<:BM_j_010:1399387534101843978>')
             
         except Exception as e:
-            self.logger.error(f"다방일지 처리 중 오류 발생: {e}")
+            await self.log(f"다방일지 처리 중 오류 발생: {e}")
 
     async def process_bbibbi(self, user_id: int) -> Dict[str, Any]:
         """삐삐(특정 역할 멘션) 일일 퀘스트 처리"""

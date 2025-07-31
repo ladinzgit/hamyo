@@ -76,24 +76,28 @@ class VoiceTracker(commands.Cog):
         """
         음성방 30분(일일), 5/10/20시간(주간) 퀘스트 경험치 지급
         """
-        # LevelChecker Cog 가져오기
         level_checker = self.bot.get_cog('LevelChecker')
         if not level_checker:
             return
 
+        # VoiceConfig에서 등록한 채널만 추적
+        tracked_channel_ids = set(await self.data_manager.get_tracked_channels("voice"))
+
         now = datetime.now()
         today_str = now.strftime('%Y-%m-%d')
         week_str = now.strftime('%Y-%W')
-        # 모든 유저의 음성 기록을 확인
-        # (join_times에 있는 유저만 확인, 필요시 전체 유저로 확장 가능)
+
         user_ids = list(self.join_times.keys())
         for user_id in user_ids:
             # --- 일일 30분 ---
             daily_key = (user_id, today_str)
             if daily_key not in self.voice_quest_daily_given:
-                seconds_today = await self.data_manager.get_user_voice_seconds_daily(user_id, now)
+                # 집계: 오늘 해당 유저가 추적 채널에서 사용한 총 시간
+                seconds_today = 0
+                times_today, _, _ = await self.data_manager.get_user_times(user_id, '일간', now, list(tracked_channel_ids))
+                if times_today:
+                    seconds_today = sum(times_today.values())
                 if seconds_today >= 1800:
-                    # 지급
                     try:
                         await level_checker.process_voice_30min(user_id)
                     except Exception as e:
@@ -103,11 +107,13 @@ class VoiceTracker(commands.Cog):
             # --- 주간 5/10/20시간 ---
             if user_id not in self.voice_quest_weekly_given:
                 self.voice_quest_weekly_given[user_id] = set()
-            seconds_week = await self.data_manager.get_user_voice_seconds_weekly(user_id, now)
+            seconds_week = 0
+            times_week, _, _ = await self.data_manager.get_user_times(user_id, '주간', now, list(tracked_channel_ids))
+            if times_week:
+                seconds_week = sum(times_week.values())
             for hour, quest_name in [(5, 'voice_5h'), (10, 'voice_10h'), (20, 'voice_20h')]:
                 if hour not in self.voice_quest_weekly_given[user_id]:
                     if seconds_week >= hour * 3600:
-                        # 지급
                         try:
                             await level_checker.process_voice_weekly(user_id, hour)
                         except Exception as e:
