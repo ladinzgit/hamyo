@@ -301,13 +301,13 @@ class LevelChecker(commands.Cog):
         user_id = message.author.id
         
         try:
-            # 오늘 작성한 다방일지가 있는지 확인
+            # 오늘 작성한 다방일지가 있는지 확인 (한국 시간 기준)
             async with self.data_manager.db_connect() as db:
                 cursor = await db.execute("""
-                    SELECT COUNT(*) FROM quest_logs 
-                    WHERE user_id = ? AND quest_type = 'daily' AND quest_subtype = 'diary' 
-                    AND DATE(completed_at) = DATE('now')
-                """, (user_id,))
+                SELECT COUNT(*) FROM quest_logs 
+                WHERE user_id = ? AND quest_type = 'daily' AND quest_subtype = 'diary' 
+                AND DATE(completed_at, '+9 hours') = ?
+                """, (user_id))
                 today_count = (await cursor.fetchone())[0]
             
             if today_count > 0:
