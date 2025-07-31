@@ -346,3 +346,37 @@ class DataManager:
             async for (channel_id,) in cursor:
                 result.append(channel_id)
         return result
+
+    async def get_user_voice_seconds(self, user_id: int, period: str, base_date: Optional[datetime] = None) -> int:
+        """
+        주어진 기간(period: '일간', '주간') 동안 유저가 음성 채널에서 활동한 총 시간을 초 단위로 반환합니다.
+        """
+        await self.ensure_initialized()
+        if base_date is None:
+            base_date = datetime.now()
+        start_date, end_date = await self.get_period_range(period, base_date)
+        if not start_date or not end_date:
+            return 0
+
+        sql = """
+            SELECT SUM(seconds)
+              FROM voice_times
+             WHERE user_id = ?
+               AND date BETWEEN ? AND ?
+        """
+        params = [
+            user_id,
+            start_date.strftime("%Y-%m-%d"),
+            (end_date - timedelta(days=1)).strftime("%Y-%m-%d")
+        ]
+        async with self._db.execute(sql, params) as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row and row[0] else 0
+
+    async def get_user_voice_seconds_daily(self, user_id: int, base_date: Optional[datetime] = None) -> int:
+        """오늘 하루 동안 유저가 음성 채널에서 활동한 총 시간을 초 단위로 반환합니다."""
+        return await self.get_user_voice_seconds(user_id, '일간', base_date)
+
+    async def get_user_voice_seconds_weekly(self, user_id: int, base_date: Optional[datetime] = None) -> int:
+        """이번 주 동안 유저가 음성 채널에서 활동한 총 시간을 초 단위로 반환합니다."""
+        return await self.get_user_voice_seconds(user_id, '주간', base_date)

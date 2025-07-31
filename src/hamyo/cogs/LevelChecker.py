@@ -368,5 +368,80 @@ class LevelChecker(commands.Cog):
         
         return await self._finalize_quest_result(user_id, result)
     
+    # ===========================================
+    # 음성방 퀘스트 처리
+    # ===========================================
+
+    async def process_voice_30min(self, user_id: int) -> dict:
+        """
+        음성방 30분 일일 퀘스트 처리 (중복 지급 방지)
+        """
+        result = {
+            'success': False,
+            'exp_gained': 0,
+            'messages': [],
+            'quest_completed': []
+        }
+        try:
+            # 오늘 이미 지급했는지 확인
+            async with self.data_manager.db_connect() as db:
+                cursor = await db.execute("""
+                    SELECT COUNT(*) FROM quest_logs
+                    WHERE user_id = ? AND quest_type = 'daily' AND quest_subtype = 'voice_30min'
+                      AND DATE(completed_at) = DATE('now')
+                """, (user_id,))
+                today_count = (await cursor.fetchone())[0]
+            if today_count > 0:
+                return result  # 이미 지급됨
+
+            exp = self.quest_exp['daily']['voice_30min']
+            await self.data_manager.add_exp(user_id, exp, 'daily', 'voice_30min')
+            result['success'] = True
+            result['exp_gained'] = exp
+            result['quest_completed'].append('daily_voice_30min')
+            result['messages'].append(f"🔊 음성방 30분 수행 완료! **+{exp} 수행력**")
+        except Exception as e:
+            await self.log(f"음성 30분 퀘스트 처리 중 오류: {e}")
+            result['messages'].append("음성 30분 퀘스트 처리 중 오류가 발생했습니다.")
+        return await self._finalize_quest_result(user_id, result)
+
+    async def process_voice_weekly(self, user_id: int, hour: int) -> dict:
+        """
+        음성방 주간 5/10/20시간 퀘스트 처리 (중복 지급 방지)
+        hour: 5, 10, 20 중 하나
+        """
+        result = {
+            'success': False,
+            'exp_gained': 0,
+            'messages': [],
+            'quest_completed': []
+        }
+        quest_map = {5: 'voice_5h', 10: 'voice_10h', 20: 'voice_20h'}
+        if hour not in quest_map:
+            return result
+        quest_subtype = quest_map[hour]
+        try:
+            # 이번 주 이미 지급했는지 확인
+            week_start = self.data_manager._get_week_start()
+            async with self.data_manager.db_connect() as db:
+                cursor = await db.execute("""
+                    SELECT COUNT(*) FROM quest_logs
+                    WHERE user_id = ? AND quest_type = 'weekly' AND quest_subtype = ? AND week_start = ?
+                """, (user_id, quest_subtype, week_start))
+                week_count = (await cursor.fetchone())[0]
+            if week_count > 0:
+                return result  # 이미 지급됨
+
+            exp = self.quest_exp['weekly'][quest_subtype]
+            await self.data_manager.add_exp(user_id, exp, 'weekly', quest_subtype)
+            result['success'] = True
+            result['exp_gained'] = exp
+            result['quest_completed'].append(f'weekly_{quest_subtype}')
+            result['messages'].append(f"🏆 음성방 {hour}시간(주간) 수행 완료! **+{exp} 수행력**")
+        except Exception as e:
+            await self.log(f"음성 {hour}시간 퀘스트 처리 중 오류: {e}")
+            result['messages'].append(f"음성 {hour}시간 퀘스트 처리 중 오류가 발생했습니다.")
+        return await self._finalize_quest_result(user_id, result)
+    
 async def setup(bot):
     await bot.add_cog(LevelChecker(bot))

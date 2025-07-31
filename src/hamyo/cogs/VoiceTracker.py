@@ -11,6 +11,9 @@ class VoiceTracker(commands.Cog):
         self.join_times = {}  # {user_id: {channel_id: join_time}}
         bot.loop.create_task(self.data_manager.initialize())
         self.track_voice_time.start()
+        # --- 추가: 음성 퀘스트 지급 여부 메모리 관리 ---
+        self.voice_quest_daily_given = set()  # (user_id, date)
+        self.voice_quest_weekly_given = {}    # user_id: set([5, 10, 20])  # 시간 단위
 
     async def cog_load(self):
         print(f"✅ {self.__class__.__name__} loaded successfully!")
@@ -66,6 +69,51 @@ class VoiceTracker(commands.Cog):
                         await self.data_manager.add_voice_time(user_id, channel_id, duration)
                         self.join_times[user_id][channel_id] = now
 
+        # --- 음성 퀘스트 지급 로직 추가 ---
+        await self.process_voice_quests()
+
+    async def process_voice_quests(self):
+        """
+        음성방 30분(일일), 5/10/20시간(주간) 퀘스트 경험치 지급
+        """
+        # LevelChecker Cog 가져오기
+        level_checker = self.bot.get_cog('LevelChecker')
+        if not level_checker:
+            return
+
+        now = datetime.now()
+        today_str = now.strftime('%Y-%m-%d')
+        week_str = now.strftime('%Y-%W')
+        # 모든 유저의 음성 기록을 확인
+        # (join_times에 있는 유저만 확인, 필요시 전체 유저로 확장 가능)
+        user_ids = list(self.join_times.keys())
+        for user_id in user_ids:
+            # --- 일일 30분 ---
+            daily_key = (user_id, today_str)
+            if daily_key not in self.voice_quest_daily_given:
+                seconds_today = await self.data_manager.get_user_voice_seconds_daily(user_id, now)
+                if seconds_today >= 1800:
+                    # 지급
+                    try:
+                        await level_checker.process_voice_30min(user_id)
+                    except Exception as e:
+                        print(f"Voice 30min quest error: {e}")
+                    self.voice_quest_daily_given.add(daily_key)
+
+            # --- 주간 5/10/20시간 ---
+            if user_id not in self.voice_quest_weekly_given:
+                self.voice_quest_weekly_given[user_id] = set()
+            seconds_week = await self.data_manager.get_user_voice_seconds_weekly(user_id, now)
+            for hour, quest_name in [(5, 'voice_5h'), (10, 'voice_10h'), (20, 'voice_20h')]:
+                if hour not in self.voice_quest_weekly_given[user_id]:
+                    if seconds_week >= hour * 3600:
+                        # 지급
+                        try:
+                            await level_checker.process_voice_weekly(user_id, hour)
+                        except Exception as e:
+                            print(f"Voice {hour}h quest error: {e}")
+                        self.voice_quest_weekly_given[user_id].add(hour)
+
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel):
         if isinstance(channel, discord.VoiceChannel) and channel.category:
@@ -109,7 +157,9 @@ class VoiceTracker(commands.Cog):
                 self.join_times[member.id][after.channel.id] = now
         except Exception as e:
             print(e)
-            
+        # --- 추가: 음성 퀘스트 지급 로직 ---
+        await self.process_voice_quests()
+
     @commands.command()
     async def check_all_time(self, ctx, user: discord.Member = None):
         user = user or ctx.author
