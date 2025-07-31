@@ -6,6 +6,13 @@ import logging
 import asyncio
 import datetime
 
+try:
+    from zoneinfo import ZoneInfo
+    KST = ZoneInfo("Asia/Seoul")
+except ImportError:
+    import pytz
+    KST = pytz.timezone("Asia/Seoul")
+
 class LevelChecker(commands.Cog):
     def __init__(self, bot):
         self.bot = bot

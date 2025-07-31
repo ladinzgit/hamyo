@@ -3,6 +3,12 @@ from discord.ext import commands
 from LevelDataManager import LevelDataManager
 from typing import Optional, Dict, Any, List
 import logging
+try:
+    from zoneinfo import ZoneInfo
+    KST = ZoneInfo("Asia/Seoul")
+except ImportError:
+    import pytz
+    KST = pytz.timezone("Asia/Seoul")
 
 class LevelConfig(commands.Cog):
     def __init__(self, bot):

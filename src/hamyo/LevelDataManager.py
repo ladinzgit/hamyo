@@ -4,6 +4,13 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 import logging
 
+try:
+    from zoneinfo import ZoneInfo
+    KST = ZoneInfo("Asia/Seoul")
+except ImportError:
+    import pytz
+    KST = pytz.timezone("Asia/Seoul")
+
 db_path = "data/level_system.db"
 
 class LevelDataManager:
@@ -85,9 +92,11 @@ class LevelDataManager:
         return aiosqlite.connect(self.db_path)
     
     def _get_week_start(self, date: datetime = None) -> str:
-        """주의 시작일 계산 (월요일 기준)"""
+        """주의 시작일 계산 (월요일 기준, KST)"""
         if date is None:
-            date = datetime.now()
+            date = datetime.now(KST)
+        else:
+            date = date.astimezone(KST)
         days_since_monday = date.weekday()
         week_start = date - timedelta(days=days_since_monday)
         return week_start.strftime('%Y-%m-%d')
@@ -109,7 +118,7 @@ class LevelDataManager:
                 
                 # 퀘스트 로그 기록
                 if quest_type:
-                    week_start = self._get_week_start()
+                    week_start = self._get_week_start(datetime.now(KST))
                     await db.execute("""
                         INSERT INTO quest_logs (user_id, quest_type, quest_subtype, exp_gained, week_start)
                         VALUES (?, ?, ?, ?, ?)
@@ -297,21 +306,22 @@ class LevelDataManager:
                         LIMIT ?
                     """, (limit,))
                 elif period_type == 'daily':
-                    # 일간 순위 (오늘 획득한 경험치)
+                    # 일간 순위 (오늘 획득한 경험치, KST 기준)
+                    today_kst = datetime.now(KST).strftime('%Y-%m-%d')
                     cursor = await db.execute("""
                         SELECT ql.user_id, SUM(ql.exp_gained) as period_exp, 
                                COALESCE(ue.current_role, 'hub') as current_role
                         FROM quest_logs ql
                         LEFT JOIN user_exp ue ON ql.user_id = ue.user_id
-                        WHERE DATE(ql.completed_at) = DATE('now')
+                        WHERE DATE(ql.completed_at, 'localtime') = ?
                         GROUP BY ql.user_id
                         HAVING period_exp > 0
                         ORDER BY period_exp DESC
                         LIMIT ?
-                    """, (limit,))
+                    """, (today_kst, limit))
                 elif period_type == 'weekly':
                     # 주간 순위 (이번 주 획득한 경험치)
-                    week_start = self._get_week_start()
+                    week_start = self._get_week_start(datetime.now(KST))
                     cursor = await db.execute("""
                         SELECT ql.user_id, SUM(ql.exp_gained) as period_exp,
                                COALESCE(ue.current_role, 'hub') as current_role
@@ -325,17 +335,18 @@ class LevelDataManager:
                     """, (week_start, limit))
                 elif period_type == 'monthly':
                     # 월간 순위 (이번 달 획득한 경험치)
+                    month_kst = datetime.now(KST).strftime('%Y-%m')
                     cursor = await db.execute("""
                         SELECT ql.user_id, SUM(ql.exp_gained) as period_exp,
                                COALESCE(ue.current_role, 'hub') as current_role
                         FROM quest_logs ql
                         LEFT JOIN user_exp ue ON ql.user_id = ue.user_id
-                        WHERE strftime('%Y-%m', ql.completed_at) = strftime('%Y-%m', 'now')
+                        WHERE strftime('%Y-%m', ql.completed_at, 'localtime') = ?
                         GROUP BY ql.user_id
                         HAVING period_exp > 0
                         ORDER BY period_exp DESC
                         LIMIT ?
-                    """, (limit,))
+                    """, (month_kst, limit))
                 else:
                     return []
                 
@@ -358,14 +369,15 @@ class LevelDataManager:
                     """, (user_id,))
                 elif period_type == 'daily':
                     # 오늘 획득한 경험치
+                    today_kst = datetime.now(KST).strftime('%Y-%m-%d')
                     cursor = await db.execute("""
                         SELECT COALESCE(SUM(exp_gained), 0) as daily_exp
                         FROM quest_logs 
-                        WHERE user_id = ? AND DATE(completed_at) = DATE('now')
-                    """, (user_id,))
+                        WHERE user_id = ? AND DATE(completed_at, 'localtime') = ?
+                    """, (user_id, today_kst))
                 elif period_type == 'weekly':
                     # 이번 주 획득한 경험치
-                    week_start = self._get_week_start()
+                    week_start = self._get_week_start(datetime.now(KST))
                     cursor = await db.execute("""
                         SELECT COALESCE(SUM(exp_gained), 0) as weekly_exp
                         FROM quest_logs 
@@ -373,11 +385,12 @@ class LevelDataManager:
                     """, (user_id, week_start))
                 elif period_type == 'monthly':
                     # 이번 달 획득한 경험치
+                    month_kst = datetime.now(KST).strftime('%Y-%m')
                     cursor = await db.execute("""
                         SELECT COALESCE(SUM(exp_gained), 0) as monthly_exp
                         FROM quest_logs 
-                        WHERE user_id = ? AND strftime('%Y-%m', completed_at) = strftime('%Y-%m', 'now')
-                    """, (user_id,))
+                        WHERE user_id = ? AND strftime('%Y-%m', completed_at, 'localtime') = ?
+                    """, (user_id, month_kst))
                 else:
                     return 0
                 
@@ -404,23 +417,24 @@ class LevelDataManager:
                     """, (user_id,))
                 elif period_type == 'daily':
                     # 일간 순위
+                    today_kst = datetime.now(KST).strftime('%Y-%m-%d')
                     cursor = await db.execute("""
                         SELECT COUNT(*) + 1 as rank
                         FROM (
                             SELECT user_id, SUM(exp_gained) as daily_exp
                             FROM quest_logs 
-                            WHERE DATE(completed_at) = DATE('now')
+                            WHERE DATE(completed_at, 'localtime') = ?
                             GROUP BY user_id
                         ) daily_ranks
                         WHERE daily_exp > (
                             SELECT COALESCE(SUM(exp_gained), 0)
                             FROM quest_logs 
-                            WHERE user_id = ? AND DATE(completed_at) = DATE('now')
+                            WHERE user_id = ? AND DATE(completed_at, 'localtime') = ?
                         )
-                    """, (user_id,))
+                    """, (today_kst, user_id, today_kst))
                 elif period_type == 'weekly':
                     # 주간 순위
-                    week_start = self._get_week_start()
+                    week_start = self._get_week_start(datetime.now(KST))
                     cursor = await db.execute("""
                         SELECT COUNT(*) + 1 as rank
                         FROM (
@@ -437,20 +451,21 @@ class LevelDataManager:
                     """, (week_start, user_id, week_start))
                 elif period_type == 'monthly':
                     # 월간 순위
+                    month_kst = datetime.now(KST).strftime('%Y-%m')
                     cursor = await db.execute("""
                         SELECT COUNT(*) + 1 as rank
                         FROM (
                             SELECT user_id, SUM(exp_gained) as monthly_exp
                             FROM quest_logs 
-                            WHERE strftime('%Y-%m', completed_at) = strftime('%Y-%m', 'now')
+                            WHERE strftime('%Y-%m', completed_at, 'localtime') = ?
                             GROUP BY user_id
                         ) monthly_ranks
                         WHERE monthly_exp > (
                             SELECT COALESCE(SUM(exp_gained), 0)
                             FROM quest_logs 
-                            WHERE user_id = ? AND strftime('%Y-%m', completed_at) = strftime('%Y-%m', 'now')
+                            WHERE user_id = ? AND strftime('%Y-%m', completed_at, 'localtime') = ?
                         )
-                    """, (user_id,))
+                    """, (month_kst, user_id, month_kst))
                 else:
                     return 1
                 

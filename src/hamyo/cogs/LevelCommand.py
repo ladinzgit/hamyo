@@ -5,6 +5,13 @@ from typing import Optional, Dict, Any, List
 import logging
 from datetime import datetime, timedelta
 
+try:
+    from zoneinfo import ZoneInfo
+    KST = ZoneInfo("Asia/Seoul")
+except ImportError:
+    import pytz
+    KST = pytz.timezone("Asia/Seoul")
+
 class LevelCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -277,7 +284,7 @@ class LevelCommands(commands.Cog):
     async def _get_weekly_quest_history(self, user_id: int) -> str:
         """이번 주 완료한 퀘스트 기록"""
         try:
-            week_start = self.data_manager._get_week_start()
+            week_start = self.data_manager._get_week_start(datetime.now(KST))
             
             async with self.data_manager.db_connect() as db:
                 cursor = await db.execute("""

@@ -5,6 +5,13 @@ import os
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List, Tuple
 
+try:
+    from zoneinfo import ZoneInfo
+    KST = ZoneInfo("Asia/Seoul")
+except ImportError:
+    import pytz
+    KST = pytz.timezone("Asia/Seoul")
+
 class DataManager:
     _instance = None
     _initialized = False
@@ -96,7 +103,7 @@ class DataManager:
 
     async def add_voice_time(self, user_id: int, channel_id: int, seconds: int):
         await self.ensure_initialized()
-        now = datetime.now().strftime("%Y-%m-%d")
+        now = datetime.now(KST).strftime("%Y-%m-%d")
         await self._db.execute("""
             INSERT INTO voice_times (date, user_id, channel_id, seconds)
             VALUES (?, ?, ?, ?)
@@ -130,7 +137,7 @@ class DataManager:
     ) -> Tuple[Dict[int, int], Optional[datetime], Optional[datetime]]:
         await self.ensure_initialized()
         if base_date is None:
-            base_date = datetime.now()
+            base_date = datetime.now(KST)
 
         result: Dict[int, int] = {}
         start_date, end_date = await self.get_period_range(period, base_date)
@@ -209,14 +216,17 @@ class DataManager:
     
     async def get_period_range(self, period: str, base_datetime: datetime) -> Tuple[Optional[datetime], Optional[datetime]]:
         await self.ensure_initialized()
+        # base_datetime은 항상 KST로 전달되어야 함
         if period == '일간':
-            start = base_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
+            start = base_datetime.astimezone(KST).replace(hour=0, minute=0, second=0, microsecond=0)
             end = start + timedelta(days=1)
         elif period == '주간':
+            base_datetime = base_datetime.astimezone(KST)
             start = base_datetime - timedelta(days=base_datetime.weekday())
             start = start.replace(hour=0, minute=0, second=0, microsecond=0)
             end = start + timedelta(days=7)
         elif period == '월간':
+            base_datetime = base_datetime.astimezone(KST)
             start = base_datetime.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             if start.month == 12:
                 end = start.replace(year=start.year + 1, month=1)
@@ -224,7 +234,7 @@ class DataManager:
                 end = start.replace(month=start.month + 1)
         elif period == '누적':
             async with self._db.execute("SELECT date FROM voice_times ORDER BY date ASC") as cursor:
-                dates = [datetime.strptime(row[0], "%Y-%m-%d") async for row in cursor]
+                dates = [datetime.strptime(row[0], "%Y-%m-%d").replace(tzinfo=KST) async for row in cursor]
                 if not dates:
                     return None, None
                 return dates[0], dates[-1] + timedelta(days=1)
@@ -353,7 +363,7 @@ class DataManager:
         """
         await self.ensure_initialized()
         if base_date is None:
-            base_date = datetime.now()
+            base_date = datetime.now(KST)
         start_date, end_date = await self.get_period_range(period, base_date)
         if not start_date or not end_date:
             return 0
@@ -375,8 +385,8 @@ class DataManager:
 
     async def get_user_voice_seconds_daily(self, user_id: int, base_date: Optional[datetime] = None) -> int:
         """오늘 하루 동안 유저가 음성 채널에서 활동한 총 시간을 초 단위로 반환합니다."""
-        return await self.get_user_voice_seconds(user_id, '일간', base_date)
+        return await self.get_user_voice_seconds(user_id, '일간', base_date or datetime.now(KST))
 
     async def get_user_voice_seconds_weekly(self, user_id: int, base_date: Optional[datetime] = None) -> int:
         """이번 주 동안 유저가 음성 채널에서 활동한 총 시간을 초 단위로 반환합니다."""
-        return await self.get_user_voice_seconds(user_id, '주간', base_date)
+        return await self.get_user_voice_seconds(user_id, '주간', base_date or datetime.now(KST))

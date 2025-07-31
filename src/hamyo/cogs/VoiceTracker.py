@@ -4,6 +4,13 @@ from datetime import datetime
 from DataManager import DataManager
 import asyncio
 
+try:
+    from zoneinfo import ZoneInfo
+    KST = ZoneInfo("Asia/Seoul")
+except ImportError:
+    import pytz
+    KST = pytz.timezone("Asia/Seoul")
+
 class VoiceTracker(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -31,7 +38,7 @@ class VoiceTracker(commands.Cog):
 
     @tasks.loop(minutes=1)
     async def track_voice_time(self):
-        now = datetime.now()
+        now = datetime.now(KST)
         channels = self.get_all_voice_channels()
 
         for channel in channels:
@@ -83,7 +90,7 @@ class VoiceTracker(commands.Cog):
         # VoiceConfig에서 등록한 채널만 추적
         tracked_channel_ids = set(await self.data_manager.get_tracked_channels("voice"))
 
-        now = datetime.now()
+        now = datetime.now(KST)
         today_str = now.strftime('%Y-%m-%d')
         week_str = now.strftime('%Y-%W')
 
@@ -132,7 +139,7 @@ class VoiceTracker(commands.Cog):
             if member.bot or before.channel == after.channel:
                 return
 
-            now = datetime.now()
+            now = datetime.now(KST)
 
             # 나간 채널 처리
             if before.channel:
