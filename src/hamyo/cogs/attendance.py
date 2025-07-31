@@ -7,7 +7,7 @@ from balance_data_manager import balance_manager  # 추가
 
 DB_PATH = 'data/attendance.db'
 KST = pytz.timezone("Asia/Seoul")
-GUILD_ID = [1368459027851509891, 1378632284068122685]
+GUILD_ID = [1378632284068122685, 1396829213100605580]
 
 def only_in_guild():
     async def predicate(ctx):
@@ -127,6 +127,7 @@ class AttendanceCog(commands.Cog):
                         
                         await ctx.send(embed=embed)
                         attendance_success = True
+                        
 
         except Exception as e:
             await ctx.send(f"출석 처리 중 오류가 발생했습니다. 관리자에게 문의해주세요.: {str(e)}")
