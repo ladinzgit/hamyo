@@ -59,7 +59,7 @@ class LevelCommands(commands.Cog):
         role_name = self.role_info[current_role]['name']
         embed.add_field(
             name="💎 현재 상태",
-            value=f"**경험치:** {current_exp:,} EXP\n**역할:** {role_emoji} {role_name}",
+            value=f"**수행력:** {current_exp:,} EXP\n**역할:** {role_emoji} {role_name}",
             inline=True
         )
         

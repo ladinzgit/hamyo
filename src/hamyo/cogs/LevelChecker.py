@@ -144,24 +144,8 @@ class LevelChecker(commands.Cog):
                         inline=True
                     )
                 
-                # 현재 수행 단계 표시
-                role_names = {
-                    'hub': '🌱 허브',
-                    'dado': '🍃 다도',
-                    'daho': '🌸 다호',
-                    'dakyung': '🌟 다경'
-                }
-                current_role_name = role_names.get(current_role, current_role)
-                
-                embed.add_field(
-                    name="🎯 현재 수행 단계",
-                    value=current_role_name,
-                    inline=True
-                )
-                
                 # 완료 시간
                 embed.timestamp = discord.utils.utcnow()
-                embed.set_footer(text="꿈길을 따라 한 걸음씩...")
                 
                 await quest_channel.send(embed=embed)
             
@@ -245,7 +229,7 @@ class LevelChecker(commands.Cog):
             result['success'] = True
             result['exp_gained'] = daily_exp
             result['quest_completed'].append('daily_attendance')
-            result['messages'].append(f"📅 출석 완료! **+{daily_exp} 경험치**")
+            result['messages'].append(f"📅 일일 미션: 출석 완료")
             
             # 주간 출석 마일스톤 직접 확인
             current_count = await self.data_manager.get_quest_count(user_id, 'daily', 'attendance', 'week')
@@ -258,7 +242,7 @@ class LevelChecker(commands.Cog):
                     await self.data_manager.add_exp(user_id, bonus_exp_4, 'weekly', 'attendance_4')
                     result['exp_gained'] += bonus_exp_4
                     result['quest_completed'].append('weekly_attendance_4')
-                    result['messages'].append(f"🏆 주간 출석 4회 달성! **+{bonus_exp_4} 수행력**")
+                    result['messages'].append(f"🏆 주간 미션: 주간 출석 4회 달성")
             
             # 7회 달성 확인
             elif current_count == 7:
@@ -269,7 +253,7 @@ class LevelChecker(commands.Cog):
                     await self.data_manager.add_exp(user_id, bonus_exp_7, 'weekly', 'attendance_7')
                     result['exp_gained'] += bonus_exp_7
                     result['quest_completed'].append('weekly_attendance_7')
-                    result['messages'].append(f"🏆 주간 출석 7회 달성! **+{bonus_exp_7} 수행력**")
+                    result['messages'].append(f"🏆 주간 미션: 주간 출석 7회 달성")
             
         except Exception as e:
             await self.log(f"출석 퀘스트 처리 중 오류 발생: {e}")
