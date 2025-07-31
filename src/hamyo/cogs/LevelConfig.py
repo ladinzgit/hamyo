@@ -291,14 +291,21 @@ class LevelConfig(commands.Cog):
         if not level_checker:
             await ctx.send("❌ LevelChecker를 찾을 수 없습니다.")
             return
-        
-        # 퀘스트 유효성 확인
-        if not await level_checker.is_valid_quest(quest_type):
-            all_quest_types = await level_checker.get_all_quest_types()
+
+        # 퀘스트 유효성 확인 (one_time 포함)
+        try:
+            is_valid = await level_checker.is_valid_quest(quest_type)
+        except Exception as e:
+            await ctx.send(f"❌ 퀘스트 유효성 검사 중 오류: {e}")
+            return
+
+        if not is_valid:
+            # LevelChecker의 quest_exp에서 직접 확인
+            quest_exp = getattr(level_checker, "quest_exp", None)
             available_quests = []
-            for category, quests in all_quest_types.items():
-                available_quests.extend(quests)
-            
+            if quest_exp:
+                for category in ['daily', 'weekly', 'one_time']:
+                    available_quests.extend(list(quest_exp.get(category, {}).keys()))
             embed = discord.Embed(
                 title="❌ 유효하지 않은 퀘스트",
                 description=f"'{quest_type}'는 존재하지 않는 퀘스트입니다.",
@@ -316,34 +323,37 @@ class LevelConfig(commands.Cog):
             )
             await ctx.send(embed=embed)
             return
-        
+
         # 퀘스트 강제 완료
-        result = await level_checker.process_quest(member.id, quest_type)
-        
+        try:
+            result = await level_checker.process_quest(member.id, quest_type)
+        except Exception as e:
+            await ctx.send(f"❌ 퀘스트 처리 중 오류: {e}")
+            return
+
         embed = discord.Embed(
             title="🔧 퀘스트 강제 완료",
-            color=0x00ff00 if result['success'] else 0xff0000
+            color=0x00ff00 if result.get('success') else 0xff0000
         )
         embed.add_field(name="대상", value=member.mention, inline=True)
         embed.add_field(name="퀘스트", value=quest_type, inline=True)
         embed.add_field(name="사유", value=reason, inline=True)
-        
-        if result['success']:
-            embed.add_field(name="결과", value=f"+{result['exp_gained']:,} 경험치", inline=False)
-            if result['role_updated']:
-                embed.add_field(name="🎉 역할 승급", value=f"**{result['new_role']}** 역할로 승급!", inline=False)
-            
+
+        if result.get('success'):
+            embed.add_field(name="결과", value=f"+{result.get('exp_gained', 0):,} 경험치", inline=False)
+            if result.get('role_updated'):
+                embed.add_field(name="🎉 역할 승급", value=f"**{result.get('new_role')}** 역할로 승급!", inline=False)
             # 완료된 퀘스트 목록
-            if result['quest_completed']:
+            if result.get('quest_completed'):
                 embed.add_field(
                     name="완료된 퀘스트",
                     value="\n".join([f"• {quest}" for quest in result['quest_completed']]),
                     inline=False
                 )
         else:
-            error_messages = "\n".join(result['messages']) if result['messages'] else "알 수 없는 오류"
+            error_messages = "\n".join(result.get('messages', [])) if result.get('messages') else "알 수 없는 오류"
             embed.add_field(name="오류", value=error_messages, inline=False)
-        
+
         await ctx.send(embed=embed)
         
     @quest_group.command(name='voice')

@@ -530,5 +530,53 @@ class LevelChecker(commands.Cog):
             result['messages'].append("추천 퀘스트 처리 중 오류가 발생했습니다.")
         return result
 
+    async def is_valid_quest(self, quest_type: str) -> bool:
+        # quest_exp의 모든 카테고리에서 퀘스트명 확인
+        for category in self.quest_exp:
+            if quest_type in self.quest_exp[category]:
+                return True
+        return False
+
+    async def get_all_quest_types(self) -> dict:
+        # quest_exp 딕셔너리 반환
+        return self.quest_exp
+
+    async def process_quest(self, user_id: int, quest_type: str) -> dict:
+        # quest_type에 따라 해당 퀘스트 처리 메소드 호출
+        # 예시: self_intro, review 등 one_time 퀘스트
+        if quest_type in self.quest_exp.get('daily', {}):
+            # ...일일 퀘스트 처리...
+            pass
+        elif quest_type in self.quest_exp.get('weekly', {}):
+            # ...주간 퀘스트 처리...
+            pass
+        elif quest_type in self.quest_exp.get('one_time', {}):
+            # 일회성 퀘스트 처리
+            already = await self.data_manager.is_one_time_quest_completed(user_id, quest_type)
+            result = {
+                'success': False,
+                'exp_gained': 0,
+                'messages': [],
+                'quest_completed': []
+            }
+            if already:
+                result['messages'].append("이미 완료한 일회성 퀘스트입니다.")
+                return result
+            exp = self.quest_exp['one_time'][quest_type]
+            await self.data_manager.mark_one_time_quest_completed(user_id, quest_type)
+            await self.data_manager.add_exp(user_id, exp, 'one_time', quest_type)
+            result['success'] = True
+            result['exp_gained'] = exp
+            result['quest_completed'].append(quest_type)
+            result['messages'].append(f"✨ {quest_type} 일회성 퀘스트 완료! **+{exp} 수행력**")
+            return await self._finalize_quest_result(user_id, result)
+        else:
+            return {
+                'success': False,
+                'exp_gained': 0,
+                'messages': ["존재하지 않는 퀘스트입니다."],
+                'quest_completed': []
+            }
+        
 async def setup(bot):
     await bot.add_cog(LevelChecker(bot))
