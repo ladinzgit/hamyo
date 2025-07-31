@@ -277,3 +277,6 @@ class LevelChecker(commands.Cog):
         
         # 공통 후처리
         return await self._finalize_quest_result(user_id, result)
+    
+async def setup(bot):
+    await bot.add_cog(LevelChecker(bot))
