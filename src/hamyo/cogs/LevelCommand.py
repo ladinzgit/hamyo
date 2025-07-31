@@ -242,7 +242,8 @@ class LevelCommands(commands.Cog):
             # 일일 퀘스트 진행도
             attendance_count = await self.data_manager.get_quest_count(user_id, 'daily', 'attendance', 'week')
             diary_count = await self.data_manager.get_quest_count(user_id, 'daily', 'diary', 'week')
-            
+            bbibbi_count = await self.data_manager.get_quest_count(user_id, 'daily', 'bbibbi', 'week')
+
             # 주간 퀘스트 완료 현황
             weekly_quests = {
                 'recommend_3': '추천 3회',
@@ -250,23 +251,25 @@ class LevelCommands(commands.Cog):
                 'board_participate': '게시판 참여',
                 'ping_use': '다방삐삐'
             }
-            
+
             status_lines = []
-            
+
             # 일일 퀘스트
             status_lines.append(f"📅 **일일 퀘스트**")
             status_lines.append(f"   출석: {attendance_count}/7 {'✅' if attendance_count >= 7 else '🔄'}")
             status_lines.append(f"   다방일지: {diary_count}/7 {'✅' if diary_count >= 7 else '🔄'}")
-            
+            # 다방삐삐(일일) 명시적으로 추가
+            status_lines.append(f"   다방삐삐: {bbibbi_count}/7 {'✅' if bbibbi_count >= 7 else '🔄'} (멘션)")
+
             # 주간 퀘스트
             status_lines.append(f"\n📊 **주간 퀘스트**")
             for quest_key, quest_name in weekly_quests.items():
                 count = await self.data_manager.get_quest_count(user_id, 'weekly', quest_key, 'week')
                 status = "✅" if count > 0 else "❌"
                 status_lines.append(f"   {status} {quest_name}")
-            
+
             return "\n".join(status_lines)
-            
+
         except Exception as e:
             self.logger.error(f"Error getting quest status: {e}")
             return "퀘스트 정보를 불러올 수 없습니다."

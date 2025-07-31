@@ -612,54 +612,53 @@ class LevelConfig(commands.Cog):
         if not level_checker:
             await ctx.send("❌ LevelChecker를 찾을 수 없습니다.")
             return
-        
-        all_quest_types = await level_checker.get_all_quest_types()
-        
+
+        # LevelChecker의 quest_exp 구조 직접 사용
+        quest_exp = level_checker.quest_exp
+
         embed = discord.Embed(
             title="📝 전체 퀘스트 목록",
             description="시스템에서 사용 가능한 모든 퀘스트입니다.",
             color=0x7289da
         )
-        
+
         # 일일 퀘스트
         daily_quests = []
-        for quest in all_quest_types['daily']:
-            exp = await level_checker.get_quest_exp_amount('daily', quest)
-            daily_quests.append(f"`{quest}` ({exp} EXP)")
-        
+        for quest, exp in quest_exp['daily'].items():
+            # bbibbi(다방삐삐) 설명 강조
+            if quest == "bbibbi":
+                daily_quests.append(f"`{quest}` ({exp} EXP) - 다방삐삐(지정 채널에서 역할 멘션)")
+            else:
+                daily_quests.append(f"`{quest}` ({exp} EXP)")
         embed.add_field(
             name="📅 일일 퀘스트",
             value="\n".join(daily_quests) if daily_quests else "없음",
             inline=False
         )
-        
+
         # 주간 퀘스트
         weekly_quests = []
-        for quest in all_quest_types['weekly']:
-            exp = await level_checker.get_quest_exp_amount('weekly', quest)
+        for quest, exp in quest_exp['weekly'].items():
             weekly_quests.append(f"`{quest}` ({exp} EXP)")
-        
         embed.add_field(
             name="📊 주간 퀘스트",
             value="\n".join(weekly_quests) if weekly_quests else "없음",
             inline=False
         )
-        
+
         # 일회성 퀘스트
         one_time_quests = []
-        for quest in all_quest_types['one_time']:
-            exp = await level_checker.get_quest_exp_amount('one_time', quest)
+        for quest, exp in quest_exp['one_time'].items():
             one_time_quests.append(f"`{quest}` ({exp} EXP)")
-        
         embed.add_field(
             name="✨ 일회성 퀘스트",
             value="\n".join(one_time_quests) if one_time_quests else "없음",
             inline=False
         )
-        
+
         embed.set_footer(text="!quest info <퀘스트명> 으로 상세 정보를 확인할 수 있습니다.")
         await ctx.send(embed=embed)
-    
+
     @quest_group.command(name='info')
     @commands.has_permissions(administrator=True)
     async def quest_info(self, ctx, quest_type: str):
@@ -668,30 +667,28 @@ class LevelConfig(commands.Cog):
         if not level_checker:
             await ctx.send("❌ LevelChecker를 찾을 수 없습니다.")
             return
-        
-        if not await level_checker.is_valid_quest(quest_type):
+
+        quest_exp = level_checker.quest_exp
+
+        # 카테고리 및 경험치 찾기
+        quest_category = None
+        exp_amount = None
+        for category in ['daily', 'weekly', 'one_time']:
+            if quest_type in quest_exp[category]:
+                quest_category = category
+                exp_amount = quest_exp[category][quest_type]
+                break
+
+        if not quest_category:
             await ctx.send(f"❌ '{quest_type}'는 존재하지 않는 퀘스트입니다. `!quest list`로 전체 목록을 확인하세요.")
             return
-        
-        # 퀘스트 카테고리 찾기
-        all_quest_types = await level_checker.get_all_quest_types()
-        quest_category = None
-        for category, quests in all_quest_types.items():
-            if quest_type in quests:
-                quest_category = category
-                break
-        
-        if not quest_category:
-            await ctx.send("❌ 퀘스트 정보를 찾을 수 없습니다.")
-            return
-        
-        exp_amount = await level_checker.get_quest_exp_amount(quest_category, quest_type)
-        
+
         # 퀘스트 설명
         quest_descriptions = {
             'attendance': '매일 서버에 출석하는 퀘스트',
             'diary': '다방일지 채널에 일기를 작성하는 퀘스트',
             'voice_30min': '음성방에서 30분 이상 활동하는 퀘스트',
+            'bbibbi': '특정 채널에서 역할을 멘션하는 삐삐 퀘스트',
             'recommend_3': '서버를 외부 사이트에 3회 추천하는 퀘스트',
             'shop_purchase': '비몽상점에서 상품을 구매하는 퀘스트',
             'board_participate': '비몽게시판에 참여하는 퀘스트',
@@ -705,52 +702,49 @@ class LevelConfig(commands.Cog):
             'diary_7': '주간 다방일지 7회 달성 시 자동 완료',
             'self_intro': '허브 카테고리에 자기소개 채널을 만드는 퀘스트',
             'review': '디코올에 서버 후기를 작성하는 퀘스트',
-            'monthly_role': '이달의 역할을 구매하는 퀘스트',
-            'rank_5': '보이스/채팅 랭크 5 달성 퀘스트',
-            'rank_10': '보이스/채팅 랭크 10 달성 퀘스트',
-            'rank_15': '보이스/채팅 랭크 15 달성 퀘스트',
-            'rank_20': '보이스/채팅 랭크 20 달성 퀘스트'
+            'monthly_role': '이달의 역할을 구매하는 퀘스트'
         }
-        
+
         category_names = {
             'daily': '📅 일일 퀘스트',
             'weekly': '📊 주간 퀘스트',
             'one_time': '✨ 일회성 퀘스트'
         }
-        
+
         embed = discord.Embed(
             title=f"📝 {quest_type} 퀘스트 정보",
             color=0x7289da
         )
-        
+
         embed.add_field(name="카테고리", value=category_names.get(quest_category, quest_category), inline=True)
         embed.add_field(name="경험치", value=f"{exp_amount} EXP", inline=True)
         embed.add_field(name="설명", value=quest_descriptions.get(quest_type, "설명이 없습니다."), inline=False)
-        
+
         # 특별 조건
         special_conditions = []
-        if quest_type.startswith('rank_'):
-            level = quest_type.split('_')[1]
-            special_conditions.append(f"랭크 {level} 달성 필요")
-        elif quest_type.startswith('voice_'):
+        if quest_type.startswith('voice_'):
             if 'h' in quest_type:
                 hours = quest_type.split('_')[1].replace('h', '')
                 special_conditions.append(f"주간 음성방 {hours}시간 달성 필요")
+            elif quest_type == 'voice_30min':
+                special_conditions.append("하루 1회, 30분 이상 음성방 활동 필요")
+        elif quest_type == 'bbibbi':
+            special_conditions.append("지정된 채널에서 지정된 역할 멘션 필요")
         elif quest_category == 'weekly' and quest_type not in ['attendance_4', 'attendance_7', 'diary_4', 'diary_7']:
             special_conditions.append("주 1회 완료 가능")
         elif quest_category == 'one_time':
             special_conditions.append("계정당 1회만 완료 가능")
-        
+
         if special_conditions:
             embed.add_field(name="특별 조건", value="\n".join(special_conditions), inline=False)
-        
+
         # 사용 예시
         embed.add_field(
             name="강제 완료 명령어",
             value=f"`!quest complete @유저 {quest_type} [사유]`",
             inline=False
         )
-        
+
         await ctx.send(embed=embed)
 
 
@@ -778,6 +772,12 @@ class ConfirmView(discord.ui.View):
             return
         
         self.confirmed = False
+        self.stop()
+        await interaction.response.defer()
+
+
+async def setup(bot):
+    await bot.add_cog(LevelConfig(bot))
         self.stop()
         await interaction.response.defer()
 
