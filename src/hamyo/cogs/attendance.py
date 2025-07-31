@@ -55,83 +55,105 @@ class AttendanceCog(commands.Cog):
             today = now.strftime("%Y-%m-%d")
             user_id = ctx.author.id
 
-            attendance_success = False  # 출석 성공 여부 플래그
+            attendance_success = False
+            count = 0
 
             async with aiosqlite.connect(DB_PATH) as db:
                 cur = await db.execute("SELECT last_date, count FROM attendance WHERE user_id=?", (user_id,))
                 row = await cur.fetchone()
 
                 if row is None:
-                    await db.execute(
-                        "INSERT INTO attendance (user_id, last_date, count) VALUES (?, ?, ?)",
-                        (user_id, today, 1)
-                    )
-                    await db.commit()
-                    # 온 지급
-                    await balance_manager.give(str(user_id), 100)
-                    balance = await balance_manager.get_balance(str(user_id))
-                    embed = discord.Embed(
-                        title=f"출석 ₍ᐢ..ᐢ₎",
-                        description=f"""
-                        ⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
-                        ╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
-                        (⠀⠀⠀´ㅅ` )
-                        (⠀ {ctx.author.mention}님, 첫 출석 완료했다묘...✩
-                            누적 1회 출석했다묘...✩
-                            자동으로 100온도 지급했다묘...✩
-                        ╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
-                        """,
-                        colour=discord.Colour.from_rgb(252, 252, 126)
-                    )
-                    # 썸네일/푸터 아이콘 URL 안전 처리
-                    avatar_url = ctx.author.display_avatar.url
-                    embed.set_thumbnail(url=avatar_url)
-                    embed.set_footer(text=f"현재 잔액: {balance}온 • 요청자: {ctx.author}", icon_url=avatar_url)
-                    embed.timestamp = ctx.message.created_at
-                    
-                    await ctx.send(embed=embed)
-                    attendance_success = True
-                else:
-                    last_date, count = row
-                    if last_date == today:
-                        await ctx.send(f"⚠️ {ctx.author.mention} 오늘 이미 출석했다묘! (누적 {count}회)")
-                        return
-                    else:
-                        count += 1
+                    # 첫 출석 - 온도 지급 먼저 시도
+                    try:
+                        await balance_manager.give(str(user_id), 100)
+                        
+                        # 온도 지급 성공 시 DB 기록
                         await db.execute(
-                            "UPDATE attendance SET last_date=?, count=? WHERE user_id=?",
-                            (today, count, user_id)
+                            "INSERT INTO attendance (user_id, last_date, count) VALUES (?, ?, ?)",
+                            (user_id, today, 1)
                         )
                         await db.commit()
-                        # 온 지급
-                        await balance_manager.give(str(user_id), 100)
-                        balance = await balance_manager.get_balance(str(user_id))
-                        embed = discord.Embed(
-                            title=f"출석 ₍ᐢ..ᐢ₎",
-                            description=f"""
-                            ⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
-                            ╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
-                            (⠀⠀⠀´ㅅ` )
-                            (⠀ {ctx.author.mention}님, 출석 완료했다묘...✩
-                                누적 {count}회 출석했다묘...✩
-                                자동으로 100온도 지급했다묘...✩
-                            ╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
-                            """,
-                            colour=discord.Colour.from_rgb(252, 252, 126)
-                        )
-                        # 썸네일/푸터 아이콘 URL 안전 처리
-                        avatar_url = ctx.author.display_avatar.url
-                        embed.set_thumbnail(url=avatar_url)
-                        embed.set_footer(text=f"현재 잔액: {balance}온 • 요청자: {ctx.author}", icon_url=avatar_url)
-                        embed.timestamp = ctx.message.created_at
                         
-                        await ctx.send(embed=embed)
+                        count = 1
                         attendance_success = True
                         
+                    except Exception as balance_error:
+                        print(f"온도 지급 실패: {balance_error}")
+                        await ctx.send("❌ 온 지급 중 오류가 발생했습니다. 관리자에게 문의해주세요.")
+                        return
+                        
+                else:
+                    last_date, existing_count = row
+                    if last_date == today:
+                        # 이미 출석함
+                        await ctx.send(f"⚠️ {ctx.author.mention} 오늘 이미 출석했다묘! (누적 {existing_count}회)")
+                        return
+                    else:
+                        # 일반 출석 - 온도 지급 먼저 시도
+                        try:
+                            await balance_manager.give(str(user_id), 100)
+                            
+                            # 온도 지급 성공 시 DB 업데이트
+                            count = existing_count + 1
+                            await db.execute(
+                                "UPDATE attendance SET last_date=?, count=? WHERE user_id=?",
+                                (today, count, user_id)
+                            )
+                            await db.commit()
+                            
+                            attendance_success = True
+                            
+                        except Exception as balance_error:
+                            print(f"온도 지급 실패: {balance_error}")
+                            await ctx.send("❌ 온도 지급 중 오류가 발생했습니다. 관리자에게 문의해주세요.")
+                            return
+
+            # 출석 성공 시 처리
+            if attendance_success:
+                # 잔액 조회
+                balance = await balance_manager.get_balance(str(user_id))
+                        
+                # 퀘스트 처리 (별도 채널에 메시지 전송)
+                level_checker = self.bot.get_cog('LevelChecker')
+                if level_checker:
+                    try:
+                        result = await level_checker.process_attendance(user_id)
+                        # 메시지는 LevelChecker 내부에서 자동으로 전송됨
+                    except Exception as e:
+                        print(f"몽경수행 처리 중 오류: {e}")
+
+                embed = discord.Embed(
+                    title=f"출석 ₍ᐢ..ᐢ₎",
+                    description=f"""
+                    ⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+                    ╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+                    (⠀⠀⠀´ㅅ` )
+                    (⠀ {ctx.author.mention}님, 출석 완료했다묘...✩
+                        누적 {count}회 출석했다묘...✩
+                        자동으로 100온도 지급했다묘...✩
+                    ╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+                    """,
+                    colour=discord.Colour.from_rgb(252, 252, 126)
+                )
+                
+                # 썸네일/푸터 아이콘 URL 안전 처리
+                avatar_url = ctx.author.display_avatar.url
+                embed.set_thumbnail(url=avatar_url)
+                embed.set_footer(text=f"현재 잔액: {balance}온 • 요청자: {ctx.author}", icon_url=avatar_url)
+                embed.timestamp = ctx.message.created_at
+                
+                await ctx.send(embed=embed)
 
         except Exception as e:
-            await ctx.send(f"출석 처리 중 오류가 발생했습니다. 관리자에게 문의해주세요.: {str(e)}")
-            raise
+            # 예외 처리
+            error_embed = discord.Embed(
+                title="❌ 출석 처리 오류",
+                description="출석 처리 중 오류가 발생했습니다. 관리자에게 문의해주세요.",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=error_embed)
+            print(f"출석 처리 오류: {e}")
+
 
     @attendance.command(name="순위")
     async def ranking(self, ctx, page: int = 1):
