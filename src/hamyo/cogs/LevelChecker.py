@@ -18,7 +18,7 @@ class LevelChecker(commands.Cog):
         self.quest_exp = {
             'daily': {
                 'attendance': 10,
-                'diary': 8,
+                'diary': 5,
                 'voice_30min': 15
             },
             'weekly': {
@@ -303,8 +303,7 @@ class LevelChecker(commands.Cog):
             
             # 성공 시 반응 추가
             if result['success']:
-                await message.add_reaction('✅')  # 체크 표시
-                await message.add_reaction('📝')  # 일지 이모지
+                await message.add_reaction('<:BM_j_010:1399387534101843978>')
             
         except Exception as e:
             self.logger.error(f"다방일지 처리 중 오류 발생: {e}")
