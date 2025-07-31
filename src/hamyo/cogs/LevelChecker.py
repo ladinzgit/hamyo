@@ -279,21 +279,16 @@ class LevelChecker(commands.Cog):
         # --- 삐삐 퀘스트 감지 ---
         BBIBBI_CHANNEL_ID = 1396829223267598346
         BBIBBI_ROLE_ID = 1396829213163520021
-        if message.channel.id == BBIBBI_CHANNEL_ID:
-            # 역할 멘션이 포함되어 있는지 확인
-            if any(role.id == BBIBBI_ROLE_ID for role in message.role_mentions):
-                user_id = message.author.id
-                result = await self.process_bbibbi(user_id)
-                if result['success']:
-                    await message.add_reaction('📢')
-                return  # 삐삐 퀘스트 감지 시 다방일지 체크는 하지 않음
+        
+        if message.channel.id == BBIBBI_CHANNEL_ID and any(role.id == BBIBBI_ROLE_ID for role in message.role_mentions):
+            user_id = message.author.id
+            result = await self.process_bbibbi(user_id)
+            if result.get('success'):
+                await message.add_reaction('📢')
+                return
 
         # --- 다방일지 퀘스트 감지 ---
-        if message.channel.id != self.DIARY_CHANNEL_ID:
-            return
-        
-        # 메시지 길이 체크 (5자 이상)
-        if len(message.content.strip()) < 5:
+        if message.channel.id != self.DIARY_CHANNEL_ID or len(message.content.strip()) < 5:
             return
         
         user_id = message.author.id
