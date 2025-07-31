@@ -63,6 +63,22 @@ class LevelCommands(commands.Cog):
             inline=True
         )
         
+        # 다음 역할 정보
+        if next_role_info:
+            progress = (current_exp - self.role_info[current_role]['threshold']) / (next_role_info['threshold'] - self.role_info[current_role]['threshold'])
+            progress_bar = self._create_progress_bar(progress)
+            embed.add_field(
+                name="🎯 다음 역할까지",
+                value=f"**목표:** {next_role_info['next_role']}\n**필요:** {next_role_info['needed']:,} EXP\n{progress_bar}",
+                inline=True
+            )
+        else:
+            embed.add_field(
+                name="🏆 최고 역할 달성!",
+                value="축하합니다! 🎉",
+                inline=True
+            )
+            
         # 랭크 정보 추가
         rank_info = f"🎤 **보이스:** {voice_level}레벨\n💬 **채팅:** {chat_level}레벨"
         
@@ -83,22 +99,6 @@ class LevelCommands(commands.Cog):
             value=rank_info,
             inline=True
         )
-        
-        # 다음 역할 정보
-        if next_role_info:
-            progress = (current_exp - self.role_info[current_role]['threshold']) / (next_role_info['threshold'] - self.role_info[current_role]['threshold'])
-            progress_bar = self._create_progress_bar(progress)
-            embed.add_field(
-                name="🎯 다음 역할까지",
-                value=f"**목표:** {next_role_info['next_role']}\n**필요:** {next_role_info['needed']:,} EXP\n{progress_bar}",
-                inline=True
-            )
-        else:
-            embed.add_field(
-                name="🏆 최고 역할 달성!",
-                value="축하합니다! 🎉",
-                inline=True
-            )
         
         # 퀘스트 진행 현황
         quest_status = await self._get_quest_status(user_id)
