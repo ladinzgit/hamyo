@@ -283,17 +283,10 @@ class LevelChecker(commands.Cog):
         if len(message.content.strip()) < 5:
             return
         
-        # 하루에 한 번만 처리하도록 체크
         user_id = message.author.id
-        today = datetime.now().strftime("%Y-%m-%d")
         
         try:
-            # 오늘 이미 다방일지를 작성했는지 확인
-            today_diary_count = await self.data_manager.get_quest_count(
-                user_id, 'daily', 'diary', 'week'
-            )
-            
-            # 오늘 작성한 다방일지가 있는지 더 정확히 확인
+            # 오늘 작성한 다방일지가 있는지 확인
             async with self.data_manager.db_connect() as db:
                 cursor = await db.execute("""
                     SELECT COUNT(*) FROM quest_logs 
@@ -308,16 +301,18 @@ class LevelChecker(commands.Cog):
             # 다방일지 퀘스트 처리
             result = await self.process_diary(user_id)
             
-            # 성공 시 반응 추가 (선택사항)
+            # 성공 시 반응 추가
             if result['success']:
                 await message.add_reaction('✅')  # 체크 표시
                 await message.add_reaction('📝')  # 일지 이모지
             
         except Exception as e:
-            self.log(f"다방일지 처리 중 오류 발생: {e}")
-            
+            self.logger.error(f"다방일지 처리 중 오류 발생: {e}")
+
     async def process_diary(self, user_id: int) -> Dict[str, Any]:
         """다방일지 퀘스트 처리 (일간 + 주간 마일스톤)"""
+        await self.data_manager.ensure_initialized()
+        
         result = {
             'success': False,
             'exp_gained': 0,
@@ -350,6 +345,16 @@ class LevelChecker(commands.Cog):
             
             # 7회 달성 확인
             elif current_count == 7:
+                # 4회 보상이 없다면 먼저 지급
+                milestone_4_count = await self.data_manager.get_quest_count(user_id, 'weekly', 'diary_4', 'week')
+                if milestone_4_count == 0:
+                    bonus_exp_4 = self.quest_exp['weekly']['diary_4']
+                    await self.data_manager.add_exp(user_id, bonus_exp_4, 'weekly', 'diary_4')
+                    result['exp_gained'] += bonus_exp_4
+                    result['quest_completed'].append('weekly_diary_4')
+                    result['messages'].append(f"🏆 주간 일지 4회 달성! **+{bonus_exp_4} 수행력**")
+                
+                # 7회 보상 지급
                 milestone_7_count = await self.data_manager.get_quest_count(user_id, 'weekly', 'diary_7', 'week')
                 if milestone_7_count == 0:
                     bonus_exp_7 = self.quest_exp['weekly']['diary_7']
@@ -359,11 +364,10 @@ class LevelChecker(commands.Cog):
                     result['messages'].append(f"🏆 주간 일지 7회 달성! **+{bonus_exp_7} 수행력**")
             
         except Exception as e:
-            await self.log(f"Error processing diary for user {user_id}: {e}")
+            self.logger.error(f"Error processing diary for user {user_id}: {e}")
             result['messages'].append("일지 수행 처리 중 오류가 발생했습니다.")
         
         return await self._finalize_quest_result(user_id, result)
-
     
 async def setup(bot):
     await bot.add_cog(LevelChecker(bot))
