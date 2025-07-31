@@ -487,5 +487,48 @@ class LevelChecker(commands.Cog):
             result['messages'].append(f"음성 {hour}시간 퀘스트 처리 중 오류가 발생했습니다.")
         return await self._finalize_quest_result(user_id, result)
     
+    async def process_recommend_quest(self, user_id: int, count: int = 1) -> Dict[str, Any]:
+        """
+        추천 인증 시 호출: 주간 추천 3회 달성 시 경험치 지급
+        Economy.py에서 '추천' 인증마다 호출됨.
+        """
+        await self.data_manager.ensure_initialized()
+        result = {
+            'success': False,
+            'exp_gained': 0,
+            'messages': [],
+            'quest_completed': []
+        }
+        try:
+            # 추천 인증 기록 (quest_logs에 'weekly', 'recommend'로 count만큼 기록)
+            async with self.data_manager.db_connect() as db:
+                week_start = self.data_manager._get_week_start()
+                for _ in range(count):
+                    await db.execute("""
+                        INSERT INTO quest_logs (user_id, quest_type, quest_subtype, exp_gained, week_start)
+                        VALUES (?, 'weekly', 'recommend', 0, ?)
+                    """, (user_id, week_start))
+                await db.commit()
+
+            # 이번 주 추천 인증 횟수 확인
+            recommend_count = await self.data_manager.get_quest_count(user_id, 'weekly', 'recommend', 'week')
+
+            # 이미 보상 지급 여부 확인
+            already_rewarded = await self.data_manager.get_quest_count(user_id, 'weekly', 'recommend_3', 'week') > 0
+
+            if recommend_count >= 3 and not already_rewarded:
+                exp = self.quest_exp['weekly']['recommend_3']
+                await self.data_manager.add_exp(user_id, exp, 'weekly', 'recommend_3')
+                result['success'] = True
+                result['exp_gained'] = exp
+                result['quest_completed'].append('weekly_recommend_3')
+                result['messages'].append(f"🌱 주간 추천 3회 달성! **+{exp} 수행력**")
+                # 공통 후처리(메시지, 승급 등)
+                return await self._finalize_quest_result(user_id, result)
+        except Exception as e:
+            await self.log(f"추천 퀘스트 처리 중 오류: {e}")
+            result['messages'].append("추천 퀘스트 처리 중 오류가 발생했습니다.")
+        return result
+
 async def setup(bot):
     await bot.add_cog(LevelChecker(bot))
