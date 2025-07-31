@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from DataManager import DataManager
 
-GUILD_ID = [1368459027851509891, 1305132293899423785]
+GUILD_ID = [1396829213100605580, 1305132293899423785]
 
 def only_in_guild():
     async def predicate(ctx):
