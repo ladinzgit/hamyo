@@ -289,7 +289,7 @@ class LevelChecker(commands.Cog):
                 return  # 삐삐 퀘스트 감지 시 다방일지 체크는 하지 않음
 
         # --- 다방일지 퀘스트 감지 ---
-        if not self.DIARY_CHANNEL_ID or message.channel.id != self.DIARY_CHANNEL_ID:
+        if message.channel.id != self.DIARY_CHANNEL_ID:
             return
         
         # 메시지 길이 체크 (5자 이상)
