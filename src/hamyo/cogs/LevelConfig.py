@@ -778,9 +778,3 @@ class ConfirmView(discord.ui.View):
 
 async def setup(bot):
     await bot.add_cog(LevelConfig(bot))
-        self.stop()
-        await interaction.response.defer()
-
-
-async def setup(bot):
-    await bot.add_cog(LevelConfig(bot))
