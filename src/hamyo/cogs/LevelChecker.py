@@ -359,7 +359,7 @@ class LevelChecker(commands.Cog):
                     result['messages'].append(f"🏆 주간 일지 7회 달성! **+{bonus_exp_7} 수행력**")
             
         except Exception as e:
-            self.logger.error(f"Error processing diary for user {user_id}: {e}")
+            await self.log(f"Error processing diary for user {user_id}: {e}")
             result['messages'].append("일지 수행 처리 중 오류가 발생했습니다.")
         
         return await self._finalize_quest_result(user_id, result)
