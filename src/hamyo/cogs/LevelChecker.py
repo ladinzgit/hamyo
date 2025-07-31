@@ -19,7 +19,8 @@ class LevelChecker(commands.Cog):
             'daily': {
                 'attendance': 10,
                 'diary': 5,
-                'voice_30min': 15
+                'voice_30min': 15,
+                'bbibbi': 5
             },
             'weekly': {
                 'recommend_3': 50,
@@ -270,12 +271,24 @@ class LevelChecker(commands.Cog):
     
     @commands.Cog.listener()
     async def on_message(self, message):
-        """메시지 이벤트 리스너 - 다방일지 감지"""
+        """메시지 이벤트 리스너 - 다방일지/삐삐 퀘스트 감지"""
         # 봇 메시지 무시
         if message.author.bot:
             return
-        
-        # 다방일지 채널이 아니면 무시
+
+        # --- 삐삐 퀘스트 감지 ---
+        BBIBBI_CHANNEL_ID = 1396829223267598346
+        BBIBBI_ROLE_ID = 1396829213163520021
+        if message.channel.id == BBIBBI_CHANNEL_ID:
+            # 역할 멘션이 포함되어 있는지 확인
+            if any(role.id == BBIBBI_ROLE_ID for role in message.role_mentions):
+                user_id = message.author.id
+                result = await self.process_bbibbi(user_id)
+                if result['success']:
+                    await message.add_reaction('📢')
+                return  # 삐삐 퀘스트 감지 시 다방일지 체크는 하지 않음
+
+        # --- 다방일지 퀘스트 감지 ---
         if not self.DIARY_CHANNEL_ID or message.channel.id != self.DIARY_CHANNEL_ID:
             return
         
@@ -307,6 +320,37 @@ class LevelChecker(commands.Cog):
             
         except Exception as e:
             self.logger.error(f"다방일지 처리 중 오류 발생: {e}")
+
+    async def process_bbibbi(self, user_id: int) -> Dict[str, Any]:
+        """삐삐(특정 역할 멘션) 일일 퀘스트 처리"""
+        result = {
+            'success': False,
+            'exp_gained': 0,
+            'messages': [],
+            'quest_completed': []
+        }
+        try:
+            # 오늘 이미 지급했는지 확인
+            async with self.data_manager.db_connect() as db:
+                cursor = await db.execute("""
+                    SELECT COUNT(*) FROM quest_logs
+                    WHERE user_id = ? AND quest_type = 'daily' AND quest_subtype = 'bbibbi'
+                      AND DATE(completed_at) = DATE('now')
+                """, (user_id,))
+                today_count = (await cursor.fetchone())[0]
+            if today_count > 0:
+                return result  # 이미 지급됨
+
+            exp = self.quest_exp['daily']['bbibbi']
+            await self.data_manager.add_exp(user_id, exp, 'daily', 'bbibbi')
+            result['success'] = True
+            result['exp_gained'] = exp
+            result['quest_completed'].append('daily_bbibbi')
+            result['messages'].append(f"📢 삐삐 퀘스트 완료! **+{exp} 수행력**")
+        except Exception as e:
+            await self.log(f"삐삐 퀘스트 처리 중 오류: {e}")
+            result['messages'].append("삐삐 퀘스트 처리 중 오류가 발생했습니다.")
+        return await self._finalize_quest_result(user_id, result)
 
     async def process_diary(self, user_id: int) -> Dict[str, Any]:
         """다방일지 퀘스트 처리 (일간 + 주간 마일스톤)"""
