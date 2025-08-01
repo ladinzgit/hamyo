@@ -43,12 +43,12 @@ class LevelConfig(commands.Cog):
         )
         embed.add_field(
             name="⚙️ 관리",
-            value="`!exp give <유저> <경험치> [사유]` - 경험치 지급\n`!exp remove <유저> <경험치> [사유]` - 경험치 회수",
+            value="`*exp give <유저> <경험치> [사유]` - 경험치 지급\n`*exp remove <유저> <경험치> [사유]` - 경험치 회수",
             inline=False
         )
         embed.add_field(
             name="🔄 초기화",
-            value="`!exp reset <유저>` - 유저 초기화\n`!exp reset_all` - 전체 초기화",
+            value="`*exp reset <유저>` - 유저 초기화\n`*exp reset_all` - 전체 초기화",
             inline=False
         )
         await ctx.send(embed=embed)
@@ -279,12 +279,12 @@ class LevelConfig(commands.Cog):
         )
         embed.add_field(
             name="🔧 관리",
-            value="`!quest complete <유저> <퀘스트> [사유]` - 퀘스트 강제 완료\n`!quest reset <유저>` - 퀘스트 초기화",
+            value="`*quest complete <유저> <퀘스트> [사유]` - 퀘스트 강제 완료\n`*quest reset <유저>` - 퀘스트 초기화",
             inline=False
         )
         embed.add_field(
             name="🏆 랭크 인증",
-            value="`!quest voice <유저> <레벨>` - 보이스 랭크 인증\n`!quest chat <유저> <레벨>` - 채팅 랭크 인증",
+            value="`*quest voice <유저> <레벨>` - 보이스 랭크 인증\n`*quest chat <유저> <레벨>` - 채팅 랭크 인증",
             inline=False
         )
         await ctx.send(embed=embed)
@@ -306,7 +306,6 @@ class LevelConfig(commands.Cog):
             return
 
         if not is_valid:
-            # LevelChecker의 quest_exp에서 직접 확인
             quest_exp = getattr(level_checker, "quest_exp", None)
             available_quests = []
             if quest_exp:
@@ -330,8 +329,30 @@ class LevelConfig(commands.Cog):
             await ctx.send(embed=embed)
             return
 
-        # 퀘스트 강제 완료
+        # 경험치값을 LevelChecker의 quest_exp에서 직접 가져옴
+        quest_exp = level_checker.quest_exp
+        exp_amount = None
+        quest_category = None
+        for category in ['daily', 'weekly', 'one_time']:
+            if quest_type in quest_exp[category]:
+                exp_amount = quest_exp[category][quest_type]
+                quest_category = category
+                break
+
+        if exp_amount is None:
+            await ctx.send(f"❌ '{quest_type}'의 경험치 정보를 찾을 수 없습니다.")
+            return
+
+        # 퀘스트 강제 완료: DB에 quest_type/quest_subtype/exp_amount 반영
         try:
+            # 경험치 지급 및 로그 기록
+            success = await self.data_manager.add_exp(
+                member.id,
+                exp_amount,
+                quest_category,
+                quest_type
+            )
+            # LevelChecker의 추가 처리(역할 승급 등)
             result = await level_checker.process_quest(member.id, quest_type)
         except Exception as e:
             await ctx.send(f"❌ 퀘스트 처리 중 오류: {e}")
@@ -343,13 +364,13 @@ class LevelConfig(commands.Cog):
         )
         embed.add_field(name="대상", value=member.mention, inline=True)
         embed.add_field(name="퀘스트", value=quest_type, inline=True)
+        embed.add_field(name="경험치", value=f"{exp_amount} EXP", inline=True)
         embed.add_field(name="사유", value=reason, inline=True)
 
         if result.get('success'):
             embed.add_field(name="결과", value=f"+{result.get('exp_gained', 0):,} 경험치", inline=False)
             if result.get('role_updated'):
                 embed.add_field(name="🎉 역할 승급", value=f"**{result.get('new_role')}** 역할로 승급!", inline=False)
-            # 완료된 퀘스트 목록
             if result.get('quest_completed'):
                 embed.add_field(
                     name="완료된 퀘스트",
