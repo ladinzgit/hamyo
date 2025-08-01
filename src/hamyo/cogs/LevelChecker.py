@@ -297,19 +297,22 @@ class LevelChecker(commands.Cog):
         # --- 다방일지 퀘스트 감지 ---
         if message.channel.id != self.DIARY_CHANNEL_ID or len(message.content.strip()) < 5:
             return
-        
+
         user_id = message.author.id
-        
+
         try:
             # 오늘 작성한 다방일지가 있는지 확인 (한국 시간 기준)
             async with self.data_manager.db_connect() as db:
+                # 날짜 파라미터를 명시적으로 전달해야 함
+                from datetime import datetime
+                today_kst = datetime.now(KST).strftime('%Y-%m-%d')
                 cursor = await db.execute("""
-                SELECT COUNT(*) FROM quest_logs 
-                WHERE user_id = ? AND quest_type = 'daily' AND quest_subtype = 'diary' 
-                AND DATE(completed_at, '+9 hours') = ?
-                """, (user_id))
+                    SELECT COUNT(*) FROM quest_logs 
+                    WHERE user_id = ? AND quest_type = 'daily' AND quest_subtype = 'diary' 
+                    AND DATE(completed_at, '+9 hours') = ?
+                """, (user_id, today_kst))
                 today_count = (await cursor.fetchone())[0]
-            
+
             if today_count > 0:
                 return  # 오늘 이미 작성함
             
