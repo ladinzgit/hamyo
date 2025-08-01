@@ -157,7 +157,8 @@ class LevelChecker(commands.Cog):
                 # 완료 시간
                 embed.timestamp = discord.utils.utcnow()
                 
-                await quest_channel.send(embed=embed)
+                # 멘션과 embed를 동시에 전송
+                await quest_channel.send(content=user.mention, embed=embed)
             
         except Exception as e:
             await self.log(f"퀘스트 완료 메시지 전송 중 오류 발생: {e}")
