@@ -189,6 +189,49 @@ class Economy(commands.Cog):
         await ctx.reply(embed=embed)
         await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게 인증 '{condition} {count}회'로 {total}({reward_amount}*{count}) {unit} 지급.")
 
+    @on.command(name="회수")
+    @only_in_guild()
+    @in_allowed_channel()
+    @commands.has_permissions(administrator=True)
+    async def take_coins(self, ctx, member: discord.Member, amount: int):
+        """Take a specific amount of coins from a user."""
+        if amount <= 0:
+            await ctx.reply("금액은 0보다 커야 합니다.")
+            return
+
+        user_id = str(member.id)
+        balance = await balance_manager.get_balance(user_id)
+        if balance < amount:
+            await ctx.reply(f"{member.display_name}은/는 잔액이 부족하여 `{amount}`{unit}을 회수할 수 없습니다.\n현재 {member.display_name}의 잔액: `{balance}`{unit}")
+            return
+
+        await balance_manager.take(user_id, amount)
+        unit = await self.get_currency_unit()
+        new_balance = await balance_manager.get_balance(user_id)
+        
+        embed = discord.Embed(
+            title=f"{unit}、온 회수 ₍ᐢ..ᐢ₎",
+            description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀`ㅅ´ )
+(⠀ {member.mention}에게 **{amount}**{unit} 뺏었다묘...✩
+(⠀ ⠀ ⠀이제 내 것이다묘.....!
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+""",
+            colour=discord.Colour.from_rgb(151, 214, 181)
+        )
+        embed.set_footer(
+            text=f"요청자: {ctx.author} | 회수 후 잔액: {new_balance}",
+            icon_url=ctx.author.display_avatar.url
+        )
+        embed.timestamp = ctx.message.created_at
+        
+        await ctx.reply(embed=embed)
+        await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게서 {amount} {unit} 회수.")
+
+
+
 async def setup(bot):
     
     await bot.add_cog(Economy(bot))

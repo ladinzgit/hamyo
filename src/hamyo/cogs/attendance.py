@@ -125,14 +125,14 @@ class AttendanceCog(commands.Cog):
                 embed = discord.Embed(
                     title=f"출석 ₍ᐢ..ᐢ₎",
                     description=f"""
-                    ⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
-                    ╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
-                    (⠀⠀⠀´ㅅ` )
-                    (⠀ {ctx.author.mention}님, 출석 완료했다묘...✩
-                        누적 {count}회 출석했다묘...✩
-                        자동으로 100온도 지급했다묘...✩
-                    ╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
-                    """,
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀´ㅅ` )
+(⠀ {ctx.author.mention}님, 출석 완료했다묘...✩
+    누적 {count}회 출석했다묘...✩
+    자동으로 100온도 지급했다묘...✩
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+""",
                     colour=discord.Colour.from_rgb(252, 252, 126)
                 )
                 
