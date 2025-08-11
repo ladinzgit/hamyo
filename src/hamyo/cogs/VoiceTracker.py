@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands, tasks
 from datetime import datetime
 from DataManager import DataManager
+from voice_utils import get_expanded_tracked_channels as expand_tracked 
 import asyncio
 
 try:
@@ -88,7 +89,7 @@ class VoiceTracker(commands.Cog):
             return
 
         # VoiceConfig에서 등록한 채널만 추적
-        tracked_channel_ids = set(await self.data_manager.get_tracked_channels("voice"))
+        tracked_channel_ids = set(await expand_tracked(self.bot, self.data_manager, "voice"))
 
         now = datetime.now(KST)
         today_str = now.strftime('%Y-%m-%d')
