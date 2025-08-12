@@ -103,10 +103,10 @@ class LevelDataManager:
     
     async def add_exp(self, user_id: int, exp_amount: int, quest_type: str = None, quest_subtype: str = None) -> bool:
         await self.ensure_initialized()
-        """경험치 지급"""
+        """다공 지급"""
         try:
             async with aiosqlite.connect(self.db_path) as db:
-                # 유저 경험치 업데이트 또는 생성
+                # 유저 다공 업데이트 또는 생성
                 await db.execute("""
                     INSERT INTO user_exp (user_id, total_exp) 
                     VALUES (?, ?) 
@@ -125,15 +125,15 @@ class LevelDataManager:
                     """, (user_id, quest_type, quest_subtype, exp_amount, week_start))
                 
                 await db.commit()
-                self.logger.info(f"Added {exp_amount} exp to user {user_id}")
+                self.logger.info(f"Added {exp_amount} 다공 to user {user_id}")
                 return True
         except Exception as e:
-            self.logger.error(f"Error adding exp: {e}")
+            self.logger.error(f"Error adding 다공: {e}")
             return False
     
     async def get_user_exp(self, user_id: int) -> Dict[str, Any]:
         await self.ensure_initialized()
-        """유저 경험치 조회"""
+        """유저 다공 조회"""
         try:
             async with aiosqlite.connect(self.db_path) as db:
                 cursor = await db.execute("""
@@ -163,7 +163,7 @@ class LevelDataManager:
     
     async def remove_exp(self, user_id: int, exp_amount: int) -> bool:
         await self.ensure_initialized()
-        """경험치 회수"""
+        """다공 회수"""
         try:
             async with aiosqlite.connect(self.db_path) as db:
                 await db.execute("""
@@ -173,10 +173,10 @@ class LevelDataManager:
                     WHERE user_id = ?
                 """, (exp_amount, user_id))
                 await db.commit()
-                self.logger.info(f"Removed {exp_amount} exp from user {user_id}")
+                self.logger.info(f"Removed {exp_amount} 다공 from user {user_id}")
                 return True
         except Exception as e:
-            self.logger.error(f"Error removing exp: {e}")
+            self.logger.error(f"Error removing 다공: {e}")
             return False
     
     async def reset_all_users(self) -> bool:

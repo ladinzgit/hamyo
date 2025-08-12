@@ -5,6 +5,7 @@ from typing import Optional, Dict, Any, List
 import logging
 import asyncio
 import datetime
+from datetime import datetime
 
 try:
     from zoneinfo import ZoneInfo
@@ -59,6 +60,20 @@ class LevelChecker(commands.Cog):
         
         # 역할 순서
         self.role_order = ['hub', 'dado', 'daho', 'dakyung']
+        
+        self.ROLE_IDS = {
+            'hub': 1396829213172174890,
+            'dado': 1396829213172174888,
+            'daho': 1398926065111662703,
+            'dakyung': 1396829213172174891
+        }
+        
+        self.ROLE_DISPLAY = {
+            'hub': '허브',
+            'dado': '다도',
+            'daho': '다호',
+            'dakyung': '다경'
+        }
     
     async def cog_load(self):
         """Cog 로드 시 데이터베이스 초기화"""
@@ -80,21 +95,21 @@ class LevelChecker(commands.Cog):
         """퀘스트 결과 공통 후처리 (메시지 출력, 역할 승급 확인)"""
         # 퀘스트 완료 메시지를 전용 채널에 전송
         await self.send_quest_completion_message(user_id, result)
-        
+
         # 역할 승급 확인
         if result['success'] and result['exp_gained'] > 0:
-            role_update = await self._check_role_upgrade(user_id)
-            if role_update:
+            role_key = await self._check_role_upgrade(user_id)  # 키 반환
+            if role_key:
+                display = self._get_role_display_name(role_key)
                 result['role_updated'] = True
-                result['new_role'] = role_update
-                result['messages'].append(f"🎉 축하합니다! **{role_update}** 역할로 승급했습니다!")
-                
-                # 승급 메시지를 메인채팅에 전송
-                await self.send_role_upgrade_message(user_id, role_update)
+                result['new_role'] = display
+                result['messages'].append(f"🎉 축하합니다! **{display}** 역할로 승급했습니다!")
+                # 승급 메시지를 메인채팅에 전송 (키로 호출)
+                await self.send_role_upgrade_message(user_id, role_key)
             else:
                 result['role_updated'] = False
                 result['new_role'] = None
-        
+
         return result
     
     async def send_quest_completion_message(self, user_id: int, result: Dict[str, Any]):
@@ -109,7 +124,10 @@ class LevelChecker(commands.Cog):
         try:
             user = self.bot.get_user(user_id)
             if not user:
-                return
+                try:
+                    user = await self.bot.fetch_user(user_id)
+                except Exception:
+                    return
             
             # 사용자의 현재 역할 정보 가져오기
             user_data = await self.data_manager.get_user_exp(user_id)
@@ -149,8 +167,8 @@ class LevelChecker(commands.Cog):
                 # 총 획득 수행력
                 if result['exp_gained'] > 0:
                     embed.add_field(
-                        name="💫 획득한 수행력",
-                        value=f"**+{result['exp_gained']:,}** 수행력",
+                        name="💫 획득한 다공",
+                        value=f"**+{result['exp_gained']:,} 다공**",
                         inline=True
                     )
                 
@@ -162,18 +180,79 @@ class LevelChecker(commands.Cog):
             
         except Exception as e:
             await self.log(f"퀘스트 완료 메시지 전송 중 오류 발생: {e}")
-    
+            
+    async def send_role_upgrade_message(self, user_id: int, new_role_key: str):
+        """
+        승급 축하 브로드캐스트 (텍스트 아트 버전)
+        - {mention} 플레이스홀더를 실제 멘션으로 치환
+        - dado/daho/dakyung 별 전용 문구 전송
+        """
+        try:
+            channel = self.bot.get_channel(self.MAIN_CHAT_CHANNEL_ID)
+            if channel is None:
+                await self.log("메인 채널을 찾을 수 없어 승급 메시지 전송 실패")
+                return
+
+            user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
+            if user is None:
+                await self.log(f"승급 메시지: 유저 캐시/페치 실패 (user_id={user_id})")
+                return
+
+            # 역할별 메시지 템플릿
+            templates = {
+                "dado": (
+                    ".  ◜◝--◜◝\n"
+                    "꒰   ˶ ´  ତ ` ˶꒱\n"
+                    "✦ ╮ {mention} 님, 다도로 승급했어요 !\n"
+                    "│\n"
+                    "│ ⠀차향이 스며든 꿈의 첫 단계에 발을 들였어요 ˎˊ˗ \n"
+                    "│ ⠀따뜻한 차 한 잔처럼 마음이 편안해지는\n"
+                    "│    수행의 길이 시작되었습니다 :BM_k_005: \n"
+                    "│\n"
+                    " ╰ ⊱ ─ · ─ · ─ · ─ ·  ─ · ─ · ─ · ─ · ─ · ─ · ─ "
+                ),
+                "daho": (
+                    ".  ◜◝--◜◝\n"
+                    "꒰   ˶ ´  ତ ` ˶꒱\n"
+                    "✦ ╮  {mention} 님, 다호로 승급했어요 !\n"
+                    "│\n"
+                    "│ ⠀꿈과 현실 사이의 경계를 넘나드는 자가 되었어요 ˎˊ˗ \n"
+                    "│ ⠀벚꽃잎처럼 흩날리는 몽환 속에서\n"
+                    "│    더 깊은 수행의 세계가 펼쳐집니다 :BM_k_002: \n"
+                    "│\n"
+                    " ╰ ⊱ ─ · ─ · ─ · ─ ·  ─ · ─ · ─ · ─ · ─ · ─ · ─"
+                ),
+                "dakyung": (
+                    ".  ◜◝--◜◝\n"
+                    "꒰   ˶ ´  ତ ` ˶꒱\n"
+                    "✦ ╮ {mention} 님, 다경으로 승급했어요 !\n"
+                    "│\n"
+                    "│ ⠀몽경의 깊은 경지에 이른 진정한 수행자가 되었어요 ˎˊ˗ \n"
+                    "│ ⠀별빛처럼 빛나는 지혜로 다른 이들을\n"
+                    "│    꿈길로 인도하는 대가의 경지입니다 :BM_k_003:\n"
+                    "│\n"
+                    " ╰ ⊱ ─ · ─ · ─ · ─ ·  ─ · ─ · ─ · ─ · ─ · ─ · ─"
+                ),
+            }
+
+            template = templates.get(new_role_key)
+            if template is None:
+                # 알 수 없는 키면 간단한 기본 문구
+                display = self._get_role_display_name(new_role_key)
+                content = f"{user.mention} 님, {display}로 승급했어요! 🎉"
+            else:
+                content = template.replace("{mention}", user.mention)
+
+            # 멘션 허용 범위: 해당 유저만
+            allowed = discord.AllowedMentions(everyone=False, roles=False, users=[user])
+
+            await channel.send(content, allowed_mentions=allowed)
+
+        except Exception as e:
+            await self.log(f"승급 메시지 전송 중 오류: {e}")
             
     async def _get_role_color(self, role_name: str, guild) -> discord.Color:
-        """역할 색상 가져오기"""
-        # 역할 ID 매핑
-        role_ids = {
-            'hub': 1396829213172174890,
-            'dado': 1396829213172174888,
-            'daho': 1398926065111662703,
-            'dakyung': 1396829213172174891
-        }
-        
+        """역할 색상 가져오기""" 
         # 기본 색상 (역할별)
         fallback_colors = {
             'hub': discord.Color.green(),
@@ -183,8 +262,8 @@ class LevelChecker(commands.Cog):
         }
         
         try:
-            if role_name in role_ids and guild:
-                discord_role = guild.get_role(role_ids[role_name])
+            if role_name in self.ROLE_IDS and guild:
+                discord_role = guild.get_role(self.ROLE_IDS[role_name])
                 if discord_role and discord_role.color.value != 0:
                     return discord_role.color
             
@@ -195,29 +274,115 @@ class LevelChecker(commands.Cog):
             return fallback_colors.get(role_name, discord.Color.purple())
         
     async def _check_role_upgrade(self, user_id: int) -> Optional[str]:
-        """역할 승급 확인"""
+        """역할 승급 확인(최고 도달 등급으로 즉시 반영 + 길드 역할 부여)"""
         user_data = await self.data_manager.get_user_exp(user_id)
         if not user_data:
             return None
-        
+
         current_exp = user_data['total_exp']
         current_role = user_data['current_role']
-        
-        # 현재 역할의 인덱스 찾기
+
+        # 현재 인덱스
         try:
-            current_index = self.role_order.index(current_role)
+            current_idx = self.role_order.index(current_role)
         except ValueError:
-            current_index = 0
-        
-        # 다음 역할들 확인
-        for i in range(current_index + 1, len(self.role_order)):
-            next_role = self.role_order[i]
-            if current_exp >= self.role_thresholds[next_role]:
-                # 역할 업데이트
-                await self.data_manager.update_user_role(user_id, next_role)
-                return self._get_role_display_name(next_role)
-        
+            current_idx = 0
+
+        # 도달한 '최고' 역할 찾기
+        target_role_key = None
+        for role_key in reversed(self.role_order):
+            if current_exp >= self.role_thresholds.get(role_key, 0):
+                target_role_key = role_key
+                break
+
+        # 현재보다 높은 역할이면 업데이트
+        if target_role_key and self.role_order.index(target_role_key) > current_idx:
+            await self.data_manager.update_user_role(user_id, target_role_key)
+            # 실제 길드 역할 적용
+            await self._apply_role_update(user_id, target_role_key, previous_role_key=current_role)
+            return target_role_key
+
         return None
+    
+    def _get_role_display_name(self, role_key: str) -> str:
+        """역할 키 -> 한글 표시명"""
+        return self.ROLE_DISPLAY.get(role_key, role_key)
+
+    async def _get_home_guild(self):
+        """메시지를 보낼 메인 길드 탐색(메인채널→퀘채널→첫 길드)"""
+        guild = None
+        ch = self.bot.get_channel(self.MAIN_CHAT_CHANNEL_ID)
+        if ch and ch.guild:
+            guild = ch.guild
+        if guild is None:
+            ch = self.bot.get_channel(self.QUEST_COMPLETION_CHANNEL_ID)
+            if ch and ch.guild:
+                guild = ch.guild
+        if guild is None and self.bot.guilds:
+            guild = self.bot.guilds[0]
+        return guild
+
+    async def _safe_fetch_member(self, guild, user_id: int):
+        """guild에서 멤버 안전 조회 (캐시→fetch)"""
+        if guild is None:
+            return None
+        member = guild.get_member(user_id)
+        if member:
+            return member
+        try:
+            return await guild.fetch_member(user_id)
+        except Exception:
+            return None
+
+    async def _apply_role_update(self, user_id: int, new_role_key: str, previous_role_key: str) -> bool:
+        """
+        길드 역할 실제 부여/제거.
+        규칙:
+          - hub→dado 진입: hub 제거, dado 지급
+          - daho/dakyung 진입: 중복 지급(기존 역할 유지)
+        """
+        try:
+            guild = await self._get_home_guild()
+            member = await self._safe_fetch_member(guild, user_id)
+            if not guild or not member:
+                await self.log(f"역할 갱신 실패: 길드/멤버를 찾을 수 없음 (user_id={user_id})")
+                return False
+
+            # 대상 역할 객체
+            target_role_id = self.ROLE_IDS.get(new_role_key)
+            if not target_role_id:
+                await self.log(f"역할 갱신 실패: 매핑에 없는 역할 {new_role_key}")
+                return False
+
+            target_role = guild.get_role(target_role_id)
+            if not target_role:
+                await self.log(f"역할 갱신 실패: 서버에 존재하지 않는 역할 ID {target_role_id} ({new_role_key})")
+                return False
+
+            # hub → dado 특수 규칙
+            if previous_role_key == 'hub' and new_role_key == 'dado':
+                hub_role_id = self.ROLE_IDS.get('hub')
+                if hub_role_id:
+                    hub_role = guild.get_role(hub_role_id)
+                    if hub_role and hub_role in member.roles:
+                        try:
+                            await member.remove_roles(hub_role, reason="승급: hub→dado")
+                        except Exception as e:
+                            await self.log(f"hub 제거 실패: {e}")
+
+            # 새 역할 부여(중복 허용)
+            if target_role not in member.roles:
+                try:
+                    await member.add_roles(target_role, reason=f"승급: {new_role_key}")
+                except Exception as e:
+                    await self.log(f"역할 부여 실패({new_role_key}): {e}")
+                    return False
+
+            return True
+
+        except Exception as e:
+            await self.log(f"_apply_role_update 오류: {e}")
+            return False
         
     # ===========================================
     # 출석 퀘스트 처리
@@ -240,7 +405,7 @@ class LevelChecker(commands.Cog):
             result['success'] = True
             result['exp_gained'] = daily_exp
             result['quest_completed'].append('daily_attendance')
-            result['messages'].append(f"📅 출석 수행 완료! **+{daily_exp} 수행력**")
+            result['messages'].append(f"📅 출석 수행 완료! **+{daily_exp} 다공**")
             
             # 주간 출석 마일스톤 직접 확인
             current_count = await self.data_manager.get_quest_count(user_id, 'daily', 'attendance', 'week')
@@ -253,7 +418,7 @@ class LevelChecker(commands.Cog):
                     await self.data_manager.add_exp(user_id, bonus_exp_4, 'weekly', 'attendance_4')
                     result['exp_gained'] += bonus_exp_4
                     result['quest_completed'].append('weekly_attendance_4')
-                    result['messages'].append(f"🏆 주간 출석 4회 달성! **+{bonus_exp_4} 수행력**")
+                    result['messages'].append(f"🏆 주간 출석 4회 달성! **+{bonus_exp_4} 다공**")
             
             # 7회 달성 확인
             elif current_count == 7:
@@ -264,7 +429,7 @@ class LevelChecker(commands.Cog):
                     await self.data_manager.add_exp(user_id, bonus_exp_7, 'weekly', 'attendance_7')
                     result['exp_gained'] += bonus_exp_7
                     result['quest_completed'].append('weekly_attendance_7')
-                    result['messages'].append(f"🏆 주간 출석 7회 달성! **+{bonus_exp_7} 수행력**")
+                    result['messages'].append(f"🏆 주간 출석 7회 달성! **+{bonus_exp_7} 다공**")
             
         except Exception as e:
             await self.log(f"출석 퀘스트 처리 중 오류 발생: {e}")
@@ -305,7 +470,6 @@ class LevelChecker(commands.Cog):
             # 오늘 작성한 다방일지가 있는지 확인 (한국 시간 기준)
             async with self.data_manager.db_connect() as db:
                 # 날짜 파라미터를 명시적으로 전달해야 함
-                from datetime import datetime
                 today_kst = datetime.now(KST).strftime('%Y-%m-%d')
                 cursor = await db.execute("""
                     SELECT COUNT(*) FROM quest_logs 
@@ -338,11 +502,12 @@ class LevelChecker(commands.Cog):
         try:
             # 오늘 이미 지급했는지 확인
             async with self.data_manager.db_connect() as db:
+                today_kst = datetime.now(KST).strftime("%Y-%m-%d")
                 cursor = await db.execute("""
                     SELECT COUNT(*) FROM quest_logs
                     WHERE user_id = ? AND quest_type = 'daily' AND quest_subtype = 'bbibbi'
-                      AND DATE(completed_at) = DATE('now')
-                """, (user_id,))
+                      AND DATE(completed_at, '+9 hours') = ?
+                """, (user_id, today_kst))
                 today_count = (await cursor.fetchone())[0]
             if today_count > 0:
                 return result  # 이미 지급됨
@@ -352,7 +517,7 @@ class LevelChecker(commands.Cog):
             result['success'] = True
             result['exp_gained'] = exp
             result['quest_completed'].append('daily_bbibbi')
-            result['messages'].append(f"📢 삐삐 퀘스트 완료! **+{exp} 수행력**")
+            result['messages'].append(f"📢 삐삐 퀘스트 완료! **+{exp} 다공**")
         except Exception as e:
             await self.log(f"삐삐 퀘스트 처리 중 오류: {e}")
             result['messages'].append("삐삐 퀘스트 처리 중 오류가 발생했습니다.")
@@ -377,7 +542,7 @@ class LevelChecker(commands.Cog):
             result['success'] = True
             result['exp_gained'] = daily_exp
             result['quest_completed'].append('daily_diary')
-            result['messages'].append(f"📝 일지 수행 완료! **+{daily_exp} 수행력**")
+            result['messages'].append(f"📝 일지 수행 완료! **+{daily_exp} 다공**")
             
             # 주간 다방일지 마일스톤 직접 확인
             current_count = await self.data_manager.get_quest_count(user_id, 'daily', 'diary', 'week')
@@ -390,7 +555,7 @@ class LevelChecker(commands.Cog):
                     await self.data_manager.add_exp(user_id, bonus_exp_4, 'weekly', 'diary_4')
                     result['exp_gained'] += bonus_exp_4
                     result['quest_completed'].append('weekly_diary_4')
-                    result['messages'].append(f"🏆 주간 일지 4회 달성! **+{bonus_exp_4} 수행력**")
+                    result['messages'].append(f"🏆 주간 일지 4회 달성! **+{bonus_exp_4} 다공**")
             
             # 7회 달성 확인
             elif current_count == 7:
@@ -401,7 +566,7 @@ class LevelChecker(commands.Cog):
                     await self.data_manager.add_exp(user_id, bonus_exp_4, 'weekly', 'diary_4')
                     result['exp_gained'] += bonus_exp_4
                     result['quest_completed'].append('weekly_diary_4')
-                    result['messages'].append(f"🏆 주간 일지 4회 달성! **+{bonus_exp_4} 수행력**")
+                    result['messages'].append(f"🏆 주간 일지 4회 달성! **+{bonus_exp_4} 다공**")
                 
                 # 7회 보상 지급
                 milestone_7_count = await self.data_manager.get_quest_count(user_id, 'weekly', 'diary_7', 'week')
@@ -410,11 +575,10 @@ class LevelChecker(commands.Cog):
                     await self.data_manager.add_exp(user_id, bonus_exp_7, 'weekly', 'diary_7')
                     result['exp_gained'] += bonus_exp_7
                     result['quest_completed'].append('weekly_diary_7')
-                    result['messages'].append(f"🏆 주간 일지 7회 달성! **+{bonus_exp_7} 수행력**")
+                    result['messages'].append(f"🏆 주간 일지 7회 달성! **+{bonus_exp_7} 다공**")
             
         except Exception as e:
-            self.logger.error(f"Error processing diary for user {user_id}: {e}")
-            result['messages'].append("일지 수행 처리 중 오류가 발생했습니다.")
+            await self.log(f"다방일지 처리 중 오류 발생: {e}")
         
         return await self._finalize_quest_result(user_id, result)
     
@@ -435,11 +599,12 @@ class LevelChecker(commands.Cog):
         try:
             # 오늘 이미 지급했는지 확인
             async with self.data_manager.db_connect() as db:
+                today_kst = datetime.now(KST).strftime("%Y-%m-%d")
                 cursor = await db.execute("""
                     SELECT COUNT(*) FROM quest_logs
                     WHERE user_id = ? AND quest_type = 'daily' AND quest_subtype = 'voice_30min'
-                      AND DATE(completed_at) = DATE('now')
-                """, (user_id,))
+                      AND DATE(completed_at, '+9 hours') = ?
+                """, (user_id, today_kst))
                 today_count = (await cursor.fetchone())[0]
             if today_count > 0:
                 return result  # 이미 지급됨
@@ -449,7 +614,7 @@ class LevelChecker(commands.Cog):
             result['success'] = True
             result['exp_gained'] = exp
             result['quest_completed'].append('daily_voice_30min')
-            result['messages'].append(f"🔊 음성방 30분 수행 완료! **+{exp} 수행력**")
+            result['messages'].append(f"🔊 음성방 30분 수행 완료! **+{exp} 다공**")
         except Exception as e:
             await self.log(f"음성 30분 퀘스트 처리 중 오류: {e}")
             result['messages'].append("음성 30분 퀘스트 처리 중 오류가 발생했습니다.")
@@ -487,7 +652,7 @@ class LevelChecker(commands.Cog):
             result['success'] = True
             result['exp_gained'] = exp
             result['quest_completed'].append(f'weekly_{quest_subtype}')
-            result['messages'].append(f"🏆 음성방 {hour}시간(주간) 수행 완료! **+{exp} 수행력**")
+            result['messages'].append(f"🏆 음성방 {hour}시간(주간) 수행 완료! **+{exp} 다공**")
         except Exception as e:
             await self.log(f"음성 {hour}시간 퀘스트 처리 중 오류: {e}")
             result['messages'].append(f"음성 {hour}시간 퀘스트 처리 중 오류가 발생했습니다.")
@@ -528,7 +693,7 @@ class LevelChecker(commands.Cog):
                 result['success'] = True
                 result['exp_gained'] = exp
                 result['quest_completed'].append('weekly_recommend_3')
-                result['messages'].append(f"🌱 주간 추천 3회 달성! **+{exp} 수행력**")
+                result['messages'].append(f"🌱 주간 추천 3회 달성! **+{exp} 다공**")
                 # 공통 후처리(메시지, 승급 등)
                 return await self._finalize_quest_result(user_id, result)
         except Exception as e:
@@ -574,7 +739,7 @@ class LevelChecker(commands.Cog):
             result['success'] = True
             result['exp_gained'] = exp
             result['quest_completed'].append(quest_type)
-            result['messages'].append(f"✨ {quest_type} 일회성 퀘스트 완료! **+{exp} 수행력**")
+            result['messages'].append(f"✨ {quest_type} 일회성 퀘스트 완료! **+{exp} 다공**")
             return await self._finalize_quest_result(user_id, result)
         else:
             return {

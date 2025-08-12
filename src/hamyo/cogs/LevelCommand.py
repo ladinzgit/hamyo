@@ -4,6 +4,9 @@ from LevelDataManager import LevelDataManager
 from typing import Optional, Dict, Any, List
 import logging
 from datetime import datetime, timedelta
+import json, os
+
+CONFIG_PATH = "config/level_config.json"
 
 try:
     from zoneinfo import ZoneInfo
@@ -11,6 +14,34 @@ try:
 except ImportError:
     import pytz
     KST = pytz.timezone("Asia/Seoul")
+    
+def _load_levelcfg():
+    if not os.path.exists(CONFIG_PATH):
+        return {"guilds": {}}
+    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def in_myinfo_allowed_channel():
+    def check():
+        async def predicate(ctx: commands.Context):
+            # DM이나 길드 없는 곳에서는 막음
+            if not ctx.guild:
+                return False
+
+            # 관리자 무시
+            if ctx.author.guild_permissions.administrator:
+                return True
+
+            cfg = _load_levelcfg()
+            allowed = cfg.get("guilds", {}).get(str(ctx.guild.id), {}).get("my_info_channels", [])
+
+            # 설정이 비어 있으면 전체 허용
+            if not allowed:
+                return True
+
+            return ctx.channel.id in allowed
+        return commands.check(predicate)
+    return check()
 
 class LevelCommands(commands.Cog):
     def __init__(self, bot):
@@ -33,110 +64,183 @@ class LevelCommands(commands.Cog):
         await self.data_manager.initialize_database()
     
     @commands.command(name='내정보', aliases=['myinfo', '정보'])
+    @in_myinfo_allowed_channel()
     async def my_info(self, ctx):
         """내 경험치 및 퀘스트 정보 조회"""
-        user_id = ctx.author.id
+        # ===== my_info 내용 시작: 여기부터 기존 임베드 구성 부분을 통째로 교체 =====
+        member = member or ctx.author
+        user_id = member.id
+
+        # 0) 도우미 핸들/데이터 접근
+        level_checker = ctx.bot.get_cog("LevelChecker")  # quest_exp, role_thresholds 참조
+        data_manager = getattr(self, "data_manager", None) or getattr(level_checker, "data_manager", None)
+        if data_manager is None or level_checker is None:
+            return await ctx.reply("설정이 아직 준비되지 않았어요. 잠시 후 다시 시도해 주세요.")
+
+        # 1) 기본 유저 데이터 (총 다공/현재 경지)
+        user_data = await data_manager.get_user_exp(user_id) if hasattr(data_manager, "get_user_exp") else None
+        total_exp = int(user_data.get("total_exp", 0)) if user_data else 0
+        current_role_key = user_data.get("current_role", "hub") if user_data else "hub"
+
+        # 2) 역할(경지) 임계값/진행률 계산 (LevelChecker.role_thresholds 기반)
+        role_thresholds = getattr(level_checker, "role_thresholds", {"hub": 0, "dado": 400, "daho": 1800, "dakyung": 6000})
+        role_order = getattr(level_checker, "role_order", ["hub", "dado", "daho", "dakyung"])
+        role_display = getattr(level_checker, "ROLE_DISPLAY", {"hub": "허브", "dado": "다도", "daho": "다호", "dakyung": "다경"})
+
+        # 현재/다음 경지 경계 파악
+        current_idx = role_order.index(current_role_key) if current_role_key in role_order else 0
+        current_floor = role_thresholds.get(role_order[current_idx], 0)
+        next_idx = min(current_idx + 1, len(role_order) - 1)
+        next_key = role_order[next_idx]
+        next_floor = role_thresholds.get(next_key, current_floor)
+
+        # 최상위 경지면 진행률 100%로 고정
+        if next_floor == current_floor:
+            percent = 100
+            need_to_next = 0
+        else:
+            gained_in_tier = max(0, total_exp - current_floor)
+            tier_span = max(1, next_floor - current_floor)
+            percent = int((gained_in_tier / tier_span) * 100)
+            need_to_next = max(0, next_floor - total_exp)
+
+        # 3) 인증 랭크(보이스/채팅) — 저장소에 없으면 0 처리
+        voice_lv = 0
+        chat_lv = 0
+        if hasattr(data_manager, "get_all_certified_ranks"):
+            try:
+                cert = await data_manager.get_all_certified_ranks(user_id)
+                voice_lv = int(cert.get("voice", 0))
+                chat_lv = int(cert.get("chat", 0))
+            except Exception:
+                pass
         
-        # 유저 경험치 정보 가져오기
-        user_data = await self.data_manager.get_user_exp(user_id)
-        if not user_data:
-            await ctx.send("❌ 사용자 데이터를 찾을 수 없습니다.")
-            return
-        
-        current_exp = user_data['total_exp']
-        current_role = user_data['current_role']
-        
-        # 인증된 랭크 정보 가져오기
-        certified_ranks = await self.data_manager.get_all_certified_ranks(user_id)
-        voice_level = certified_ranks.get('voice', 0)
-        chat_level = certified_ranks.get('chat', 0)
-        
-        # 다음 역할까지 필요한 경험치 계산
-        next_role_info = self._get_next_role_info(current_role, current_exp)
-        
-        # 메인 임베드 생성
+        next_voice_lv = ((voice_lv // 5) + 1) * 5 if voice_lv % 5 != 0 else voice_lv + 5
+        next_chat_lv = ((chat_lv // 5) + 1) * 5 if chat_lv % 5 != 0 else chat_lv + 5
+
+        # 4) 일일/주간 집계 값 가져오기
+        # 일일: 출석/일지/삐삐(카운트), 음성 분
+        def _safe_get_quest(user, qtype, subtype, scope):
+            if hasattr(data_manager, "get_quest_count"):
+                return data_manager.get_quest_count(user, qtype, subtype, scope)
+            return None
+
+        att_daily = await _safe_get_quest(user_id, 'daily', 'attendance', 'day') or 0
+        diary_daily = await _safe_get_quest(user_id, 'daily', 'diary', 'day') or 0
+        bb_daily = await _safe_get_quest(user_id, 'daily', 'bbibbi', 'day') or 0
+
+        # DataManager의 일일/주간 음성 초 → 분/시간
+        voice_sec_day = 0
+        voice_sec_week = 0
+        if hasattr(data_manager, "get_user_voice_seconds_daily"):
+            voice_sec_day = await data_manager.get_user_voice_seconds_daily(user_id)
+        if hasattr(data_manager, "get_user_voice_seconds_weekly"):
+            voice_sec_week = await data_manager.get_user_voice_seconds_weekly(user_id)
+
+        voice_min_daily = voice_sec_day // 60
+        voice_min_week = voice_sec_week // 60
+        voice_hour_week = voice_min_week // 60
+        voice_rem_min_week = voice_min_week % 60
+
+        # 주간: 출석/일지/추천/게시판/상점 카운트
+        att_week = await _safe_get_quest(user_id, 'daily', 'attendance', 'week') or 0
+        diary_week = await _safe_get_quest(user_id, 'daily', 'diary', 'week') or 0
+        recommend_week = await _safe_get_quest(user_id, 'weekly', 'recommend', 'week') or 0
+        board_week = await _safe_get_quest(user_id, 'weekly', 'board', 'week') or 0
+        shop_week = await _safe_get_quest(user_id, 'weekly', 'shop_purchase', 'week') or 0
+
+        # 5) 아이콘 유틸
+        def ox(done: bool) -> str:
+            return ":o:" if done else ":x:"
+
+        def blossom_leaf(current: int, thresholds) -> str:
+            icons = []
+            for th in thresholds:
+                icons.append("🌸" if current >= th else "🌿")
+            return "( " + " ".join(icons) + " )" if icons else ""
+
+        # 6) 퀘스트 임계값 (LevelChecker.quest_exp의 정책과 예시를 반영)
+        #   - 출석: 4/7 → 아이콘 2개(4,7)
+        #   - 일지: 4/7 → 아이콘 2개(4,7)
+        #   - 추천: 3   → 아이콘 1개(3)
+        #   - 음성: 5/10/20시간 → 아이콘 3개(5,10,20)
+        #   - 상점: 1   → 아이콘 1개(1)
+        #   - 게시판: 3 → 아이콘 1개(3)
+        ATT_THRESH = (4, 7)
+        DIARY_THRESH = (4, 7)
+        RECO_THRESH = (3,)
+        VOICE_THRESH = (5, 10, 20)
+        SHOP_THRESH = (1,)
+        BOARD_THRESH = (3,)
+
+        # 7) 이번 주 총 획득 다공 및 순위
+        weekly_total = await self.data_manager.get_user_period_exp(user_id, 'weekly')
+        weekly_rank = await self.data_manager.get_user_period_rank(user_id, 'weekly')
+
+        # 8) 임베드 구성
         embed = discord.Embed(
-            title=f"📊 {ctx.author.display_name}의 정보",
-            color=0x7289da
+            description=f"🌙 、{member.mention} 님의 수행\n⠀",
+            color=await level_checker._get_role_color(current_role_key, ctx.guild) if hasattr(level_checker, "_get_role_color") else discord.Color.blue()
         )
-        embed.set_thumbnail(url=ctx.author.display_avatar.url)
-        
-        # 기본 정보
-        role_emoji = self.role_info[current_role]['emoji']
-        role_name = self.role_info[current_role]['name']
+
+        # 경지 진행 바 (5칸)
+        bar_len = 5
+        filled = min(bar_len, max(0, int(percent / (100 / bar_len))))
+        bar = "▫️" * (bar_len - filled) + "◾️" * filled  # 예: ▫️▫️▫️◾️◾️
+
         embed.add_field(
-            name="💎 현재 상태",
-            value=f"**수행력:** {current_exp:,} EXP\n**역할:** {role_emoji} {role_name}",
-            inline=True
-        )
-        
-        # 다음 역할 정보
-        if next_role_info:
-            progress = (current_exp - self.role_info[current_role]['threshold']) / (next_role_info['threshold'] - self.role_info[current_role]['threshold'])
-            progress_bar = self._create_progress_bar(progress)
-            embed.add_field(
-                name="🎯 다음 역할까지",
-                value=f"**목표:** {next_role_info['next_role']}\n**필요:** {next_role_info['needed']:,} EXP\n{progress_bar}",
-                inline=True
-            )
-        else:
-            embed.add_field(
-                name="🏆 최고 역할 달성!",
-                value="축하합니다! 🎉",
-                inline=True
-            )
-            
-        # 랭크 정보 추가
-        rank_info = f"🎤 **보이스:** {voice_level}레벨\n💬 **채팅:** {chat_level}레벨"
-        
-        # 다음 보상 레벨 계산
-        def get_next_reward_level(current_level):
-            return ((current_level // 5) + 1) * 5
-        
-        voice_next = get_next_reward_level(voice_level)
-        chat_next = get_next_reward_level(chat_level)
-        
-        if voice_level > 0 or chat_level > 0:
-            rank_info += f"\n\n📈 **다음 보상**\n🎤 {voice_next}레벨 ({voice_next - voice_level}↑)\n💬 {chat_next}레벨 ({chat_next - chat_level}↑)"
-        else:
-            rank_info += f"\n\n📈 **다음 보상**\n🎤 5레벨 (5↑)\n💬 5레벨 (5↑)"
-        
-        embed.add_field(
-            name="🏆 인증된 랭크",
-            value=rank_info,
-            inline=True
-        )
-        
-        # 퀘스트 진행 현황
-        quest_status = await self._get_quest_status(user_id)
-        embed.add_field(
-            name="📋 이번 주 퀘스트 현황",
-            value=quest_status,
+            name="🪵◝. 경지 확인",
+            value=(
+                f"⠀{bar}: {percent:02d}%\n"
+                f"> @{role_display.get(current_role_key, current_role_key)} ( {total_exp:,} 다공 ) \n"
+                f"> -# ◟. 다음 경지까지 {need_to_next:,} 다공 필요"
+            ),
             inline=False
         )
-        
-        # 이번 주 완료 기록
-        weekly_history = await self._get_weekly_quest_history(user_id)
-        if weekly_history:
-            embed.add_field(
-                name="✅ 이번 주 완료한 퀘스트",
-                value=weekly_history,
-                inline=False
-            )
-        
-        # 랭크 보상 통계 (선택적으로 추가)
-        voice_rewards = (voice_level // 5) * 20
-        chat_rewards = (chat_level // 5) * 20
-        total_rank_exp = voice_rewards + chat_rewards
-        
-        if total_rank_exp > 0:
-            embed.add_field(
-                name="📊 랭크 보상 통계",
-                value=f"랭크로 획득한 경험치: **{total_rank_exp:,} EXP**\n(보이스: {voice_rewards} + 채팅: {chat_rewards})",
-                inline=False
-            )
-        
-        await ctx.send(embed=embed)
+
+        # 인증된 랭크
+        embed.add_field(
+            name="📜◝. 퀘스트 현황\n\n˚‧ 📔: 인증된 랭크",
+            value=(
+                f"> 음성 : {voice_lv} Lv  \n"
+                f"> 채팅 : {chat_lv} Lv \n"
+                f"> -# ◟. 다음 인증까지 보이스 {next_voice_lv - voice_lv} Lv / 채팅 {next_chat_lv - chat_lv} Lv "
+            ),
+            inline=False
+        )
+
+        # 일일 퀘스트
+        embed.add_field(
+            name="˚‧ 📆 : 일일 퀘스트",
+            value=(
+                f"> 출석체크 : {ox(att_daily >= 1)} \n"
+                f"다방일지 : {ox(diary_daily >= 1)} \n"
+                f"다방삐삐 : {ox(bb_daily >= 1)}\n"
+                f"음성활동 : {voice_min_daily}분 / 30분 "
+            ),
+            inline=False
+        )
+
+        # 주간 퀘스트 (🌸/🌿)
+        weekly_lines = []
+        weekly_lines.append(f"출석체크 : {att_week} / 7 {blossom_leaf(att_week, ATT_THRESH)}")
+        weekly_lines.append(f"비몽추천 : {recommend_week} / 3 {blossom_leaf(recommend_week, RECO_THRESH)}")
+        weekly_lines.append(f"다방일지 : {diary_week} / 7 {blossom_leaf(diary_week, DIARY_THRESH)}")
+        weekly_lines.append(f"음성활동 : {voice_hour_week}시간 {voice_rem_min_week}분 /  {blossom_leaf(voice_hour_week, VOICE_THRESH)}")
+        weekly_lines.append(f"상점구매 : {shop_week} / 1 {blossom_leaf(shop_week, SHOP_THRESH)}")
+        weekly_lines.append(f"게시판이용 : {board_week} / 3 {blossom_leaf(board_week, BOARD_THRESH)}")
+
+        embed.add_field(
+            name="˚‧ 🗓️ : 주간 퀘스트",
+            value="\n".join(weekly_lines) + "\n\n이번 주 총 획득 : **{weekly_total:,} 다공** • 주간 **{weekly_rank}위** ",
+            inline=False
+        )
+
+        embed.set_thumbnail(url=member.display_avatar.url)
+        embed.set_footer(text=f"요청자: {ctx.author}", icon_url=ctx.author.display_avatar.url)
+        embed.timestamp = ctx.message.created_at
+
+        await ctx.reply(embed=embed)
     
     @commands.command(name='순위', aliases=['ranking', 'rank', 'leaderboard'])
     async def ranking(self, ctx, period: str = '누적'):
@@ -214,7 +318,7 @@ class LevelCommands(commands.Cog):
                 else:
                     leaderboard_text += f"{rank_emojis[i-1]} **{i}.** {username}\n"
                 
-                leaderboard_text += f"   └ {exp:,} EXP ({role_emoji} {role_name})\n\n"
+                leaderboard_text += f"   └ {exp:,} 다공 ({role_emoji} {role_name})\n\n"
             except:
                 continue
         
@@ -224,7 +328,7 @@ class LevelCommands(commands.Cog):
         if user_rank and user_rank > 10:
             embed.add_field(
                 name="📍 내 순위",
-                value=f"**{user_rank}위** - {ctx.author.display_name} ({user_exp:,} EXP)",
+                value=f"**{user_rank}위** - {ctx.author.display_name} ({user_exp:,} 다공)",
                 inline=False
             )
         
@@ -318,18 +422,17 @@ class LevelCommands(commands.Cog):
             
             history_lines = []
             total_exp = 0
-            
             for quest_type, quest_subtype, exp_gained, completed_at in results:
                 quest_name = quest_names.get(quest_subtype or quest_type, quest_subtype or quest_type)
                 date_str = completed_at[5:10]  # MM-DD 형식
-                history_lines.append(f"• {quest_name} (+{exp_gained}) - {date_str}")
+                history_lines.append(f"• {quest_name} (+{exp_gained} 다공) - {date_str}")
                 total_exp += exp_gained
             
             result = "\n".join(history_lines)
             if len(result) > 900:  # 임베드 필드 길이 제한
                 result = result[:900] + "..."
             
-            result += f"\n\n**이번 주 총 획득: {total_exp} EXP**"
+            result += f"\n\n**이번 주 총 획득: {total_exp} 다공**"
             return result
             
         except Exception as e:

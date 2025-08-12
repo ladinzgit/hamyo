@@ -4,6 +4,7 @@ from datetime import datetime
 from DataManager import DataManager
 from voice_utils import get_expanded_tracked_channels as expand_tracked 
 import asyncio
+import time
 
 try:
     from zoneinfo import ZoneInfo
@@ -22,6 +23,8 @@ class VoiceTracker(commands.Cog):
         # --- 추가: 음성 퀘스트 지급 여부 메모리 관리 ---
         self.voice_quest_daily_given = set()  # (user_id, date)
         self.voice_quest_weekly_given = {}    # user_id: set([5, 10, 20])  # 시간 단위
+        self._tracked_voice_cache = None
+        self._tracked_voice_cache_at = 0  # epoch seconds
 
     async def cog_load(self):
         print(f"✅ {self.__class__.__name__} loaded successfully!")
@@ -33,9 +36,26 @@ class VoiceTracker(commands.Cog):
                 await logger.log(message)
         except Exception as e:
             print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
+            
+    async def _get_tracked_voice_ids_cached(self, ttl: int = 600) -> set[int]:
+        now_ts = time.time()
+        if self._tracked_voice_cache and (now_ts - self._tracked_voice_cache_at) < ttl:
+            return self._tracked_voice_cache
+        ids = set(await expand_tracked(self.bot, self.data_manager, "voice"))
+        self._tracked_voice_cache = ids
+        self._tracked_voice_cache_at = now_ts
+        return ids
 
     def get_all_voice_channels(self):
-        return [channel for guild in self.bot.guilds for channel in guild.voice_channels]
+        channels = []
+        for guild in self.bot.guilds:
+            channels.extend(getattr(guild, "voice_channels", []))
+            channels.extend(getattr(guild, "stage_channels", []))  
+        return channels
+    
+    def invalidate_tracked_voice_cache(self):
+        self._tracked_voice_cache = None
+        self._tracked_voice_cache_at = 0
 
     @tasks.loop(minutes=1)
     async def track_voice_time(self):
@@ -77,7 +97,6 @@ class VoiceTracker(commands.Cog):
                         await self.data_manager.add_voice_time(user_id, channel_id, duration)
                         self.join_times[user_id][channel_id] = now
 
-        # --- 음성 퀘스트 지급 로직 추가 ---
         await self.process_voice_quests()
 
     async def process_voice_quests(self):
@@ -88,51 +107,122 @@ class VoiceTracker(commands.Cog):
         if not level_checker:
             return
 
-        # VoiceConfig에서 등록한 채널만 추적
-        tracked_channel_ids = set(await expand_tracked(self.bot, self.data_manager, "voice"))
+        # 추적 채널 목록 확보 (캐시가 있으면 사용, 없으면 유틸 함수로 확장)
+        try:
+            tracked_channel_ids = set(await self._get_tracked_voice_ids_cached())
+        except AttributeError:
+            # 캐시 헬퍼가 없는 경우 폴백
+            from voice_utils import get_expanded_tracked_channels as expand_tracked
+            tracked_channel_ids = set(await expand_tracked(self.bot, self.data_manager, "voice"))
+            
+        if not tracked_channel_ids:
+            return
 
         now = datetime.now(KST)
-        today_str = now.strftime('%Y-%m-%d')
-        week_str = now.strftime('%Y-%W')
-
         user_ids = list(self.join_times.keys())
-        for user_id in user_ids:
-            # --- 일일 30분 ---
-            daily_key = (user_id, today_str)
-            if daily_key not in self.voice_quest_daily_given:
-                # 집계: 오늘 해당 유저가 추적 채널에서 사용한 총 시간
-                seconds_today = 0
-                times_today, _, _ = await self.data_manager.get_user_times(user_id, '일간', now, list(tracked_channel_ids))
-                if times_today:
-                    seconds_today = sum(times_today.values())
-                if seconds_today >= 1800:
-                    try:
-                        await level_checker.process_voice_30min(user_id)
-                    except Exception as e:
-                        print(f"Voice 30min quest error: {e}")
-                    self.voice_quest_daily_given.add(daily_key)
+        
+        for uid in user_ids:
+            try:
+                # === 일간(오늘) 누적 초 ===
+                day_map, _, _ = await self.data_manager.get_user_times(
+                    user_id=uid,
+                    period="일간",
+                    base_date=now,
+                    channel_filter=list(tracked_channel_ids)
+                )
+                daily_secs = sum(day_map.values()) if day_map else 0
 
-            # --- 주간 5/10/20시간 ---
-            if user_id not in self.voice_quest_weekly_given:
-                self.voice_quest_weekly_given[user_id] = set()
-            seconds_week = 0
-            times_week, _, _ = await self.data_manager.get_user_times(user_id, '주간', now, list(tracked_channel_ids))
-            if times_week:
-                seconds_week = sum(times_week.values())
-            for hour, quest_name in [(5, 'voice_5h'), (10, 'voice_10h'), (20, 'voice_20h')]:
-                if hour not in self.voice_quest_weekly_given[user_id]:
-                    if seconds_week >= hour * 3600:
-                        try:
-                            await level_checker.process_voice_weekly(user_id, hour)
-                        except Exception as e:
-                            print(f"Voice {hour}h quest error: {e}")
-                        self.voice_quest_weekly_given[user_id].add(hour)
+                if daily_secs >= 30 * 60:
+                    # 일일 30분 달성 → 중복 여부는 LevelChecker가 내부적으로 판단
+                    await level_checker.process_voice_30min(uid)
+
+                # === 주간 누적 초 ===
+                week_map, _, _ = await self.data_manager.get_user_times(
+                    user_id=uid,
+                    period="주간",
+                    base_date=now,
+                    channel_filter=list(tracked_channel_ids)
+                )
+                weekly_secs = sum(week_map.values()) if week_map else 0
+
+                # 주간 5/10/20h 달성도 순차 검사 (중복 방지는 LevelChecker가 처리)
+                for h in (5, 10, 20):
+                    if weekly_secs >= h * 3600:
+                        await level_checker.process_voice_weekly(uid, h)
+            except Exception as e:
+                # 한 유저에서 에러가 나도 다른 유저 진행은 계속
+                try:
+                    await self.log(f"음성방 퀘스트 처리에서 유저 - {uid} 처리 중 오류: {e}")
+                except Exception:
+                    pass
+                        
+    async def process_voice_quests_for_users(self, user_ids: set[int]):
+        """
+        음성방 30분(일일), 5/10/20시간(주간) 퀘스트 경험치 지급
+        """
+        if not user_ids:
+            return
+        
+        level_checker = self.bot.get_cog('LevelChecker')
+        if not level_checker:
+            return
+
+        # 추적 채널 목록 확보 (캐시가 있으면 사용, 없으면 유틸 함수로 확장)
+        try:
+            tracked_channel_ids = set(await self._get_tracked_voice_ids_cached())
+        except AttributeError:
+            # 캐시 헬퍼가 없는 경우 폴백
+            from voice_utils import get_expanded_tracked_channels as expand_tracked
+            tracked_channel_ids = set(await expand_tracked(self.bot, self.data_manager, "voice"))
+            
+        if not tracked_channel_ids:
+            return
+
+        now = datetime.now(KST)
+        for uid in user_ids:
+            try:
+                # === 일간(오늘) 누적 초 ===
+                day_map, _, _ = await self.data_manager.get_user_times(
+                    user_id=uid,
+                    period="일간",
+                    base_date=now,
+                    channel_filter=list(tracked_channel_ids)
+                )
+                daily_secs = sum(day_map.values()) if day_map else 0
+
+                if daily_secs >= 30 * 60:
+                    # 일일 30분 달성 → 중복 여부는 LevelChecker가 내부적으로 판단
+                    await level_checker.process_voice_30min(uid)
+
+                # === 주간 누적 초 ===
+                week_map, _, _ = await self.data_manager.get_user_times(
+                    user_id=uid,
+                    period="주간",
+                    base_date=now,
+                    channel_filter=list(tracked_channel_ids)
+                )
+                weekly_secs = sum(week_map.values()) if week_map else 0
+
+                # 주간 5/10/20h 달성도 순차 검사 (중복 방지는 LevelChecker가 처리)
+                for h in (5, 10, 20):
+                    if weekly_secs >= h * 3600:
+                        await level_checker.process_voice_weekly(uid, h)
+            except Exception as e:
+                # 한 유저에서 에러가 나도 다른 유저 진행은 계속
+                try:
+                    await self.log(f"음성방 퀘스트 처리에서 유저 - {uid} 처리 중 오류: {e}")
+                except Exception:
+                    pass
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel):
-        if isinstance(channel, discord.VoiceChannel) and channel.category:
+        if isinstance(channel, (discord.VoiceChannel, discord.StageChannel)) and channel.category:
             await self.data_manager.register_deleted_channel(channel.id, channel.category.id)
-            await self.log(f"추적된 카테고리 {channel.category.name}의 음성 채널 {channel.name}({channel.id})이 삭제되었습니다.")
+            await self.log(
+                f"추적된 카테고리 {channel.category.name}의 음성/스테이지 채널 {channel.name}({channel.id})이 삭제되었습니다."
+            )
+            # 추적 채널 캐시 무효화
+            self.invalidate_tracked_voice_cache()
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
@@ -169,11 +259,10 @@ class VoiceTracker(commands.Cog):
                 if member.id not in self.join_times:
                     self.join_times[member.id] = {}
                 self.join_times[member.id][after.channel.id] = now
+            else:
+                await self.process_voice_quests_for_users({member.id}) # 나간 유저에 대해 음성 퀘스트 처리
         except Exception as e:
             print(e)
-        # --- 추가: 음성 퀘스트 지급 로직 ---
-        await self.process_voice_quests()
-
     @commands.command()
     async def check_all_time(self, ctx, user: discord.Member = None):
         user = user or ctx.author

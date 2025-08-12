@@ -2,13 +2,34 @@ import discord
 from discord.ext import commands
 from LevelDataManager import LevelDataManager
 from typing import Optional, Dict, Any, List
+import json, os
 import logging
+
+
 try:
     from zoneinfo import ZoneInfo
     KST = ZoneInfo("Asia/Seoul")
 except ImportError:
     import pytz
     KST = pytz.timezone("Asia/Seoul")
+    
+CONFIG_PATH = "config/level_config.json"
+
+def _ensure_config():
+    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+    if not os.path.exists(CONFIG_PATH):
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump({"guilds": {}}, f, ensure_ascii=False, indent=2)
+
+def _load_levelcfg():
+    _ensure_config()
+    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def _save_levelcfg(data):
+    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 class LevelConfig(commands.Cog):
     def __init__(self, bot):
@@ -58,11 +79,11 @@ class LevelConfig(commands.Cog):
     async def give_exp(self, ctx, member: discord.Member, amount: int, *, reason: str = "관리자 지급"):
         """경험치 지급"""
         if amount <= 0:
-            await ctx.send("❌ 경험치는 1 이상이어야 합니다.")
+            await ctx.send("❌ 다공은 1 이상이어야 합니다.")
             return
         
         if amount > 10000:
-            await ctx.send("❌ 한 번에 지급할 수 있는 경험치는 10,000 이하입니다.")
+            await ctx.send("❌ 한 번에 지급할 수 있는 다공은 10,000 이하입니다.")
             return
         
         # 경험치 지급 전 현재 상태 확인
@@ -79,19 +100,19 @@ class LevelConfig(commands.Cog):
                 role_update = await level_checker._check_role_upgrade(member.id)
             
             embed = discord.Embed(
-                title="✅ 경험치 지급 완료",
+                title="✅ 다공 지급 완료",
                 color=0x00ff00
             )
             embed.add_field(name="대상", value=member.mention, inline=True)
-            embed.add_field(name="지급량", value=f"+{amount:,} 경험치", inline=True)
+            embed.add_field(name="지급량", value=f"+{amount:,} 다공", inline=True)
             embed.add_field(name="사유", value=reason, inline=True)
             
-            # 현재 총 경험치 표시
+            # 현재 총 다공 표시
             after_data = await self.data_manager.get_user_exp(member.id)
             if after_data:
                 embed.add_field(
-                    name="총 경험치", 
-                    value=f"{after_data['total_exp']:,} EXP", 
+                    name="총 다공", 
+                    value=f"{after_data['total_exp']:,} 다공", 
                     inline=True
                 )
             
@@ -104,14 +125,14 @@ class LevelConfig(commands.Cog):
             
             await ctx.send(embed=embed)
         else:
-            await ctx.send("❌ 경험치 지급 중 오류가 발생했습니다.")
+            await ctx.send("❌ 다공 지급 중 오류가 발생했습니다.")
     
     @exp_group.command(name='remove')
     @commands.has_permissions(administrator=True)
     async def remove_exp(self, ctx, member: discord.Member, amount: int, *, reason: str = "관리자 회수"):
         """경험치 회수"""
         if amount <= 0:
-            await ctx.send("❌ 경험치는 1 이상이어야 합니다.")
+            await ctx.send("❌ 다공은 1 이상이어야 합니다.")
             return
         
         # 현재 경험치 확인
@@ -127,32 +148,32 @@ class LevelConfig(commands.Cog):
         
         if success:
             embed = discord.Embed(
-                title="✅ 경험치 회수 완료",
+                title="✅ 다공 회수 완료",
                 color=0xff9900
             )
             embed.add_field(name="대상", value=member.mention, inline=True)
-            embed.add_field(name="회수량", value=f"-{will_remove:,} 경험치", inline=True)
+            embed.add_field(name="회수량", value=f"-{will_remove:,} 다공", inline=True)
             embed.add_field(name="사유", value=reason, inline=True)
             
-            # 회수 후 총 경험치 표시
+            # 회수 후 총 다공 표시
             after_data = await self.data_manager.get_user_exp(member.id)
             if after_data:
                 embed.add_field(
-                    name="남은 경험치", 
-                    value=f"{after_data['total_exp']:,} EXP", 
+                    name="남은 다공", 
+                    value=f"{after_data['total_exp']:,} 다공", 
                     inline=True
                 )
             
             if will_remove < amount:
                 embed.add_field(
                     name="⚠️ 알림",
-                    value=f"보유 경험치가 부족하여 {will_remove:,} 경험치만 회수되었습니다.",
+                    value=f"보유 다공이 부족하여 {will_remove:,} 다공만 회수되었습니다.",
                     inline=False
                 )
             
             await ctx.send(embed=embed)
         else:
-            await ctx.send("❌ 경험치 회수 중 오류가 발생했습니다.")
+            await ctx.send("❌ 다공 회수 중 오류가 발생했습니다.")
     
     @exp_group.command(name='reset')
     @commands.has_permissions(administrator=True)
@@ -172,7 +193,7 @@ class LevelConfig(commands.Cog):
         )
         embed.add_field(
             name="현재 데이터",
-            value=f"경험치: {user_data['total_exp']:,} EXP\n역할: {user_data['current_role']}",
+            value=f"다공: {user_data['total_exp']:,} 다공\n역할: {user_data['current_role']}",
             inline=False
         )
         embed.add_field(name="⚠️ 주의", value="이 작업은 되돌릴 수 없습니다!", inline=False)
@@ -233,7 +254,7 @@ class LevelConfig(commands.Cog):
         )
         embed.add_field(
             name="삭제될 데이터",
-            value="• 모든 유저의 경험치\n• 모든 퀘스트 기록\n• 모든 일회성 퀘스트 완료 기록",
+            value="• 모든 유저의 다공\n• 모든 퀘스트 기록\n• 모든 일회성 퀘스트 완료 기록",
             inline=False
         )
         
@@ -364,11 +385,11 @@ class LevelConfig(commands.Cog):
         )
         embed.add_field(name="대상", value=member.mention, inline=True)
         embed.add_field(name="퀘스트", value=quest_type, inline=True)
-        embed.add_field(name="경험치", value=f"{exp_amount} EXP", inline=True)
+        embed.add_field(name="다공", value=f"{exp_amount} 다공", inline=True)
         embed.add_field(name="사유", value=reason, inline=True)
 
         if result.get('success'):
-            embed.add_field(name="결과", value=f"+{result.get('exp_gained', 0):,} 경험치", inline=False)
+            embed.add_field(name="결과", value=f"+{result.get('exp_gained', 0):,} 다공", inline=False)
             if result.get('role_updated'):
                 embed.add_field(name="🎉 역할 승급", value=f"**{result.get('new_role')}** 역할로 승급!", inline=False)
             if result.get('quest_completed'):
@@ -424,7 +445,7 @@ class LevelConfig(commands.Cog):
             return reward_levels
         
         reward_levels = get_reward_levels(current_certified_level, new_level)
-        exp_per_reward = 20  # 각 단계별 경험치
+        exp_per_reward = 20  # 각 단계별 다공
         
         total_exp = 0
         completed_quests = []
@@ -467,7 +488,7 @@ class LevelConfig(commands.Cog):
         embed.add_field(name="인증 레벨", value=f"{new_level}레벨", inline=True)
         embed.add_field(name="이전 인증", value=f"{current_certified_level}레벨", inline=True)
         
-        embed.add_field(name="획득 경험치", value=f"+{total_exp:,} EXP", inline=True)
+        embed.add_field(name="획득 다공", value=f"+{total_exp:,} 다공", inline=True)
         embed.add_field(name="완료된 퀘스트", value=f"{len(completed_quests)}개", inline=True)
         embed.add_field(name="", value="", inline=True)  # 빈 필드로 줄바꿈
         
@@ -495,8 +516,8 @@ class LevelConfig(commands.Cog):
         user_data = await self.data_manager.get_user_exp(member.id)
         if user_data:
             embed.add_field(
-                name="총 경험치",
-                value=f"{user_data['total_exp']:,} EXP",
+                name="총 다공",
+                value=f"{user_data['total_exp']:,} 다공",
                 inline=True
             )
         
@@ -662,11 +683,10 @@ class LevelConfig(commands.Cog):
         # 일일 퀘스트
         daily_quests = []
         for quest, exp in quest_exp['daily'].items():
-            # bbibbi(다방삐삐) 설명 강조
             if quest == "bbibbi":
-                daily_quests.append(f"`{quest}` ({exp} EXP) - 다방삐삐(지정 채널에서 역할 멘션)")
+                daily_quests.append(f"`{quest}` ({exp} 다공) - 다방삐삐(지정 채널에서 역할 멘션)")
             else:
-                daily_quests.append(f"`{quest}` ({exp} EXP)")
+                daily_quests.append(f"`{quest}` ({exp} 다공)")
         embed.add_field(
             name="📅 일일 퀘스트",
             value="\n".join(daily_quests) if daily_quests else "없음",
@@ -676,7 +696,7 @@ class LevelConfig(commands.Cog):
         # 주간 퀘스트
         weekly_quests = []
         for quest, exp in quest_exp['weekly'].items():
-            weekly_quests.append(f"`{quest}` ({exp} EXP)")
+            weekly_quests.append(f"`{quest}` ({exp} 다공)")
         embed.add_field(
             name="📊 주간 퀘스트",
             value="\n".join(weekly_quests) if weekly_quests else "없음",
@@ -686,7 +706,7 @@ class LevelConfig(commands.Cog):
         # 일회성 퀘스트
         one_time_quests = []
         for quest, exp in quest_exp['one_time'].items():
-            one_time_quests.append(f"`{quest}` ({exp} EXP)")
+            one_time_quests.append(f"`{quest}` ({exp} 다공)")
         embed.add_field(
             name="✨ 일회성 퀘스트",
             value="\n".join(one_time_quests) if one_time_quests else "없음",
@@ -754,7 +774,7 @@ class LevelConfig(commands.Cog):
         )
 
         embed.add_field(name="카테고리", value=category_names.get(quest_category, quest_category), inline=True)
-        embed.add_field(name="경험치", value=f"{exp_amount} EXP", inline=True)
+        embed.add_field(name="다공", value=f"{exp_amount} 다공", inline=True)
         embed.add_field(name="설명", value=quest_descriptions.get(quest_type, "설명이 없습니다."), inline=False)
 
         # 특별 조건
@@ -783,6 +803,56 @@ class LevelConfig(commands.Cog):
         )
 
         await ctx.send(embed=embed)
+        
+    # ===========================================
+    # 내정보 채널 관리 명령어들
+    # ===========================================
+        
+    @commands.group(name="내정보채널", invoke_without_command=True)
+    @commands.has_permissions(administrator=True)
+    async def level_settings(self, ctx: commands.Context):
+        await ctx.send("사용법: `내정보채널 추가|제거|조회`")
+
+    @level_settings.command(name="추가")
+    @commands.has_permissions(administrator=True)
+    async def add_myinfo_channel(self, ctx: commands.Context, channel: discord.TextChannel):
+        cfg = _load_levelcfg()
+        g = cfg["guilds"].setdefault(str(ctx.guild.id), {})
+        lst = g.setdefault("my_info_channels", [])
+        if channel.id not in lst:
+            lst.append(channel.id)
+            _save_levelcfg(cfg)
+            await ctx.send(f"✅ `내정보` 허용 채널에 {channel.mention} 추가됨.")
+        else:
+            await ctx.send(f"ℹ️ 이미 허용 목록에 있는 채널입니다: {channel.mention}")
+
+    @level_settings.command(name="제거")
+    @commands.has_permissions(administrator=True)
+    async def remove_myinfo_channel(self, ctx: commands.Context, channel: discord.TextChannel):
+        cfg = _load_levelcfg()
+        g = cfg["guilds"].setdefault(str(ctx.guild.id), {})
+        lst = g.setdefault("my_info_channels", [])
+        if channel.id in lst:
+            lst.remove(channel.id)
+            _save_levelcfg(cfg)
+            await ctx.send(f"✅ `내정보` 허용 채널에서 {channel.mention} 제거됨.")
+        else:
+            await ctx.send(f"ℹ️ 허용 목록에 없는 채널입니다: {channel.mention}")
+
+    @level_settings.command(name="조회")
+    @commands.has_permissions(administrator=True)
+    async def list_myinfo_channels(self, ctx: commands.Context):
+        cfg = _load_levelcfg()
+        ids = cfg.get("guilds", {}).get(str(ctx.guild.id), {}).get("my_info_channels", [])
+        if not ids:
+            await ctx.send("🔓 현재 `내정보`는 **모든 채널 허용** 상태입니다.")
+            return
+        mentions = []
+        for cid in ids:
+            ch = ctx.guild.get_channel(cid)
+            mentions.append(ch.mention if ch else f"`{cid}`(삭제됨)")
+        await ctx.send("✅ 허용 채널 목록: " + ", ".join(mentions) if mentions else "비어 있음")
+
 
 
 class ConfirmView(discord.ui.View):

@@ -145,7 +145,7 @@ class DataManager:
             return result, None, None
 
         # 빈 리스트면 바로 빈 결과 반환
-        if channel_filter is None:
+        if channel_filter is None and not channel_filter:
             return {}, start_date, end_date
 
         sql = """
