@@ -240,7 +240,7 @@ class LevelCommands(commands.Cog):
                 value=(
                     f"⠀{bar}: {percent:02d}%\n"
                     f"> {current_role_mention} ( {total_exp:,} 다공 ) \n"
-                    f"> -# ◟. 다음 경지까지 {need_to_next:,} 다공 필요"
+                    f"> -# ◟. 다음 경지까지 {need_to_next:,} 다공 필요\n"
                 ),
                 inline=False
             )
