@@ -464,16 +464,13 @@ class LevelChecker(commands.Cog):
         user_id = message.author.id
 
         try:
-            # 오늘 작성한 다방일지가 있는지 확인 (한국 시간 기준)
-            async with self.data_manager.db_connect() as db:
-                # 날짜 파라미터를 명시적으로 전달해야 함
-                today_kst = datetime.now(KST).strftime('%Y-%m-%d')
-                cursor = await db.execute("""
-                    SELECT COUNT(*) FROM quest_logs 
-                    WHERE user_id = ? AND quest_type = 'daily' AND quest_subtype = 'diary' 
-                    AND DATE(completed_at, '+9 hours') = ?
-                """, (user_id, today_kst))
-                today_count = (await cursor.fetchone())[0]
+            # get_quest_count로 오늘 작성했는지 확인 (0 또는 1 반환)
+            today_count = await self.data_manager.get_quest_count(
+                user_id, 
+                quest_type='daily', 
+                quest_subtype='diary',
+                timeframe='day'
+            )
 
             if today_count > 0:
                 return  # 오늘 이미 작성함
@@ -497,15 +494,13 @@ class LevelChecker(commands.Cog):
             'quest_completed': []
         }
         try:
-            # 오늘 이미 지급했는지 확인
-            async with self.data_manager.db_connect() as db:
-                today_kst = datetime.now(KST).strftime("%Y-%m-%d")
-                cursor = await db.execute("""
-                    SELECT COUNT(*) FROM quest_logs
-                    WHERE user_id = ? AND quest_type = 'daily' AND quest_subtype = 'bbibbi'
-                      AND DATE(completed_at, '+9 hours') = ?
-                """, (user_id, today_kst))
-                today_count = (await cursor.fetchone())[0]
+            # get_quest_count로 오늘 이미 지급했는지 확인
+            today_count = await self.data_manager.get_quest_count(
+                user_id,
+                quest_type='daily',
+                quest_subtype='bbibbi',
+                timeframe='day'
+            )
             if today_count > 0:
                 return result  # 이미 지급됨
 

@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from LevelDataManager import LevelDataManager
+from DataManager import DataManager
 from typing import Optional, Dict, Any, List
 import logging
 from datetime import datetime, timedelta
@@ -52,6 +53,7 @@ class LevelCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.data_manager = LevelDataManager()
+        self.voice_data_manager = DataManager()
         self.logger = logging.getLogger(__name__)
         
         # 역할 정보
@@ -76,64 +78,6 @@ class LevelCommands(commands.Cog):
                 await logger.log(message)
         except Exception as e:
             print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
-            
-    def blossom_leaf(self, progress, milestones, *, mode="band", zero_leaf_for_zero=False):
-        """
-        progress: 현재 진행 수치 (정수 권장)
-        milestones: 오름차순 마일스톤 리스트 (예: [4, 7] 또는 [5, 10, 20])
-        mode:
-        - "band"       : 일반 주간 항목(출석, 일지, 추천, 게시판, 상점)용
-                            • 달성한 마일스톤 수만큼 🌸
-                            • 다음 마일스톤까지의 '남은 칸' 중 현재 진행치만큼 🌿
-                            • progress==0이면(=아무것도 안 했으면) 🌿도 표시하지 않음
-        - "milestone"  : 음성활동 전용 (5/10/20 자리수 표현)
-                            • 달성한 마일스톤 수만큼 🌸
-                            • 남은 자릿수는 전부 🌿로 채움 (0일 때도 🌿 3개)
-        zero_leaf_for_zero:
-        - mode="band"에서만 의미 있음. True면 0일 때도 잎을 0개 대신 표시할 수 있게 확장 가능(기본 False).
-        """
-
-        if not milestones:
-            return ""
-
-        milestones = sorted(milestones)
-        p = int(progress)
-
-        # 달성한 마일스톤 개수
-        blossoms = sum(1 for m in milestones if p >= m)
-
-        if mode == "milestone":
-            # 음성활동: 자리수 채우기 (항상 len(milestones) 길이의 아이콘)
-            leaves = max(0, len(milestones) - blossoms)
-            return " ".join(["🌸"] * blossoms + ["🌿"] * leaves)
-
-        # mode == "band": 일반 주간 항목
-        # 0이면(아무것도 안 했으면) 잎도 표시하지 않음
-        if p <= 0 and not zero_leaf_for_zero:
-            return " ".join(["🌸"] * blossoms)  # 보통은 ""가 됨
-
-        # 다음 마일스톤 찾기 및 잎 계산
-        prev_ms = 0
-        next_ms = None
-        for m in milestones:
-            if p < m:
-                next_ms = m
-                break
-            prev_ms = m
-
-        leaves = 0
-        if next_ms is not None:
-            # 현재 구간에서 달성까지의 단위가 1씩 증가한다고 가정
-            # 예) [4,7]에서 p=5 -> prev=4, next=7 -> leaves=1 (🌸 🌿)
-            leaves = max(0, min(p - prev_ms, next_ms - prev_ms - 0))
-        # 마지막 마일스톤을 넘은 경우 잎 0
-
-        # 0에서 zero_leaf_for_zero=True인 경우를 제외하면 잎은 최소 0
-        if p == 0 and not zero_leaf_for_zero:
-            leaves = 0
-
-        return " ".join(["🌸"] * blossoms + ["🌿"] * int(leaves))
-
     
     @commands.command(name='내정보', aliases=['myinfo', '정보'])
     @in_myinfo_allowed_channel()
@@ -206,13 +150,26 @@ class LevelCommands(commands.Cog):
             diary_daily = await _safe_get_quest(user_id, 'daily', 'diary', 'day') or 0
             bb_daily = await _safe_get_quest(user_id, 'daily', 'bbibbi', 'day') or 0
 
-            # DataManager의 일일/주간 음성 초 → 분/시간
+            # 음성 데이터는 self.voice_data_manager.get_user_times로 가져옴
             voice_sec_day = 0
             voice_sec_week = 0
-            if hasattr(data_manager, "get_user_voice_seconds_daily"):
-                voice_sec_day = await data_manager.get_user_voice_seconds_daily(user_id)
-            if hasattr(data_manager, "get_user_voice_seconds_weekly"):
-                voice_sec_week = await data_manager.get_user_voice_seconds_weekly(user_id)
+            if hasattr(self.voice_data_manager, "get_user_times"):
+                # 일간
+                day_result, _, _ = await self.voice_data_manager.get_user_times(user_id, '일간')
+                voice_sec_day = sum(day_result.values()) if day_result else 0
+                # 주간
+                week_result, _, _ = await self.voice_data_manager.get_user_times(user_id, '주간')
+                voice_sec_week = sum(week_result.values()) if week_result else 0
+                
+            next_step = ""    
+            if voice_sec_week < 18000:
+                next_step = "5시간 00분"
+            elif voice_sec_week < 36000:
+                next_step = "10시간 00분"
+            elif voice_sec_week < 72000:
+                next_step = "20시간 00분"
+            else:
+                next_step = "모든 퀘스트를 달성했습니다."
 
             voice_min_daily = voice_sec_day // 60
             voice_min_week = voice_sec_week // 60
@@ -230,15 +187,6 @@ class LevelCommands(commands.Cog):
             def ox(done: bool) -> str:
                 return ":o:" if done else ":x:"
 
-            # 6) 퀘스트 임계값 (LevelChecker.quest_exp의 정책과 예시를 반영)
-            
-            ATT_THRESH = (4, 7)
-            DIARY_THRESH = (4, 7)
-            RECO_THRESH = (3,)
-            VOICE_THRESH = (5, 10, 20)
-            SHOP_THRESH = (1,)
-            BOARD_THRESH = (3,)
-
             # 7) 이번 주 총 획득 다공 및 순위
             weekly_total = await self.data_manager.get_user_period_exp(user_id, 'weekly')
             weekly_rank = await self.data_manager.get_user_period_rank(user_id, 'weekly')
@@ -252,7 +200,7 @@ class LevelCommands(commands.Cog):
             # 경지 진행 바 (5칸)
             bar_len = 5
             filled = min(bar_len, max(0, int(percent / (100 / bar_len))))
-            bar = "▫️" * (bar_len - filled) + "◾️" * filled  # 예: ▫️▫️▫️◾️◾️
+            bar = "▫️" * filled + "◾️" * (bar_len - filled)
 
             embed.add_field(
                 name="🪵◝. 경지 확인",
@@ -289,12 +237,12 @@ class LevelCommands(commands.Cog):
 
             # 주간 퀘스트 (🌸/🌿)
             weekly_lines = []
-            weekly_lines.append(f"> 출석체크 : {att_week} / 7 {self.blossom_leaf(att_week, ATT_THRESH)}")
-            weekly_lines.append(f"> 비몽추천 : {recommend_week} / 3 {self.blossom_leaf(recommend_week, RECO_THRESH)}")
-            weekly_lines.append(f"> 다방일지 : {diary_week} / 7 {self.blossom_leaf(diary_week, DIARY_THRESH)}")
-            weekly_lines.append(f"> 음성활동 : {voice_hour_week}시간 {voice_rem_min_week}분 /  {self.blossom_leaf(voice_hour_week, VOICE_THRESH, mode="milestone")}")
-            weekly_lines.append(f"> 상점구매 : {shop_week} / 1 {self.blossom_leaf(shop_week, SHOP_THRESH)}")
-            weekly_lines.append(f"> 게시판이용 : {board_week} / 3 {self.blossom_leaf(board_week, BOARD_THRESH)}")
+            weekly_lines.append(f"> 출석체크 : {att_week} / 7")
+            weekly_lines.append(f"> 비몽추천 : {recommend_week} / 3")
+            weekly_lines.append(f"> 다방일지 : {diary_week} / 7")
+            weekly_lines.append(f"> 음성활동 : {voice_hour_week}시간 {voice_rem_min_week}분 / {next_step}")
+            weekly_lines.append(f"> 상점구매 : {shop_week} / 1")
+            weekly_lines.append(f"> 게시판이용 : {board_week} / 3")
 
             embed.add_field(
                 name="˚‧ 🗓️ : 주간 퀘스트",

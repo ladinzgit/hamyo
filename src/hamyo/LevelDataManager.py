@@ -210,7 +210,28 @@ class LevelDataManager:
         """퀘스트 완료 횟수 조회"""
         try:
             async with aiosqlite.connect(self.db_path) as db:
-                if timeframe == 'week':
+                if timeframe == 'day':
+                    # 오늘 수행 여부만 0/1로 반환
+                    today_kst = datetime.now(KST).strftime('%Y-%m-%d')
+                    if quest_subtype:
+                        cursor = await db.execute("""
+                            SELECT EXISTS (
+                                SELECT 1 FROM quest_logs 
+                                WHERE user_id = ? AND quest_type = ? AND quest_subtype = ? 
+                                AND DATE(completed_at, '+9 hours') = ?
+                            ) as did_today
+                        """, (user_id, quest_type, quest_subtype, today_kst))
+                    else:
+                        cursor = await db.execute("""
+                            SELECT EXISTS (
+                                SELECT 1 FROM quest_logs 
+                                WHERE user_id = ? AND quest_type = ? 
+                                AND DATE(completed_at, '+9 hours') = ?
+                            ) as did_today
+                        """, (user_id, quest_type, today_kst))
+                    result = await cursor.fetchone()
+                    return result[0] if result else 0
+                elif timeframe == 'week':  # 기존 주간 카운트 로직
                     week_start = self._get_week_start()
                     if quest_subtype:
                         cursor = await db.execute("""
@@ -222,6 +243,8 @@ class LevelDataManager:
                             SELECT COUNT(*) FROM quest_logs 
                             WHERE user_id = ? AND quest_type = ? AND week_start = ?
                         """, (user_id, quest_type, week_start))
+                    result = await cursor.fetchone()
+                    return result[0] if result else 0
                 else:  # all time
                     if quest_subtype:
                         cursor = await db.execute("""
@@ -233,9 +256,8 @@ class LevelDataManager:
                             SELECT COUNT(*) FROM quest_logs 
                             WHERE user_id = ? AND quest_type = ?
                         """, (user_id, quest_type))
-                
-                result = await cursor.fetchone()
-                return result[0] if result else 0
+                    result = await cursor.fetchone()
+                    return result[0] if result else 0
         except Exception as e:
             self.logger.error(f"Error getting quest count: {e}")
             return 0
