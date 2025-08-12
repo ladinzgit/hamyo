@@ -3,13 +3,9 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 import logging
+import pytz
 
-try:
-    from zoneinfo import ZoneInfo
-    KST = ZoneInfo("Asia/Seoul")
-except ImportError:
-    import pytz
-    KST = pytz.timezone("Asia/Seoul")
+KST = pytz.timezone("Asia/Seoul")
 
 db_path = "data/level_system.db"
 

@@ -4,13 +4,9 @@ import json
 import os
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List, Tuple
+import pytz
 
-try:
-    from zoneinfo import ZoneInfo
-    KST = ZoneInfo("Asia/Seoul")
-except ImportError:
-    import pytz
-    KST = pytz.timezone("Asia/Seoul")
+KST = pytz.timezone("Asia/Seoul")
 
 class DataManager:
     _instance = None
