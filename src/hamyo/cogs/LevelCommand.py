@@ -87,7 +87,7 @@ class LevelCommands(commands.Cog):
         now_ts = time.time()
         if self._tracked_voice_cache and (now_ts - self._tracked_voice_cache_at) < ttl:
             return self._tracked_voice_cache
-        ids = set(await expand_tracked(self.bot, self.data_manager, "voice"))
+        ids = set(await expand_tracked(self.bot, self.voice_data_manager, "voice"))
         self._tracked_voice_cache = ids
         self._tracked_voice_cache_at = now_ts
         return ids
