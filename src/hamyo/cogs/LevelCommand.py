@@ -240,14 +240,14 @@ class LevelCommands(commands.Cog):
                 value=(
                     f"⠀{bar}: {percent:02d}%\n"
                     f"> {current_role_mention} ( {total_exp:,} 다공 ) \n"
-                    f"> -# ◟. 다음 경지까지 {need_to_next:,} 다공 필요\n\n"
+                    f"> -# ◟. 다음 경지까지 {need_to_next:,} 다공 필요"
                 ),
                 inline=False
             )
 
             # 인증된 랭크
             embed.add_field(
-                name="📜◝. 퀘스트 현황\n\n˚‧ 📔: 인증된 랭크",
+                name="\n📜◝. 퀘스트 현황\n\n˚‧ 📔: 인증된 랭크",
                 value=(
                     f"> 음성 : {voice_lv} Lv  \n"
                     f"> 채팅 : {chat_lv} Lv \n"
