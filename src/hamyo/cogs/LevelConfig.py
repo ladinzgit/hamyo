@@ -87,48 +87,30 @@ class LevelConfig(commands.Cog):
         if amount > 10000:
             await ctx.send("❌ 한 번에 지급할 수 있는 다공은 10,000 이하입니다.")
             return
-        
-        # 경험치 지급 전 현재 상태 확인
-        before_data = await self.data_manager.get_user_exp(member.id)
-        before_role = before_data['current_role'] if before_data else 'hub'
+
+        # 결과 구조체 생성
+        result = {
+            'success': False,
+            'exp_gained': 0,
+            'messages': [],
+            'quest_completed': []
+        }
         
         success = await self.data_manager.add_exp(member.id, amount, 'manual', reason)
-        
         if success:
-            # 역할 승급 확인
+            result['success'] = True
+            result['exp_gained'] = amount
+            result['messages'].append(f"관리자 지급: **+{amount:,} 다공**\n사유: {reason}")
+            
+            # LevelChecker의 _finalize_quest_result 호출
             level_checker = self.bot.get_cog('LevelChecker')
-            role_update = None
             if level_checker:
-                role_update = await level_checker._check_role_upgrade(member.id)
-            
-            embed = discord.Embed(
-                title="✅ 다공 지급 완료",
-                color=0x00ff00
-            )
-            embed.add_field(name="대상", value=member.mention, inline=True)
-            embed.add_field(name="지급량", value=f"+{amount:,} 다공", inline=True)
-            embed.add_field(name="사유", value=reason, inline=True)
-            
-            # 현재 총 다공 표시
-            after_data = await self.data_manager.get_user_exp(member.id)
-            if after_data:
-                embed.add_field(
-                    name="총 다공", 
-                    value=f"{after_data['total_exp']:,} 다공", 
-                    inline=True
-                )
-            
-            if role_update:
-                embed.add_field(
-                    name="🎉 역할 승급!",
-                    value=f"**{role_update}** 역할로 승급했습니다!",
-                    inline=False
-                )
-            
-            await ctx.send(embed=embed)
+                await level_checker._finalize_quest_result(member.id, result)
+            else:
+                await ctx.send("❌ 레벨 시스템을 찾을 수 없습니다.")
         else:
             await ctx.send("❌ 다공 지급 중 오류가 발생했습니다.")
-    
+
     @exp_group.command(name='remove')
     @commands.has_permissions(administrator=True)
     async def remove_exp(self, ctx, member: discord.Member, amount: int, *, reason: str = "관리자 회수"):
@@ -140,7 +122,7 @@ class LevelConfig(commands.Cog):
         # 현재 경험치 확인
         user_data = await self.data_manager.get_user_exp(member.id)
         if not user_data or user_data['total_exp'] == 0:
-            await ctx.send("❌ 해당 유저는 경험치가 없습니다.")
+            await ctx.send("❌ 해당 유저는 다공이 없습니다.")
             return
         
         current_exp = user_data['total_exp']
@@ -149,31 +131,24 @@ class LevelConfig(commands.Cog):
         success = await self.data_manager.remove_exp(member.id, amount)
         
         if success:
-            embed = discord.Embed(
-                title="✅ 다공 회수 완료",
-                color=0xff9900
-            )
-            embed.add_field(name="대상", value=member.mention, inline=True)
-            embed.add_field(name="회수량", value=f"-{will_remove:,} 다공", inline=True)
-            embed.add_field(name="사유", value=reason, inline=True)
-            
-            # 회수 후 총 다공 표시
-            after_data = await self.data_manager.get_user_exp(member.id)
-            if after_data:
-                embed.add_field(
-                    name="남은 다공", 
-                    value=f"{after_data['total_exp']:,} 다공", 
-                    inline=True
-                )
-            
+            # 결과 구조체 생성
+            result = {
+                'success': True,
+                'exp_gained': -will_remove,  # 음수로 표시
+                'messages': [f"관리자 회수: **-{will_remove:,} 다공**\n사유: {reason}"],
+                'quest_completed': []
+            }
+
+            # 남은 다공이 있는 경우 메시지 추가
             if will_remove < amount:
-                embed.add_field(
-                    name="⚠️ 알림",
-                    value=f"보유 다공이 부족하여 {will_remove:,} 다공만 회수되었습니다.",
-                    inline=False
-                )
+                result['messages'].append(f"⚠️ 보유 다공이 부족하여 {will_remove:,} 다공만 회수되었습니다.")
             
-            await ctx.send(embed=embed)
+            # LevelChecker의 _finalize_quest_result 호출 
+            level_checker = self.bot.get_cog('LevelChecker')
+            if level_checker:
+                await level_checker._finalize_quest_result(member.id, result)
+            else:
+                await ctx.send("❌ 레벨 시스템을 찾을 수 없습니다.")
         else:
             await ctx.send("❌ 다공 회수 중 오류가 발생했습니다.")
     
