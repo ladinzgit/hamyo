@@ -5,13 +5,9 @@ from DataManager import DataManager
 from voice_utils import get_expanded_tracked_channels as expand_tracked 
 import asyncio
 import time
+import pytz
 
-try:
-    from zoneinfo import ZoneInfo
-    KST = ZoneInfo("Asia/Seoul")
-except ImportError:
-    import pytz
-    KST = pytz.timezone("Asia/Seoul")
+KST = pytz.timezone("Asia/Seoul")
 
 class VoiceTracker(commands.Cog):
     def __init__(self, bot):

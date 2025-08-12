@@ -4,15 +4,9 @@ from LevelDataManager import LevelDataManager
 from typing import Optional, Dict, Any, List
 import json, os
 import logging
+import pytz
 
-
-try:
-    from zoneinfo import ZoneInfo
-    KST = ZoneInfo("Asia/Seoul")
-except ImportError:
-    import pytz
-    KST = pytz.timezone("Asia/Seoul")
-    
+KST = pytz.timezone("Asia/Seoul")    
 CONFIG_PATH = "config/level_config.json"
 
 def _ensure_config():

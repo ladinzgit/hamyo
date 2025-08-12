@@ -5,15 +5,10 @@ from typing import Optional, Dict, Any, List
 import logging
 from datetime import datetime, timedelta
 import json, os
+import pytz
 
 CONFIG_PATH = "config/level_config.json"
-
-try:
-    from zoneinfo import ZoneInfo
-    KST = ZoneInfo("Asia/Seoul")
-except ImportError:
-    import pytz
-    KST = pytz.timezone("Asia/Seoul")
+KST = pytz.timezone("Asia/Seoul")
     
 def _load_levelcfg():
     if not os.path.exists(CONFIG_PATH):
