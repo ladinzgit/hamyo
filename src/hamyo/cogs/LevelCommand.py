@@ -7,6 +7,8 @@ import logging
 from datetime import datetime, timedelta
 import json, os
 import pytz
+from voice_utils import get_expanded_tracked_channels as expand_tracked 
+import time
 
 CONFIG_PATH = "config/level_config.json"
 KST = pytz.timezone("Asia/Seoul")
@@ -55,7 +57,9 @@ class LevelCommands(commands.Cog):
         self.data_manager = LevelDataManager()
         self.voice_data_manager = DataManager()
         self.logger = logging.getLogger(__name__)
-        
+        self._tracked_voice_cache = None
+        self._tracked_voice_cache_at = 0  # epoch seconds
+
         # 역할 정보
         self.role_info = {
             'hub': {'name': '허브', 'threshold': 0, 'emoji': '🌱'},
@@ -78,10 +82,18 @@ class LevelCommands(commands.Cog):
                 await logger.log(message)
         except Exception as e:
             print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
+            
+    async def _get_tracked_voice_ids_cached(self, ttl: int = 600) -> set[int]:
+        now_ts = time.time()
+        if self._tracked_voice_cache and (now_ts - self._tracked_voice_cache_at) < ttl:
+            return self._tracked_voice_cache
+        ids = set(await expand_tracked(self.bot, self.data_manager, "voice"))
+        self._tracked_voice_cache = ids
+        self._tracked_voice_cache_at = now_ts
+        return ids
     
     @commands.command(name='내정보', aliases=['myinfo', '정보'])
     @in_myinfo_allowed_channel()
-
     async def my_info(self, ctx):
         """내 경험치 및 퀘스트 정보 조회"""
         try:
@@ -149,16 +161,37 @@ class LevelCommands(commands.Cog):
             att_daily = await _safe_get_quest(user_id, 'daily', 'attendance', 'day') or 0
             diary_daily = await _safe_get_quest(user_id, 'daily', 'diary', 'day') or 0
             bb_daily = await _safe_get_quest(user_id, 'daily', 'bbibbi', 'day') or 0
+            
+            # 추적 채널 목록 확보 (캐시가 있으면 사용, 없으면 유틸 함수로 확장)
+            try:
+                tracked_channel_ids = set(await self._get_tracked_voice_ids_cached())
+            except AttributeError:
+                # 캐시 헬퍼가 없는 경우 폴백
+                from voice_utils import get_expanded_tracked_channels as expand_tracked
+                tracked_channel_ids = set(await expand_tracked(self.bot, self.data_manager, "voice"))
+                
+            if not tracked_channel_ids:
+                return
 
             # 음성 데이터는 self.voice_data_manager.get_user_times로 가져옴
             voice_sec_day = 0
             voice_sec_week = 0
+            now = datetime.now(KST)
+            
             if hasattr(self.voice_data_manager, "get_user_times"):
                 # 일간
-                day_result, _, _ = await self.voice_data_manager.get_user_times(user_id, '일간')
+                day_result, _, _ = await self.voice_data_manager.get_user_times(
+                    user_id = user_id, 
+                    period='일간',
+                    base_date=now,
+                    channel_filter=list(tracked_channel_ids))
                 voice_sec_day = sum(day_result.values()) if day_result else 0
                 # 주간
-                week_result, _, _ = await self.voice_data_manager.get_user_times(user_id, '주간')
+                week_result, _, _ = await self.voice_data_manager.get_user_times(
+                    user_id = user_id, 
+                    period='주간',
+                    base_date=now,
+                    channel_filter=list(tracked_channel_ids))
                 voice_sec_week = sum(week_result.values()) if week_result else 0
                 
             next_step = ""    
