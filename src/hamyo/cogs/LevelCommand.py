@@ -238,8 +238,8 @@ class LevelCommands(commands.Cog):
             embed.add_field(
                 name="🪵◝. 경지 확인",
                 value=(
-                    f"⠀{bar}: {percent:02d}%\n"
-                    f"> {current_role_mention} ( {total_exp:,} 다공 ) \n"
+                    f"{current_role_mention} ( {total_exp:,} 다공 ) \n"
+                    f"> ⠀{bar}: {percent:02d}%\n"
                     f"> -# ◟. 다음 경지까지 {need_to_next:,} 다공 필요"
                 ),
                 inline=False
@@ -247,7 +247,7 @@ class LevelCommands(commands.Cog):
 
             # 인증된 랭크
             embed.add_field(
-                name="\n📜◝. 퀘스트 현황\n\n˚‧ 📔: 인증된 랭크",
+                name="⠀\n📜◝. 퀘스트 현황\n\n˚‧ 📔: 인증된 랭크",
                 value=(
                     f"> 음성 : {voice_lv} Lv  \n"
                     f"> 채팅 : {chat_lv} Lv \n"
