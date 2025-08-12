@@ -9,7 +9,7 @@ import pytz
 
 CONFIG_PATH = "config/level_config.json"
 KST = pytz.timezone("Asia/Seoul")
-
+GUILD_ID = [1378632284068122685, 1396829213100605580]
 ROLE_IDS = {
         'hub': 1396829213172174890,
         'dado': 1396829213172174888,
@@ -28,6 +28,9 @@ def in_myinfo_allowed_channel():
         async def predicate(ctx: commands.Context):
             # DM이나 길드 없는 곳에서는 막음
             if not ctx.guild:
+                return False
+            
+            if ctx.guild.id not in GUILD_ID:
                 return False
 
             # 관리자 무시
@@ -130,6 +133,7 @@ class LevelCommands(commands.Cog):
             leaves = 0
 
         return " ".join(["🌸"] * blossoms + ["🌿"] * int(leaves))
+
     
     @commands.command(name='내정보', aliases=['myinfo', '정보'])
     @in_myinfo_allowed_channel()
