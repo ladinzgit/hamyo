@@ -238,7 +238,7 @@ class LevelCommands(commands.Cog):
             embed.add_field(
                 name="🪵◝. 경지 확인",
                 value=(
-                    f"{current_role_mention} ( {total_exp:,} 다공 ) \n"
+                    f"> {current_role_mention} ( {total_exp:,} 다공 ) \n"
                     f"> ⠀{bar}: {percent:02d}%\n"
                     f"> -# ◟. 다음 경지까지 {need_to_next:,} 다공 필요"
                 ),
