@@ -29,7 +29,6 @@ class LevelConfig(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.data_manager = LevelDataManager()
-        self.logger = logging.getLogger(__name__)
         
         # 역할 정보
         self.role_info = {
@@ -42,6 +41,15 @@ class LevelConfig(commands.Cog):
     async def cog_load(self):
         """Cog 로드 시 데이터베이스 초기화"""
         await self.data_manager.ensure_initialized()
+        print(f"✅ {self.__class__.__name__} loaded successfully!")
+
+    async def log(self, message):
+        try:
+            logger = self.bot.get_cog('Logger')
+            if logger:
+                await logger.log(message)
+        except Exception as e:
+            print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
     
     # ===========================================
     # 경험치 관리 명령어들

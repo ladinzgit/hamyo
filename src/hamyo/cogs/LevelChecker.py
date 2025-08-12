@@ -74,6 +74,7 @@ class LevelChecker(commands.Cog):
     async def cog_load(self):
         """Cog 로드 시 데이터베이스 초기화"""
         await self.data_manager.ensure_initialized()
+        print(f"✅ {self.__class__.__name__} loaded successfully!")
         
     async def log(self, message):
         try:

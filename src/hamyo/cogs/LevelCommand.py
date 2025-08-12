@@ -57,6 +57,15 @@ class LevelCommands(commands.Cog):
     async def cog_load(self):
         """Cog 로드 시 데이터베이스 초기화"""
         await self.data_manager.initialize_database()
+        print(f"✅ {self.__class__.__name__} loaded successfully!")
+
+    async def log(self, message):
+        try:
+            logger = self.bot.get_cog('Logger')
+            if logger:
+                await logger.log(message)
+        except Exception as e:
+            print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
     
     @commands.command(name='내정보', aliases=['myinfo', '정보'])
     @in_myinfo_allowed_channel()
