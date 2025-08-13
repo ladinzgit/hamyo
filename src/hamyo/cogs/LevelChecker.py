@@ -711,8 +711,36 @@ class LevelChecker(commands.Cog):
             # ...일일 퀘스트 처리...
             pass
         elif quest_type in self.quest_exp.get('weekly', {}):
-            # ...주간 퀘스트 처리...
-            pass
+            # board_participate, shop_purchase만 처리
+            if quest_type in ['board_participate', 'shop_purchase']:
+                # 이미 이번 주에 완료했는지 확인
+                week_count = await self.data_manager.get_quest_count(
+                    user_id, 'weekly', quest_type, 'week'
+                )
+                result = {
+                    'success': False,
+                    'exp_gained': 0,
+                    'messages': [],
+                    'quest_completed': []
+                }
+                if week_count > 0:
+                    result['messages'].append("이미 이번 주에 완료한 퀘스트입니다.")
+                    return result
+                exp = self.quest_exp['weekly'][quest_type]
+                await self.data_manager.add_exp(user_id, exp, 'weekly', quest_type)
+                result['success'] = True
+                result['exp_gained'] = exp
+                result['quest_completed'].append(quest_type)
+                result['messages'].append(f"✨ {quest_type} 주간 퀘스트 완료! **+{exp} 다공**")
+                return await self._finalize_quest_result(user_id, result)
+            else:
+                # 그 외 weekly는 강제 완료 불가
+                return {
+                    'success': False,
+                    'exp_gained': 0,
+                    'messages': ["이 주간 퀘스트는 강제 완료가 지원되지 않습니다."],
+                    'quest_completed': []
+                }
         elif quest_type in self.quest_exp.get('one_time', {}):
             # 일회성 퀘스트 처리
             already = await self.data_manager.is_one_time_quest_completed(user_id, quest_type)

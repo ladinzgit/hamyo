@@ -341,17 +341,13 @@ class LevelConfig(commands.Cog):
             await ctx.send(f"❌ '{quest_type}'의 경험치 정보를 찾을 수 없습니다.")
             return
 
-        # 퀘스트 강제 완료: DB에 quest_type/quest_subtype/exp_amount 반영
+        # 퀘스트 강제 완료: LevelChecker의 process_quest로 일괄 처리
         try:
-            # 경험치 지급 및 로그 기록
-            success = await self.data_manager.add_exp(
-                member.id,
-                exp_amount,
-                quest_category,
-                quest_type
-            )
-            # LevelChecker의 추가 처리(역할 승급 등)
+            # process_quest가 내부적으로 add_exp, 로그, 역할 승급 등 처리
             result = await level_checker.process_quest(member.id, quest_type)
+            # 강제 완료 사유를 메시지에 추가
+            if result.get('messages') is not None:
+                result['messages'].insert(0, f"관리자 강제 완료: {reason}")
         except Exception as e:
             await ctx.send(f"❌ 퀘스트 처리 중 오류: {e}")
             return
