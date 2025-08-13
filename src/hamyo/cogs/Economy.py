@@ -75,8 +75,8 @@ class Economy(commands.Cog):
         embed.add_field(
             name="관리자 전용 명령어",
             value=(
-                "`*온 지급 @유저 금액 [횟수]` : 특정 유저에게 온을 지급합니다. (관리자 권한 필요)\n"
-                "`*온 회수 @유저 금액` : 특정 유저의 온을 회수합니다. (관리자 권한 필요)\n"
+                "`*온 지급 @유저 금액 [횟수]` : 특정 유저에게 온을 지급합니다. (권한 필요)\n"
+                "`*온 회수 @유저 금액` : 특정 유저의 온을 회수합니다. (권한 필요)\n"
                 "`*온 인증 @유저 조건 [횟수]` : 인증 조건을 만족한 유저에게 온을 지급합니다. (권한 필요)\n"
                 "예시: `*온 지급 @유저 1000 10` → 10000 지급, `*온 인증 @유저 업 10` → 업 인증 10회분 지급"
             ),
@@ -111,8 +111,7 @@ class Economy(commands.Cog):
 
     @on.command(name="지급")
     @only_in_guild()
-    @in_allowed_channel()
-    @commands.has_permissions(administrator=True)
+    @has_auth_role()
     async def give_coins(self, ctx, member: discord.Member, amount: int, count: int = 1):
         """Give a specific amount of coins to a user, multiplied by count."""
         if amount <= 0 or count <= 0:
@@ -147,7 +146,6 @@ class Economy(commands.Cog):
 
     @on.command(name="인증")
     @only_in_guild()
-    @in_allowed_channel()
     @has_auth_role()
     async def certify(self, ctx, member: discord.Member, condition: str, count: int = 1):
         """Certify a user for meeting a condition and reward them, multiplied by count."""
@@ -191,8 +189,7 @@ class Economy(commands.Cog):
 
     @on.command(name="회수")
     @only_in_guild()
-    @in_allowed_channel()
-    @commands.has_permissions(administrator=True)
+    @has_auth_role()
     async def take_coins(self, ctx, member: discord.Member, amount: int):
         """Take a specific amount of coins from a user."""
         if amount <= 0:
