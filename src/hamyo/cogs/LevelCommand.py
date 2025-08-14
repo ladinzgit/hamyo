@@ -94,11 +94,11 @@ class LevelCommands(commands.Cog):
     
     @commands.command(name='내정보', aliases=['myinfo', '정보'])
     @in_myinfo_allowed_channel()
-    async def my_info(self, ctx):
-        """내 경험치 및 퀘스트 정보 조회"""
+    async def my_info(self, ctx, member: discord.Member = None):
+        """내 경험치 및 퀘스트 정보 조회 (또는 @유저로 타인 조회)"""
         try:
             # ===== my_info 내용 시작: 여기부터 기존 임베드 구성 부분을 통째로 교체 =====
-            member = ctx.author
+            member = member or ctx.author
             user_id = member.id
 
             # 0) 도우미 핸들/데이터 접근
