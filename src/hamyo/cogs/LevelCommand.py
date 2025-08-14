@@ -202,7 +202,7 @@ class LevelCommands(commands.Cog):
             elif voice_sec_week < 72000:
                 next_step = "20시간 00분"
             else:
-                next_step = "모든 퀘스트를 달성했습니다."
+                next_step = "모든 퀘스트를 달성했습니다!"
 
             voice_min_daily = voice_sec_day // 60
             voice_min_week = voice_sec_week // 60

@@ -377,190 +377,87 @@ class LevelConfig(commands.Cog):
 
         await ctx.send(embed=embed)
         
-    @quest_group.command(name='voice')
+    @quest_group.command(name='rank')
     @commands.has_permissions(administrator=True)
-    async def certify_voice_rank(self, ctx, member: discord.Member, level: int):
-        """보이스 랭크 인증 및 보상 지급"""
-        await self._certify_rank(ctx, member, level, 'voice', '🎤 보이스')
+    async def certify_rank(self, ctx, member: discord.Member, voice_level: int = None, chat_level: int = None):
+        """보이스/채팅 랭크 인증 및 보상 지급 (*quest rank @유저 [보이스레벨] [채팅레벨])"""
+        if voice_level is None and chat_level is None:
+            await ctx.send("❌ 보이스 또는 채팅 레벨 중 하나 이상을 입력하세요. 예: `*quest rank @유저 10 15`")
+            return
 
-    @quest_group.command(name='chat')
-    @commands.has_permissions(administrator=True)
-    async def certify_chat_rank(self, ctx, member: discord.Member, level: int):
-        """채팅 랭크 인증 및 보상 지급"""
-        await self._certify_rank(ctx, member, level, 'chat', '💬 채팅')
+        level_checker = self.bot.get_cog('LevelChecker')
+        if not level_checker:
+            await ctx.send("❌ LevelChecker를 찾을 수 없습니다.")
+            return
 
-    async def _certify_rank(self, ctx, member: discord.Member, new_level: int, rank_type: str, rank_display: str):
-        """랭크 인증 공통 로직"""
-        if new_level < 1:
-            await ctx.send("❌ 레벨은 1 이상이어야 합니다.")
-            return
-        
-        if new_level > 200:  # 최대 레벨 제한을 높게 설정
-            await ctx.send("❌ 레벨은 200 이하여야 합니다.")
-            return
-        
-        # 현재 인증된 레벨 조회
-        current_certified_level = await self.data_manager.get_certified_rank_level(member.id, rank_type)
-        
-        if new_level <= current_certified_level:
-            await ctx.send(f"❌ {member.display_name}님은 이미 {rank_display} {current_certified_level}레벨까지 인증받았습니다.")
-            return
-        
-        # 5단위 보상 레벨 계산 (5, 10, 15, 20, 25, 30, ...)
-        def get_reward_levels(start_level, end_level):
-            """start_level 초과부터 end_level 이하까지의 5단위 레벨들 반환"""
-            reward_levels = []
-            # 다음 5의 배수부터 시작
-            next_reward = ((start_level // 5) + 1) * 5
-            while next_reward <= end_level:
-                reward_levels.append(next_reward)
-                next_reward += 5
-            return reward_levels
-        
-        reward_levels = get_reward_levels(current_certified_level, new_level)
-        exp_per_reward = 20  # 각 단계별 다공
-        
         total_exp = 0
         completed_quests = []
-        
-        for reward_level in reward_levels:
-            # 해당 레벨 보상 지급
-            quest_name = f'rank_{reward_level}'
-            
-            # 일회성 퀘스트로 이미 완료했는지 확인
-            already_completed = await self.data_manager.is_one_time_quest_completed(member.id, quest_name)
-            if not already_completed:
-                await self.data_manager.mark_one_time_quest_completed(member.id, quest_name)
-                await self.data_manager.add_exp(member.id, exp_per_reward, 'one_time', quest_name)
-                total_exp += exp_per_reward
-                completed_quests.append(f"{rank_display} {reward_level}레벨 달성")
-        
-        if total_exp == 0:
-            await ctx.send(f"❌ {member.display_name}님은 {current_certified_level}레벨에서 {new_level}레벨 사이에 받을 수 있는 보상이 없습니다.\n(5단위 레벨에서만 보상을 받을 수 있습니다)")
-            return
-        
-        # 인증된 레벨 업데이트
-        success = await self.data_manager.update_certified_rank_level(member.id, rank_type, new_level)
-        
-        if not success:
-            await ctx.send("❌ 랭크 인증 중 오류가 발생했습니다.")
-            return
-        
-        # 역할 승급 확인
-        level_checker = self.bot.get_cog('LevelChecker')
-        role_update = None
-        if level_checker:
-            role_update = await level_checker._check_role_upgrade(member.id)
-        
-        # 결과 임베드
+        updated_types = []
+        error_msgs = []
+
+        # 보이스 랭크 인증
+        if voice_level is not None:
+            if voice_level < 1 or voice_level > 200:
+                error_msgs.append("❌ 보이스 레벨은 1~200 사이여야 합니다.")
+            else:
+                updated = await level_checker.data_manager.update_certified_rank_level(member.id, 'voice', voice_level)
+                if updated:
+                    quest_name = f"rank_voice_{voice_level}"
+                    result = await level_checker.process_quest(member.id, quest_name)
+                    if result.get('success'):
+                        total_exp += result.get('exp_gained', 0)
+                        completed_quests.extend(result.get('quest_completed', []))
+                        updated_types.append(f"🎤 보이스 {voice_level}레벨")
+                    else:
+                        error_msgs.extend(result.get('messages', []))
+                else:
+                    error_msgs.append("❌ 보이스 랭크 인증 중 오류가 발생했습니다.")
+
+        # 채팅 랭크 인증
+        if chat_level is not None:
+            if chat_level < 1 or chat_level > 200:
+                error_msgs.append("❌ 채팅 레벨은 1~200 사이여야 합니다.")
+            else:
+                updated = await level_checker.data_manager.update_certified_rank_level(member.id, 'chat', chat_level)
+                if updated:
+                    quest_name = f"rank_chat_{chat_level}"
+                    result = await level_checker.process_quest(member.id, quest_name)
+                    if result.get('success'):
+                        total_exp += result.get('exp_gained', 0)
+                        completed_quests.extend(result.get('quest_completed', []))
+                        updated_types.append(f"💬 채팅 {chat_level}레벨")
+                    else:
+                        error_msgs.extend(result.get('messages', []))
+                else:
+                    error_msgs.append("❌ 채팅 랭크 인증 중 오류가 발생했습니다.")
+
         embed = discord.Embed(
-            title=f"✅ {rank_display} 랭크 인증 완료",
-            color=0x00ff00
+            title="✅ 랭크 인증 결과" if updated_types else "❌ 랭크 인증 실패",
+            color=0x00ff00 if updated_types else 0xff0000
         )
         embed.add_field(name="대상", value=member.mention, inline=True)
-        embed.add_field(name="인증 레벨", value=f"{new_level}레벨", inline=True)
-        embed.add_field(name="이전 인증", value=f"{current_certified_level}레벨", inline=True)
-        
-        embed.add_field(name="획득 다공", value=f"+{total_exp:,} 다공", inline=True)
-        embed.add_field(name="완료된 퀘스트", value=f"{len(completed_quests)}개", inline=True)
-        embed.add_field(name="", value="", inline=True)  # 빈 필드로 줄바꿈
-        
-        if completed_quests:
-            # 너무 많은 퀘스트가 완료된 경우 일부만 표시
-            display_quests = completed_quests[:10]  # 최대 10개만 표시
-            quest_text = "\n".join([f"• {quest}" for quest in display_quests])
-            if len(completed_quests) > 10:
-                quest_text += f"\n... 외 {len(completed_quests) - 10}개"
-            
-            embed.add_field(
-                name="🎉 달성한 마일스톤",
-                value=quest_text,
-                inline=False
-            )
-        
-        if role_update:
-            embed.add_field(
-                name="🎊 역할 승급!",
-                value=f"**{role_update}** 역할로 승급했습니다!",
-                inline=False
-            )
-        
-        # 현재 총 경험치 표시
-        user_data = await self.data_manager.get_user_exp(member.id)
+        if updated_types:
+            embed.add_field(name="인증 랭크", value=", ".join(updated_types), inline=True)
+            embed.add_field(name="획득 다공", value=f"+{total_exp:,} 다공", inline=True)
+            if completed_quests:
+                display_quests = completed_quests[:10]
+                quest_text = "\n".join([f"• {q}" for q in display_quests])
+                if len(completed_quests) > 10:
+                    quest_text += f"\n... 외 {len(completed_quests) - 10}개"
+                embed.add_field(name="🎉 달성한 마일스톤", value=quest_text, inline=False)
+        if error_msgs:
+            embed.add_field(name="오류", value="\n".join(error_msgs), inline=False)
+
+        user_data = await level_checker.data_manager.get_user_exp(member.id)
         if user_data:
             embed.add_field(
                 name="총 다공",
                 value=f"{user_data['total_exp']:,} 다공",
                 inline=True
             )
-        
+
         await ctx.send(embed=embed)
 
-    @quest_group.command(name='rank_status')
-    @commands.has_permissions(administrator=True)
-    async def rank_status(self, ctx, member: discord.Member = None):
-        """유저의 랭크 인증 현황 조회"""
-        if member is None:
-            await ctx.send("❌ 조회할 유저를 지정해주세요. 예: `!quest rank_status @유저`")
-            return
-        
-        certified_ranks = await self.data_manager.get_all_certified_ranks(member.id)
-        
-        embed = discord.Embed(
-            title=f"🏆 {member.display_name}의 랭크 인증 현황",
-            color=0x7289da
-        )
-        embed.set_thumbnail(url=member.display_avatar.url)
-        
-        voice_level = certified_ranks.get('voice', 0)
-        chat_level = certified_ranks.get('chat', 0)
-        
-        embed.add_field(name="🎤 보이스 랭크", value=f"{voice_level}레벨", inline=True)
-        embed.add_field(name="💬 채팅 랭크", value=f"{chat_level}레벨", inline=True)
-        embed.add_field(name="", value="", inline=True)  # 빈 필드
-        
-        # 다음 보상까지의 진행도
-        reward_levels = [5, 10, 15, 20]
-        
-        def get_next_reward(current_level):
-            for reward_level in reward_levels:
-                if current_level < reward_level:
-                    return reward_level
-            return None
-        
-        voice_next = get_next_reward(voice_level)
-        chat_next = get_next_reward(chat_level)
-        
-        progress_text = ""
-        if voice_next:
-            progress_text += f"🎤 다음 보상: {voice_next}레벨 ({voice_next - voice_level}레벨 남음)\n"
-        else:
-            progress_text += f"🎤 모든 보상 완료!\n"
-        
-        if chat_next:
-            progress_text += f"💬 다음 보상: {chat_next}레벨 ({chat_next - chat_level}레벨 남음)"
-        else:
-            progress_text += f"💬 모든 보상 완료!"
-        
-        embed.add_field(name="📈 진행도", value=progress_text, inline=False)
-        
-        # 완료한 랭크 퀘스트 확인
-        completed_rank_quests = []
-        for reward_level in reward_levels:
-            quest_name = f'rank_{reward_level}'
-            if await self.data_manager.is_one_time_quest_completed(member.id, quest_name):
-                completed_rank_quests.append(f"✅ {reward_level}레벨 달성")
-            else:
-                completed_rank_quests.append(f"❌ {reward_level}레벨 달성")
-        
-        embed.add_field(
-            name="🎯 랭크 퀘스트 완료 현황",
-            value="\n".join(completed_rank_quests),
-            inline=False
-        )
-        
-        await ctx.send(embed=embed)
-    
     @quest_group.command(name='reset')
     @commands.has_permissions(administrator=True)
     async def reset_quest(self, ctx, member: discord.Member):
