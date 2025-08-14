@@ -762,11 +762,12 @@ class LevelChecker(commands.Cog):
             result['messages'].append(f"✨ {quest_type} 일회성 퀘스트 완료! **+{exp} 다공**")
             return await self._finalize_quest_result(user_id, result)
         elif quest_type.startswith("rank_voice_") or quest_type.startswith("rank_chat_"):
-            # 보이스/채팅 랭크 인증 보상
+            # 보이스/채팅 랭크 인증 보상 (ex: rank_voice_8_15)
             try:
                 parts = quest_type.split("_")
                 rank_type = parts[1]  # 'voice' or 'chat'
-                level = int(parts[2])
+                old = int(parts[2])
+                new = int(parts[3])
             except Exception:
                 return {
                     'success': False,
@@ -774,23 +775,34 @@ class LevelChecker(commands.Cog):
                     'messages': ["잘못된 랭크 퀘스트명입니다."],
                     'quest_completed': []
                 }
-            already_completed = await self.data_manager.is_one_time_quest_completed(user_id, quest_type)
             result = {
                 'success': False,
                 'exp_gained': 0,
                 'messages': [],
                 'quest_completed': []
             }
-            if already_completed:
-                result['messages'].append("이미 완료한 랭크 퀘스트입니다.")
-                return result
+            # 5레벨 단위로 지급
+            reward_levels = []
+            next_reward = ((old // 5) + 1) * 5
+            while next_reward <= new:
+                reward_levels.append(next_reward)
+                next_reward += 5
             exp_per_reward = 20
-            await self.data_manager.mark_one_time_quest_completed(user_id, quest_type)
-            await self.data_manager.add_exp(user_id, exp_per_reward, 'one_time', quest_type)
-            result['success'] = True
-            result['exp_gained'] = exp_per_reward
-            result['quest_completed'].append(quest_type)
-            result['messages'].append(f"{'보이스' if rank_type == 'voice' else '채팅'} {level}레벨 달성 보상! **+{exp_per_reward} 다공**")
+            for level in reward_levels:
+                quest_key = f"rank_{rank_type}_{level}"
+                already_completed = await self.data_manager.is_one_time_quest_completed(user_id, quest_key)
+                if not already_completed:
+                    await self.data_manager.mark_one_time_quest_completed(user_id, quest_key)
+                    await self.data_manager.add_exp(user_id, exp_per_reward, 'one_time', quest_key)
+                    result['exp_gained'] += exp_per_reward
+                    result['quest_completed'].append(quest_key)
+                    result['messages'].append(
+                        f"{'보이스' if rank_type == 'voice' else '채팅'} {level}레벨 달성 보상! **+{exp_per_reward} 다공**"
+                    )
+            if result['exp_gained'] > 0:
+                result['success'] = True
+            else:
+                result['messages'].append("받을 수 있는 보상이 없습니다. (이미 지급됨)")
             return await self._finalize_quest_result(user_id, result)
         elif quest_type.startswith("rank_"):
             # ...기존 rank_ 처리...

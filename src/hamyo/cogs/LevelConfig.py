@@ -379,8 +379,8 @@ class LevelConfig(commands.Cog):
         
     @quest_group.command(name='rank')
     @commands.has_permissions(administrator=True)
-    async def certify_rank(self, ctx, member: discord.Member, voice_level: int = None, chat_level: int = None):
-        """보이스/채팅 랭크 인증 및 보상 지급 (*quest rank @유저 [보이스레벨] [채팅레벨])"""
+    async def certify_rank(self, ctx, member: discord.Member, chat_level: int = None, voice_level: int = None):
+        """보이스/채팅 랭크 인증 및 보상 지급 (*quest rank @유저 [채팅레벨] [보이스레벨])"""
         if voice_level is None and chat_level is None:
             await ctx.send("❌ 보이스 또는 채팅 레벨 중 하나 이상을 입력하세요. 예: `*quest rank @유저 10 15`")
             return
@@ -400,36 +400,44 @@ class LevelConfig(commands.Cog):
             if voice_level < 1 or voice_level > 200:
                 error_msgs.append("❌ 보이스 레벨은 1~200 사이여야 합니다.")
             else:
-                updated = await level_checker.data_manager.update_certified_rank_level(member.id, 'voice', voice_level)
-                if updated:
-                    quest_name = f"rank_voice_{voice_level}"
-                    result = await level_checker.process_quest(member.id, quest_name)
-                    if result.get('success'):
-                        total_exp += result.get('exp_gained', 0)
-                        completed_quests.extend(result.get('quest_completed', []))
-                        updated_types.append(f"🎤 보이스 {voice_level}레벨")
+                prev_voice = await level_checker.data_manager.get_certified_rank_level(member.id, 'voice')
+                if voice_level > prev_voice:
+                    updated = await level_checker.data_manager.update_certified_rank_level(member.id, 'voice', voice_level)
+                    if updated:
+                        quest_name = f"rank_voice_{prev_voice}_{voice_level}"
+                        result = await level_checker.process_quest(member.id, quest_name)
+                        if result.get('success'):
+                            total_exp += result.get('exp_gained', 0)
+                            completed_quests.extend(result.get('quest_completed', []))
+                            updated_types.append(f"🎤 보이스 {voice_level}레벨")
+                        else:
+                            error_msgs.extend(result.get('messages', []))
                     else:
-                        error_msgs.extend(result.get('messages', []))
+                        error_msgs.append("❌ 보이스 랭크 인증 중 오류가 발생했습니다.")
                 else:
-                    error_msgs.append("❌ 보이스 랭크 인증 중 오류가 발생했습니다.")
+                    error_msgs.append(f"❌ 이미 보이스 {prev_voice}레벨까지 인증되어 있습니다.")
 
         # 채팅 랭크 인증
         if chat_level is not None:
             if chat_level < 1 or chat_level > 200:
                 error_msgs.append("❌ 채팅 레벨은 1~200 사이여야 합니다.")
             else:
-                updated = await level_checker.data_manager.update_certified_rank_level(member.id, 'chat', chat_level)
-                if updated:
-                    quest_name = f"rank_chat_{chat_level}"
-                    result = await level_checker.process_quest(member.id, quest_name)
-                    if result.get('success'):
-                        total_exp += result.get('exp_gained', 0)
-                        completed_quests.extend(result.get('quest_completed', []))
-                        updated_types.append(f"💬 채팅 {chat_level}레벨")
+                prev_chat = await level_checker.data_manager.get_certified_rank_level(member.id, 'chat')
+                if chat_level > prev_chat:
+                    updated = await level_checker.data_manager.update_certified_rank_level(member.id, 'chat', chat_level)
+                    if updated:
+                        quest_name = f"rank_chat_{prev_chat}_{chat_level}"
+                        result = await level_checker.process_quest(member.id, quest_name)
+                        if result.get('success'):
+                            total_exp += result.get('exp_gained', 0)
+                            completed_quests.extend(result.get('quest_completed', []))
+                            updated_types.append(f"💬 채팅 {chat_level}레벨")
+                        else:
+                            error_msgs.extend(result.get('messages', []))
                     else:
-                        error_msgs.extend(result.get('messages', []))
+                        error_msgs.append("❌ 채팅 랭크 인증 중 오류가 발생했습니다.")
                 else:
-                    error_msgs.append("❌ 채팅 랭크 인증 중 오류가 발생했습니다.")
+                    error_msgs.append(f"❌ 이미 채팅 {prev_chat}레벨까지 인증되어 있습니다.")
 
         embed = discord.Embed(
             title="✅ 랭크 인증 결과" if updated_types else "❌ 랭크 인증 실패",
