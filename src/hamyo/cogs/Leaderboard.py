@@ -213,7 +213,7 @@ class Leaderboard(commands.Cog):
 
             channel = guild.get_channel(channel_id)
             if not channel:
-                print(f"[Leaderboard] Guild {guild.name}의 채널(ID: {channel_id})을 찾을 수 없습니다.")
+                await self.log(f"Guild {guild.name}의 채널(ID: {channel_id})을 찾을 수 없습니다.")
                 continue
 
             # 채널의 기존 메시지 모두 삭제 (봇 권한 필요)
@@ -221,7 +221,7 @@ class Leaderboard(commands.Cog):
                 async for msg in channel.history(limit=100):
                     await msg.delete()
             except Exception as e:
-                print(f"[Leaderboard] 메시지 삭제 중 오류: {e}")
+                await self.log(f"메시지 삭제 중 오류: {e}")
 
             # 길드의 점수 데이터 가져오기
             guild_data = self.data.get(guild_id_str, {})
@@ -269,7 +269,7 @@ class Leaderboard(commands.Cog):
         next_hour = (now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1))
         wait_seconds = (next_hour - now).total_seconds()
         
-        print(f"다음 순위표 업데이트까지 {wait_seconds:.2f}초 대기합니다.")
+        await self.log(f"다음 순위표 업데이트까지 {wait_seconds:.2f}초 대기합니다.")
         await asyncio.sleep(wait_seconds)
 
 
