@@ -2,6 +2,7 @@
 data/
 config/
 .env
+event_data/
 
 # Python
 __pycache__/

@@ -802,7 +802,7 @@ class LevelChecker(commands.Cog):
             if result['exp_gained'] > 0:
                 result['success'] = True
             else:
-                result['messages'].append("받을 수 있는 보상이 없습니다. (이미 지급됨)")
+                result['messages'].append("받을 수 있는 보상이 없습니다. (이미 지급되었거나 달성하지 못함)")
             return await self._finalize_quest_result(user_id, result)
         elif quest_type.startswith("rank_"):
             # ...기존 rank_ 처리...
