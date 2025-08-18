@@ -232,7 +232,7 @@ class Leaderboard(commands.Cog):
                 if member is not None and not member.bot:
                     filtered_users.append((user_id_str, points))
             if not filtered_users:
-                await channel.send("아직 인증 기록이 없습니다.")
+                await channel.send("아직 초대한 기록이 없습니다.")
                 continue
 
             # 점수를 기준으로 내림차순 정렬
