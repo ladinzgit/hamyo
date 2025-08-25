@@ -74,10 +74,10 @@ class DreamModal(discord.ui.Modal, title="꿈편지 작성"):
         self.on_submit_cb = on_submit_cb
 
         self.recipient = discord.ui.TextInput(
-            label="받는 사람 (선택사항)",
-            placeholder="@사용자 또는 사용자ID (비워두면 익명으로 전송)",
+            label="받는 사람 고유ID (선택사항)",
+            placeholder="사용자의 고유ID를 입력하세요 (비워두면 익명으로 전송)",
             style=discord.TextStyle.short,
-            max_length=100,
+            max_length=20,
             required=False,
         )
         self.add_item(self.recipient)
@@ -160,6 +160,24 @@ class DreamPosts(commands.Cog):
                 row = await cur.fetchone()
                 return row[0] if row else DEFAULT_PRICE
 
+    def parse_recipient(self, recipient_input: str, guild: discord.Guild) -> Optional[str]:
+        """받는 사람 입력을 파싱하여 유효한 사용자 ID를 반환"""
+        if not recipient_input or not recipient_input.strip():
+            return None
+        
+        recipient_input = recipient_input.strip()
+        
+        # 숫자 ID만 처리
+        try:
+            user_id = int(recipient_input)
+            member = guild.get_member(user_id)
+            if member:
+                return str(user_id)
+        except ValueError:
+            pass
+        
+        return None
+
     # ----- 설정 커맨드 (관리자) -----
     @commands.group(name="꿈설정", invoke_without_command=True)
     @commands.has_permissions(administrator=True)
@@ -216,21 +234,21 @@ class DreamPosts(commands.Cog):
     async def send_buttons(self, ctx: commands.Context):
         """유저용 버튼 전송 (꿈편지)"""
         view = discord.ui.View()
-        view.add_item(discord.ui.Button(label="꿈편지 작성", style=discord.ButtonStyle.primary, custom_id="dream_letter"))
+        view.add_item(discord.ui.Button(label="꿈편지 작성", style=discord.ButtonStyle.blurple, custom_id="dream_letter", emoji="✉️"))
         msg = """# ꒰ :love_letter: ꒱₊ 우체부 하묘<:BM_i_010:1398909878096887908> 의 꿈우체국 ⊹ ˚ ★
 
         𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃
-
         > 헉헉 , 뛰어오느라 바빴다묘! <:BM_i_006:1398909865358790808> ✦
         > 안녕! 나는 봉제인형 우체부 **하묘**야 ˎˊ˗
         > 
         > ✧ 네가 써준 편지는 별빛 봉투에 담겨서
         > 포근한 꿈자리로 살며시 배달될 거야 ✩°｡⋆⸜(˶˃ ᵕ ˂˶)⸝
         > 
-        > 아래 :envelope: 버튼을 눌러 **너만의 꿈편지**를 보내 줘!
+        > 아래  :envelope:  버튼을 눌러 **너만의 꿈편지**를 보내 줘!
         > 
         > -# ◟. 편지 1회당 : `1,000` <:BM_a_000:1399387512945774672>
         > -# ◟. 보내는 시간을 지정할 수 있습니다. (정각 한정)
+        > -# ◟. 받는 사람의 고유ID를 입력하면 해당 사용자에게 멘션됩니다.
         """
         
         await ctx.send(msg, view=view)
@@ -267,78 +285,58 @@ class DreamPosts(commands.Cog):
 
     # ----- 모달 처리 -----
     async def handle_modal_submit(self, interaction: discord.Interaction, modal: DreamModal):
-        assert interaction.guild is not None
-        settings = await self._load_settings(interaction.guild.id)
-        price = settings["price"] if settings else DEFAULT_PRICE
-
-        is_anon = 1
-        
-        # 받는 사람 파싱
-        recipient_id = self.parse_recipient(modal.recipient.value, interaction.guild)
-
-        # 기본 데이터 생성 (시간은 후속 단계에서)
-        created = now_kst()
-        post_id = None
-        async with aiosqlite.connect(DB_FILE) as db:
-            cursor = await db.execute(
-                """
-                INSERT INTO dream_posts (guild_id, user_id, post_type, content, is_anonymous, recipient_id, status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?)
-                """,
-                (
-                    interaction.guild.id,
-                    str(interaction.user.id),
-                    'LETTER',
-                    modal.content.value.strip(),
-                    is_anon,
-                    recipient_id,
-                    created.isoformat(),
-                ),
-            )
-            await db.commit()
-            post_id = cursor.lastrowid
-
-        if not post_id:
-            return await interaction.response.send_message("오류가 발생하여 제출하지 못했어요. 다시 시도해주세요.", ephemeral=True)
-
-        # 시간 선택
-        options = await self._build_time_options(interaction.guild.id)
-        if not options:
-            return await interaction.response.send_message("다음날 가능한 시간이 모두 예약되었어요. 내일 다시 시도해주세요.", ephemeral=True)
-        view = DreamTimeView(author_id=interaction.user.id, on_pick=self.on_pick_time)
-        view.add_item(TimeSelect(options))
-        await interaction.response.send_message("다음날 게시 시각을 선택하세요 (10분 단위).", view=view, ephemeral=True)
-
-    def parse_recipient(self, recipient_input: str, guild: discord.Guild) -> Optional[str]:
-        """받는 사람 입력을 파싱하여 유효한 사용자 ID를 반환"""
-        if not recipient_input or not recipient_input.strip():
-            return None
-        
-        recipient_input = recipient_input.strip()
-        
-        # 멘션 형태 (<@123456789> 또는 <@!123456789>)
-        if recipient_input.startswith('<@') and recipient_input.endswith('>'):
-            user_id = recipient_input[2:-1]
-            if user_id.startswith('!'):
-                user_id = user_id[1:]
-            try:
-                user_id = int(user_id)
-                member = guild.get_member(user_id)
-                if member:
-                    return str(user_id)
-            except ValueError:
-                pass
-        
-        # 숫자 ID
         try:
-            user_id = int(recipient_input)
-            member = guild.get_member(user_id)
-            if member:
-                return str(user_id)
-        except ValueError:
-            pass
-        
-        return None
+            assert interaction.guild is not None
+            settings = await self._load_settings(interaction.guild.id)
+            price = settings["price"] if settings else DEFAULT_PRICE
+
+            is_anon = 1
+            
+            # 받는 사람 파싱
+            recipient_id = self.parse_recipient(modal.recipient.value, interaction.guild)
+
+            # 기본 데이터 생성 (시간은 후속 단계에서)
+            created = now_kst()
+            post_id = None
+            async with aiosqlite.connect(DB_FILE) as db:
+                cursor = await db.execute(
+                    """
+                    INSERT INTO dream_posts (guild_id, user_id, post_type, content, is_anonymous, recipient_id, status, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?)
+                    """,
+                    (
+                        interaction.guild.id,
+                        str(interaction.user.id),
+                        'LETTER',
+                        modal.content.value.strip(),
+                        is_anon,
+                        recipient_id,
+                        created.isoformat(),
+                    ),
+                )
+                await db.commit()
+                post_id = cursor.lastrowid
+
+            if not post_id:
+                return await interaction.response.send_message("오류가 발생하여 제출하지 못했어요. 다시 시도해주세요.", ephemeral=True)
+
+            # 시간 선택
+            options = await self._build_time_options(interaction.guild.id)
+            if not options:
+                return await interaction.response.send_message("다음날 가능한 시간이 모두 예약되었어요. 내일 다시 시도해주세요.", ephemeral=True)
+            view = DreamTimeView(author_id=interaction.user.id, on_pick=self.on_pick_time)
+            view.add_item(TimeSelect(options))
+            await interaction.response.send_message("다음날 게시 시각을 선택하세요 (10분 단위).", view=view, ephemeral=True)
+            
+        except Exception as e:
+            print(f"Error in handle_modal_submit: {e}")
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message("뭔가 잘못됐어요. 다시 시도해주세요.", ephemeral=True)
+                else:
+                    await interaction.followup.send("뭔가 잘못됐어요. 다시 시도해주세요.", ephemeral=True)
+            except:
+                pass
 
     async def _build_time_options(self, guild_id: int) -> List[discord.SelectOption]:
         """다음날 10:00~24:00의 1시간 간격 중 미점유 슬롯을 옵션으로 생성"""
