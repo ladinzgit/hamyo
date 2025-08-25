@@ -287,56 +287,82 @@ class DreamPosts(commands.Cog):
     async def handle_modal_submit(self, interaction: discord.Interaction, modal: DreamModal):
         try:
             assert interaction.guild is not None
+            
+            # 설정 로드 및 검증
             settings = await self._load_settings(interaction.guild.id)
-            price = settings["price"] if settings else DEFAULT_PRICE
+            if not settings:
+                return await interaction.response.send_message("서버 설정을 찾을 수 없습니다.", ephemeral=True)
+                
+            price = settings.get("price", DEFAULT_PRICE)
 
             is_anon = 1
             
-            # 받는 사람 파싱
-            recipient_id = self.parse_recipient(modal.recipient.value, interaction.guild)
+            # 받는 사람 파싱 (안전하게 처리)
+            recipient_id = None
+            try:
+                recipient_id = self.parse_recipient(modal.recipient.value, interaction.guild)
+            except Exception as e:
+                print(f"Recipient parsing error: {e}")
+                # 파싱 실패해도 계속 진행 (recipient_id는 None으로 유지)
 
             # 기본 데이터 생성 (시간은 후속 단계에서)
             created = now_kst()
             post_id = None
-            async with aiosqlite.connect(DB_FILE) as db:
-                cursor = await db.execute(
-                    """
-                    INSERT INTO dream_posts (guild_id, user_id, post_type, content, is_anonymous, recipient_id, status, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?)
-                    """,
-                    (
-                        interaction.guild.id,
-                        str(interaction.user.id),
-                        'LETTER',
-                        modal.content.value.strip(),
-                        is_anon,
-                        recipient_id,
-                        created.isoformat(),
-                    ),
-                )
-                await db.commit()
-                post_id = cursor.lastrowid
+            
+            try:
+                async with aiosqlite.connect(DB_FILE) as db:
+                    cursor = await db.execute(
+                        """
+                        INSERT INTO dream_posts (guild_id, user_id, post_type, content, is_anonymous, recipient_id, status, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?)
+                        """,
+                        (
+                            interaction.guild.id,
+                            str(interaction.user.id),
+                            'LETTER',
+                            modal.content.value.strip(),
+                            is_anon,
+                            recipient_id,
+                            created.isoformat(),
+                        ),
+                    )
+                    await db.commit()
+                    post_id = cursor.lastrowid
+            except Exception as db_error:
+                print(f"Database error: {db_error}")
+                return await interaction.response.send_message("데이터베이스 오류가 발생했습니다. 다시 시도해주세요.", ephemeral=True)
 
             if not post_id:
                 return await interaction.response.send_message("오류가 발생하여 제출하지 못했어요. 다시 시도해주세요.", ephemeral=True)
 
-            # 시간 선택
-            options = await self._build_time_options(interaction.guild.id)
-            if not options:
-                return await interaction.response.send_message("다음날 가능한 시간이 모두 예약되었어요. 내일 다시 시도해주세요.", ephemeral=True)
-            view = DreamTimeView(author_id=interaction.user.id, on_pick=self.on_pick_time)
-            view.add_item(TimeSelect(options))
-            await interaction.response.send_message("다음날 게시 시각을 선택하세요 (10분 단위).", view=view, ephemeral=True)
+            # 시간 선택 옵션 구성
+            try:
+                options = await self._build_time_options(interaction.guild.id)
+                if not options:
+                    return await interaction.response.send_message("다음날 가능한 시간이 모두 예약되었어요. 내일 다시 시도해주세요.", ephemeral=True)
+                    
+                view = DreamTimeView(author_id=interaction.user.id, on_pick=self.on_pick_time)
+                view.add_item(TimeSelect(options))
+                await interaction.response.send_message("다음날 게시 시각을 선택하세요.", view=view, ephemeral=True)
+            except Exception as time_error:
+                print(f"Time selection error: {time_error}")
+                return await interaction.response.send_message("시간 선택 옵션을 생성하는 중 오류가 발생했습니다.", ephemeral=True)
             
+        except discord.InteractionResponded:
+            # 이미 응답한 경우 무시
+            pass
         except Exception as e:
             print(f"Error in handle_modal_submit: {e}")
+            import traceback
+            traceback.print_exc()
+            
             try:
                 if not interaction.response.is_done():
                     await interaction.response.send_message("뭔가 잘못됐어요. 다시 시도해주세요.", ephemeral=True)
                 else:
                     await interaction.followup.send("뭔가 잘못됐어요. 다시 시도해주세요.", ephemeral=True)
-            except:
-                pass
+            except Exception as response_error:
+                print(f"Error sending error response: {response_error}")
 
     async def _build_time_options(self, guild_id: int) -> List[discord.SelectOption]:
         """다음날 10:00~24:00의 1시간 간격 중 미점유 슬롯을 옵션으로 생성"""
@@ -367,31 +393,50 @@ class DreamPosts(commands.Cog):
         return options
 
     async def on_pick_time(self, interaction: discord.Interaction, iso_str: str):
-        assert interaction.guild is not None
-        # 가장 최근 본인이 만든 PENDING & LETTER 중 아직 시간 미지정 건을 찾아 갱신
-        async with aiosqlite.connect(DB_FILE) as db:
-            async with db.execute(
-                "SELECT id FROM dream_posts WHERE guild_id = ? AND user_id = ? AND post_type = 'LETTER' AND status = 'PENDING' AND scheduled_at IS NULL ORDER BY id DESC LIMIT 1",
-                (interaction.guild.id, str(interaction.user.id)),
-            ) as cur:
-                row = await cur.fetchone()
-                if not row:
-                    return await interaction.response.send_message("대상 항목을 찾지 못했어요. 다시 시도해주세요.", ephemeral=True)
-                post_id = row[0]
+        try:
+            assert interaction.guild is not None
+            
+            # 가장 최근 본인이 만든 PENDING & LETTER 중 아직 시간 미지정 건을 찾아 갱신
+            async with aiosqlite.connect(DB_FILE) as db:
+                async with db.execute(
+                    "SELECT id FROM dream_posts WHERE guild_id = ? AND user_id = ? AND post_type = 'LETTER' AND status = 'PENDING' AND scheduled_at IS NULL ORDER BY id DESC LIMIT 1",
+                    (interaction.guild.id, str(interaction.user.id)),
+                ) as cur:
+                    row = await cur.fetchone()
+                    if not row:
+                        return await interaction.response.send_message("대상 항목을 찾지 못했어요. 다시 시도해주세요.", ephemeral=True)
+                    post_id = row[0]
 
+                try:
+                    await db.execute(
+                        "UPDATE dream_posts SET scheduled_at = ? WHERE id = ?",
+                        (iso_str, post_id),
+                    )
+                    await db.commit()
+                except aiosqlite.IntegrityError:
+                    return await interaction.response.send_message("방금 사이에 해당 시간이 선점되었어요. 다른 시간을 선택해주세요.", ephemeral=True)
+
+            await interaction.response.send_message("제출 완료! 관리자가 내일 10시까지 검토해요.", ephemeral=True)
+
+            # 검토 채널로 카드 전송/갱신
             try:
-                await db.execute(
-                    "UPDATE dream_posts SET scheduled_at = ? WHERE id = ?",
-                    (iso_str, post_id),
-                )
-                await db.commit()
-            except aiosqlite.IntegrityError:
-                return await interaction.response.send_message("방금 사이에 해당 시간이 선점되었어요. 다른 시간을 선택해주세요.", ephemeral=True)
-
-        await interaction.response.send_message("제출 완료! 관리자가 내일 10시까지 검토해요.", ephemeral=True)
-
-        # 검토 채널로 카드 전송/갱신
-        await self.push_to_review(interaction.guild.id, post_id)
+                await self.push_to_review(interaction.guild.id, post_id)
+            except Exception as review_error:
+                print(f"Review push error: {review_error}")
+                # 검토 채널 전송 실패해도 사용자에게는 성공 메시지 유지
+                
+        except Exception as e:
+            print(f"Error in on_pick_time: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message("시간 선택 중 오류가 발생했습니다. 다시 시도해주세요.", ephemeral=True)
+                else:
+                    await interaction.followup.send("시간 선택 중 오류가 발생했습니다. 다시 시도해주세요.", ephemeral=True)
+            except:
+                pass
 
     # ----- 검토 채널 전송 -----
     async def push_to_review(self, guild_id: int, post_id: int):
