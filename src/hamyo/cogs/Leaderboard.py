@@ -26,7 +26,7 @@ def has_auth_role():
             return False
         if ctx.author.guild_permissions.administrator:
             return True
-        if AUTH_ROLE_ID in ctx.author.roles:
+        if any(role.id == AUTH_ROLE_ID for role in ctx.author.roles):
             return True
         await ctx.send("이 명령어를 사용할 권한이 없습니다.")
         return False

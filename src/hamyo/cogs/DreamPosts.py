@@ -38,7 +38,6 @@ INIT_SQL = [
         guild_id INTEGER PRIMARY KEY,
         review_channel_id INTEGER,
         letter_channel_id INTEGER, -- 꿈편지 게시 채널
-        main_channel_id INTEGER,   -- 메인 채널(메아리 게시)
         price INTEGER DEFAULT 1000
     )
     """,
@@ -48,9 +47,10 @@ INIT_SQL = [
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         guild_id INTEGER NOT NULL,
         user_id TEXT NOT NULL,
-        post_type TEXT NOT NULL CHECK (post_type IN ('LETTER','ECHO')),
+        post_type TEXT NOT NULL CHECK (post_type IN ('LETTER')),
         content TEXT NOT NULL,
         is_anonymous INTEGER NOT NULL DEFAULT 1,
+        recipient_id TEXT, -- 받는 사람 ID (옵션)
         scheduled_at TEXT, -- ISO8601, KST 기준 저장
         status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','APPROVED','REJECTED','POSTED','CANCELED')),
         review_message_id INTEGER, -- 검토용 임베드 메시지 id(옵션)
@@ -60,37 +60,35 @@ INIT_SQL = [
         reject_reason TEXT
     )
     """,
-    # (길드, 시각) 단위로 중복 방지 인덱스 — 꿈편지에 강제, 메아리는 승인 시 충돌 시 재배정
+    # (길드, 시각) 단위로 중복 방지 인덱스
     """
     CREATE UNIQUE INDEX IF NOT EXISTS idx_dream_unique ON dream_posts (guild_id, scheduled_at)
     """,
 ]
 
 # ----- UI 구성요소 -----
-# [MODIFIED] 익명/기명 선택 제거, 글자 수 제한 동적 적용
-class DreamModal(discord.ui.Modal, title="꿈의 메시지 작성"):
-    def __init__(self, *, post_type: str, price: int, on_submit_cb):
+class DreamModal(discord.ui.Modal, title="꿈편지 작성"):
+    def __init__(self, *, price: int, on_submit_cb):
         super().__init__()
-        self.post_type = post_type
         self.price = price
         self.on_submit_cb = on_submit_cb
 
-        # [MODIFIED] post_type에 따라 글자 수 제한과 레이블을 다르게 설정
-        if self.post_type == 'ECHO':
-            content_label = "메시지 내용 (300자 제한)"
-            content_max_length = 300
-        else: # LETTER
-            content_label = "메시지 내용 (1000자 제한)"
-            content_max_length = 1000
-        
+        self.recipient = discord.ui.TextInput(
+            label="받는 사람 고유ID (선택사항)",
+            placeholder="사용자의 고유ID를 입력하세요 (비워두면 익명으로 전송)",
+            style=discord.TextStyle.short,
+            max_length=20,
+            required=False,
+        )
+        self.add_item(self.recipient)
+
         self.content = discord.ui.TextInput(
-            label=content_label,
+            label="메시지 내용 (1000자 제한)",
             placeholder="보낼 메시지를 입력하세요",
             style=discord.TextStyle.paragraph,
-            max_length=content_max_length,
+            max_length=1000,
             required=True,
         )
-        # [REMOVED] 익명/기명 입력 필드 제거
         self.add_item(self.content)
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -147,7 +145,7 @@ class DreamTimeView(discord.ui.View):
 
 # ----- 메인 Cog -----
 class DreamPosts(commands.Cog):
-    """꿈편지(LETTER) & 꿈의 메아리(ECHO)"""
+    """꿈편지(LETTER)"""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -162,11 +160,29 @@ class DreamPosts(commands.Cog):
                 row = await cur.fetchone()
                 return row[0] if row else DEFAULT_PRICE
 
+    def parse_recipient(self, recipient_input: str, guild: discord.Guild) -> Optional[str]:
+        """받는 사람 입력을 파싱하여 유효한 사용자 ID를 반환"""
+        if not recipient_input or not recipient_input.strip():
+            return None
+        
+        recipient_input = recipient_input.strip()
+        
+        # 숫자 ID만 처리
+        try:
+            user_id = int(recipient_input)
+            member = guild.get_member(user_id)
+            if member:
+                return str(user_id)
+        except ValueError:
+            pass
+        
+        return None
+
     # ----- 설정 커맨드 (관리자) -----
     @commands.group(name="꿈설정", invoke_without_command=True)
     @commands.has_permissions(administrator=True)
     async def dream_settings(self, ctx: commands.Context):
-        await ctx.reply("하위 명령: 리뷰채널, 편지채널, 메인채널, 가격")
+        await ctx.reply("하위 명령: 리뷰채널, 편지채널, 가격")
 
     @dream_settings.command(name="리뷰채널")
     @commands.has_permissions(administrator=True)
@@ -179,12 +195,6 @@ class DreamPosts(commands.Cog):
     async def set_letter_channel(self, ctx: commands.Context, channel: discord.TextChannel):
         await self._upsert_settings(ctx.guild.id, letter_channel_id=channel.id)
         await ctx.reply(f"꿈편지 게시 채널을 {channel.mention} 로 설정했어요.")
-
-    @dream_settings.command(name="메인채널")
-    @commands.has_permissions(administrator=True)
-    async def set_main_channel(self, ctx: commands.Context, channel: discord.TextChannel):
-        await self._upsert_settings(ctx.guild.id, main_channel_id=channel.id)
-        await ctx.reply(f"메인 채널(메아리 게시)을 {channel.mention} 로 설정했어요.")
 
     @dream_settings.command(name="가격")
     @commands.has_permissions(administrator=True)
@@ -208,14 +218,13 @@ class DreamPosts(commands.Cog):
 
     async def _load_settings(self, guild_id: int):
         async with aiosqlite.connect(DB_FILE) as db:
-            async with db.execute("SELECT review_channel_id, letter_channel_id, main_channel_id, COALESCE(price, ?) FROM dream_settings WHERE guild_id = ?", (DEFAULT_PRICE, guild_id)) as cur:
+            async with db.execute("SELECT review_channel_id, letter_channel_id, COALESCE(price, ?) FROM dream_settings WHERE guild_id = ?", (DEFAULT_PRICE, guild_id)) as cur:
                 row = await cur.fetchone()
                 if row:
                     return {
                         "review": row[0],
                         "letter": row[1],
-                        "main": row[2],
-                        "price": row[3],
+                        "price": row[2],
                     }
                 return None
 
@@ -223,18 +232,33 @@ class DreamPosts(commands.Cog):
     @commands.command(name="꿈버튼")
     @commands.has_permissions(administrator=True)
     async def send_buttons(self, ctx: commands.Context):
-        """유저용 버튼 전송 (꿈편지 / 꿈의 메아리)"""
+        """유저용 버튼 전송 (꿈편지)"""
         view = discord.ui.View()
-        view.add_item(discord.ui.Button(label="꿈편지 작성", style=discord.ButtonStyle.primary, custom_id="dream_letter"))
-        view.add_item(discord.ui.Button(label="꿈의 메아리", style=discord.ButtonStyle.secondary, custom_id="dream_echo"))
-        await ctx.reply("원하는 기능을 선택하세요:", view=view)
+        view.add_item(discord.ui.Button(label="꿈편지 작성", style=discord.ButtonStyle.blurple, custom_id="dream_letter", emoji="✉️"))
+        msg = """# ꒰ :love_letter: ꒱₊ 우체부 하묘<:BM_i_010:1398909878096887908> 의 꿈우체국 ⊹ ˚ ★
+
+        𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃
+        > 헉헉 , 뛰어오느라 바빴다묘! <:BM_i_006:1398909865358790808> ✦
+        > 안녕! 나는 봉제인형 우체부 **하묘**야 ˎˊ˗
+        > 
+        > ✧ 네가 써준 편지는 별빛 봉투에 담겨서
+        > 포근한 꿈자리로 살며시 배달될 거야 ✩°｡⋆⸜(˶˃ ᵕ ˂˶)⸝
+        > 
+        > 아래  :envelope:  버튼을 눌러 **너만의 꿈편지**를 보내 줘!
+        > 
+        > -# ◟. 편지 1회당 : `1,000` <:BM_a_000:1399387512945774672>
+        > -# ◟. 보내는 시간을 지정할 수 있습니다. (정각 한정)
+        > -# ◟. 받는 사람의 고유ID를 입력하면 해당 사용자에게 멘션됩니다.
+        """
+        
+        await ctx.send(msg, view=view)
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
         if not interaction.type == discord.InteractionType.component:
             return
         cid = interaction.data.get("custom_id") if interaction.data else None
-        if cid not in {"dream_letter", "dream_echo"}:
+        if cid != "dream_letter":
             return
 
         assert interaction.guild is not None
@@ -256,57 +280,89 @@ class DreamPosts(commands.Cog):
             return await interaction.response.send_message(f"잔액이 부족해요. 최소 {price}{unit} 이 필요합니다.", ephemeral=True)
 
         # 모달 열기
-        post_type = "LETTER" if cid == "dream_letter" else "ECHO"
-        modal = DreamModal(post_type=post_type, price=price, on_submit_cb=self.handle_modal_submit)
+        modal = DreamModal(price=price, on_submit_cb=self.handle_modal_submit)
         await interaction.response.send_modal(modal)
 
     # ----- 모달 처리 -----
-    # [MODIFIED] 메아리도 바로 검토 채널에 전송하도록 수정, 익명으로 통일
     async def handle_modal_submit(self, interaction: discord.Interaction, modal: DreamModal):
-        assert interaction.guild is not None
-        settings = await self._load_settings(interaction.guild.id)
-        price = settings["price"] if settings else DEFAULT_PRICE
+        try:
+            assert interaction.guild is not None
+            
+            # 설정 로드 및 검증
+            settings = await self._load_settings(interaction.guild.id)
+            if not settings:
+                return await interaction.response.send_message("서버 설정을 찾을 수 없습니다.", ephemeral=True)
+                
+            price = settings.get("price", DEFAULT_PRICE)
 
-        # [MODIFIED] 익명으로 고정
-        is_anon = 1
+            is_anon = 1
+            
+            # 받는 사람 파싱 (안전하게 처리)
+            recipient_id = None
+            try:
+                recipient_id = self.parse_recipient(modal.recipient.value, interaction.guild)
+            except Exception as e:
+                print(f"Recipient parsing error: {e}")
+                # 파싱 실패해도 계속 진행 (recipient_id는 None으로 유지)
 
-        # 기본 데이터 생성 (시간은 후속 단계에서)
-        created = now_kst()
-        post_id = None
-        async with aiosqlite.connect(DB_FILE) as db:
-            cursor = await db.execute(
-                """
-                INSERT INTO dream_posts (guild_id, user_id, post_type, content, is_anonymous, status, created_at)
-                VALUES (?, ?, ?, ?, ?, 'PENDING', ?)
-                """,
-                (
-                    interaction.guild.id,
-                    str(interaction.user.id),
-                    modal.post_type,
-                    modal.content.value.strip(),
-                    is_anon,
-                    created.isoformat(),
-                ),
-            )
-            await db.commit()
-            post_id = cursor.lastrowid
+            # 기본 데이터 생성 (시간은 후속 단계에서)
+            created = now_kst()
+            post_id = None
+            
+            try:
+                async with aiosqlite.connect(DB_FILE) as db:
+                    cursor = await db.execute(
+                        """
+                        INSERT INTO dream_posts (guild_id, user_id, post_type, content, is_anonymous, recipient_id, status, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?)
+                        """,
+                        (
+                            interaction.guild.id,
+                            str(interaction.user.id),
+                            'LETTER',
+                            modal.content.value.strip(),
+                            is_anon,
+                            recipient_id,
+                            created.isoformat(),
+                        ),
+                    )
+                    await db.commit()
+                    post_id = cursor.lastrowid
+            except Exception as db_error:
+                print(f"Database error: {db_error}")
+                return await interaction.response.send_message("데이터베이스 오류가 발생했습니다. 다시 시도해주세요.", ephemeral=True)
 
-        if not post_id:
-            return await interaction.response.send_message("오류가 발생하여 제출하지 못했어요. 다시 시도해주세요.", ephemeral=True)
+            if not post_id:
+                return await interaction.response.send_message("오류가 발생하여 제출하지 못했어요. 다시 시도해주세요.", ephemeral=True)
 
-        # [MODIFIED] 꿈편지면 시간 선택, 메아리는 바로 검토 채널로 전송
-        if modal.post_type == "LETTER":
-            options = await self._build_time_options(interaction.guild.id)
-            if not options:
-                return await interaction.response.send_message("다음날 가능한 시간이 모두 예약되었어요. 내일 다시 시도해주세요.", ephemeral=True)
-            view = DreamTimeView(author_id=interaction.user.id, on_pick=self.on_pick_time)
-            view.add_item(TimeSelect(options))
-            await interaction.response.send_message("다음날 게시 시각을 선택하세요 (10분 단위).", view=view, ephemeral=True)
-        else: # ECHO
-            await interaction.response.send_message("제출되었습니다! 관리자가 내일 10시까지 검토하면, 10시~24시 사이 랜덤 시각에 게시돼요.", ephemeral=True)
-            # [ADDED] 메아리도 바로 검토 채널로 전송
-            await self.push_to_review(interaction.guild.id, post_id)
-
+            # 시간 선택 옵션 구성
+            try:
+                options = await self._build_time_options(interaction.guild.id)
+                if not options:
+                    return await interaction.response.send_message("다음날 가능한 시간이 모두 예약되었어요. 내일 다시 시도해주세요.", ephemeral=True)
+                    
+                view = DreamTimeView(author_id=interaction.user.id, on_pick=self.on_pick_time)
+                view.add_item(TimeSelect(options))
+                await interaction.response.send_message("다음날 게시 시각을 선택하세요.", view=view, ephemeral=True)
+            except Exception as time_error:
+                print(f"Time selection error: {time_error}")
+                return await interaction.response.send_message("시간 선택 옵션을 생성하는 중 오류가 발생했습니다.", ephemeral=True)
+            
+        except discord.InteractionResponded:
+            # 이미 응답한 경우 무시
+            pass
+        except Exception as e:
+            print(f"Error in handle_modal_submit: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message("뭔가 잘못됐어요. 다시 시도해주세요.", ephemeral=True)
+                else:
+                    await interaction.followup.send("뭔가 잘못됐어요. 다시 시도해주세요.", ephemeral=True)
+            except Exception as response_error:
+                print(f"Error sending error response: {response_error}")
 
     async def _build_time_options(self, guild_id: int) -> List[discord.SelectOption]:
         """다음날 10:00~24:00의 1시간 간격 중 미점유 슬롯을 옵션으로 생성"""
@@ -337,31 +393,50 @@ class DreamPosts(commands.Cog):
         return options
 
     async def on_pick_time(self, interaction: discord.Interaction, iso_str: str):
-        assert interaction.guild is not None
-        # 가장 최근 본인이 만든 PENDING & LETTER 중 아직 시간 미지정 건을 찾아 갱신
-        async with aiosqlite.connect(DB_FILE) as db:
-            async with db.execute(
-                "SELECT id FROM dream_posts WHERE guild_id = ? AND user_id = ? AND post_type = 'LETTER' AND status = 'PENDING' AND scheduled_at IS NULL ORDER BY id DESC LIMIT 1",
-                (interaction.guild.id, str(interaction.user.id)),
-            ) as cur:
-                row = await cur.fetchone()
-                if not row:
-                    return await interaction.response.send_message("대상 항목을 찾지 못했어요. 다시 시도해주세요.", ephemeral=True)
-                post_id = row[0]
+        try:
+            assert interaction.guild is not None
+            
+            # 가장 최근 본인이 만든 PENDING & LETTER 중 아직 시간 미지정 건을 찾아 갱신
+            async with aiosqlite.connect(DB_FILE) as db:
+                async with db.execute(
+                    "SELECT id FROM dream_posts WHERE guild_id = ? AND user_id = ? AND post_type = 'LETTER' AND status = 'PENDING' AND scheduled_at IS NULL ORDER BY id DESC LIMIT 1",
+                    (interaction.guild.id, str(interaction.user.id)),
+                ) as cur:
+                    row = await cur.fetchone()
+                    if not row:
+                        return await interaction.response.send_message("대상 항목을 찾지 못했어요. 다시 시도해주세요.", ephemeral=True)
+                    post_id = row[0]
 
+                try:
+                    await db.execute(
+                        "UPDATE dream_posts SET scheduled_at = ? WHERE id = ?",
+                        (iso_str, post_id),
+                    )
+                    await db.commit()
+                except aiosqlite.IntegrityError:
+                    return await interaction.response.send_message("방금 사이에 해당 시간이 선점되었어요. 다른 시간을 선택해주세요.", ephemeral=True)
+
+            await interaction.response.send_message("제출 완료! 관리자가 내일 10시까지 검토해요.", ephemeral=True)
+
+            # 검토 채널로 카드 전송/갱신
             try:
-                await db.execute(
-                    "UPDATE dream_posts SET scheduled_at = ? WHERE id = ?",
-                    (iso_str, post_id),
-                )
-                await db.commit()
-            except aiosqlite.IntegrityError:
-                return await interaction.response.send_message("방금 사이에 해당 시간이 선점되었어요. 다른 시간을 선택해주세요.", ephemeral=True)
-
-        await interaction.response.send_message("제출 완료! 관리자가 내일 10시까지 검토해요.", ephemeral=True)
-
-        # 검토 채널로 카드 전송/갱신
-        await self.push_to_review(interaction.guild.id, post_id)
+                await self.push_to_review(interaction.guild.id, post_id)
+            except Exception as review_error:
+                print(f"Review push error: {review_error}")
+                # 검토 채널 전송 실패해도 사용자에게는 성공 메시지 유지
+                
+        except Exception as e:
+            print(f"Error in on_pick_time: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message("시간 선택 중 오류가 발생했습니다. 다시 시도해주세요.", ephemeral=True)
+                else:
+                    await interaction.followup.send("시간 선택 중 오류가 발생했습니다. 다시 시도해주세요.", ephemeral=True)
+            except:
+                pass
 
     # ----- 검토 채널 전송 -----
     async def push_to_review(self, guild_id: int, post_id: int):
@@ -369,28 +444,38 @@ class DreamPosts(commands.Cog):
         if not settings or not settings["review"]:
             return
         
-        # [MODIFIED] get_channel/fetch_channel이 None을 반환할 수 있으므로 타입 체크 강화
         channel = self.bot.get_channel(settings["review"]) or await self.bot.fetch_channel(settings["review"])
         if not isinstance(channel, discord.TextChannel):
             return
 
         async with aiosqlite.connect(DB_FILE) as db:
-            async with db.execute("SELECT id, user_id, post_type, content, is_anonymous, scheduled_at, status, created_at FROM dream_posts WHERE id = ?", (post_id,)) as cur:
+            async with db.execute("SELECT id, user_id, post_type, content, is_anonymous, recipient_id, scheduled_at, status, created_at FROM dream_posts WHERE id = ?", (post_id,)) as cur:
                 row = await cur.fetchone()
                 if not row:
                     return
-                _id, user_id, post_type, content, is_anonymous, scheduled_at, status, created_at_str = row
+                _id, user_id, post_type, content, is_anonymous, recipient_id, scheduled_at, status, created_at_str = row
                 created_at = datetime.fromisoformat(created_at_str)
 
-        # [MODIFIED] is_anonymous 값에 따라 작성자 표시 (항상 익명이 됨)
-        author_disp = "익명" if is_anonymous else f"<@{user_id}>"
-        when = "랜덤(10~24시)" if post_type == "ECHO" else (datetime.fromisoformat(scheduled_at).astimezone(KST).strftime("%m/%d %H:%M") if scheduled_at else "미지정")
-        title = "꿈의 메아리" if post_type == "ECHO" else "꿈편지"
+        author_disp = "익명"
+        when = datetime.fromisoformat(scheduled_at).astimezone(KST).strftime("%m/%d %H:%M") if scheduled_at else "미지정"
+        
+        # 받는 사람 표시
+        recipient_disp = "익명의 대상"
+        if recipient_id:
+            try:
+                guild = self.bot.get_guild(guild_id)
+                if guild:
+                    member = guild.get_member(int(recipient_id))
+                    if member:
+                        recipient_disp = f"{member.display_name}({member.mention})"
+            except (ValueError, AttributeError):
+                pass
 
-        embed = discord.Embed(title=f"[검토] {title}", description=content, color=discord.Color.blurple())
+        embed = discord.Embed(title="[검토] 꿈편지", description=content, color=discord.Color.blurple())
         embed.add_field(name="작성자", value=author_disp, inline=True)
+        embed.add_field(name="받는 사람", value=recipient_disp, inline=True)
         embed.add_field(name="게시시각", value=when, inline=True)
-        embed.add_field(name="상태", value=status, inline=True)
+        embed.add_field(name="상태", value=status, inline=False)
         embed.set_footer(text=f"ID: {post_id} | 생성: {created_at.strftime('%Y-%m-%d %H:%M:%S')}")
 
         view = ReviewView(cog=self, post_id=post_id)
@@ -441,7 +526,7 @@ class DreamPosts(DreamPosts):
                 await interaction.response.send_message("거절 처리했습니다.", ephemeral=True)
                 return await self.refresh_review_message(interaction, post_id)
 
-            # 승인 로직: 결제(회수) -> 시간 배정(메아리) -> 상태 갱신
+            # 승인 로직: 결제(회수) -> 상태 갱신
             # 잔액 확인 및 회수
             balance = await balance_manager.get_balance(user_id)
             if balance < price:
@@ -452,39 +537,6 @@ class DreamPosts(DreamPosts):
                 await db.commit()
                 await interaction.response.send_message("사용자 잔액 부족으로 거절했습니다.", ephemeral=True)
                 return await self.refresh_review_message(interaction, post_id)
-
-            # 메아리라면 랜덤 시간 배정
-            if post_type == "ECHO":
-                new_scheduled_at = await self._pick_random_slot(interaction.guild.id)
-                if new_scheduled_at is None:
-                    await db.execute(
-                        "UPDATE dream_posts SET status = 'REJECTED', reject_reason = '슬롯없음', rejected_by = ? WHERE id = ?",
-                        (str(interaction.user.id), post_id),
-                    )
-                    await db.commit()
-                    await interaction.response.send_message("가용 슬롯이 없어 거절되었습니다.", ephemeral=True)
-                    return await self.refresh_review_message(interaction, post_id)
-                
-                scheduled_at = new_scheduled_at.isoformat()
-                
-                try:
-                    await db.execute("UPDATE dream_posts SET scheduled_at = ? WHERE id = ?", (scheduled_at, post_id))
-                    await db.commit()
-                except aiosqlite.IntegrityError:
-                    # 희박하게 경합 발생 시 재시도 한 번
-                    alt_slot = await self._pick_random_slot(interaction.guild.id)
-                    if not alt_slot:
-                        await db.execute(
-                            "UPDATE dream_posts SET status = 'REJECTED', reject_reason = '슬롯경합', rejected_by = ? WHERE id = ?",
-                            (str(interaction.user.id), post_id),
-                        )
-                        await db.commit()
-                        await interaction.response.send_message("슬롯 경합으로 거절되었습니다.", ephemeral=True)
-                        return await self.refresh_review_message(interaction, post_id)
-                    
-                    scheduled_at = alt_slot.isoformat()
-                    await db.execute("UPDATE dream_posts SET scheduled_at = ? WHERE id = ?", (scheduled_at, post_id))
-                    await db.commit()
 
             # 비용 회수
             await balance_manager.take(user_id, price)
@@ -498,38 +550,13 @@ class DreamPosts(DreamPosts):
         await interaction.response.send_message("승인 및 결제 완료!", ephemeral=True)
         await self.refresh_review_message(interaction, post_id)
 
-    async def _pick_random_slot(self, guild_id: int) -> Optional[datetime]:
-        tomorrow = next_day(now_kst())
-        start = datetime.combine(tomorrow.date(), POST_START, tzinfo=KST)
-        end = datetime.combine(tomorrow.date(), POST_END, tzinfo=KST)
-
-        # 예약된 시간 수집
-        reserved = set()
-        async with aiosqlite.connect(DB_FILE) as db:
-            async with db.execute(
-                "SELECT scheduled_at FROM dream_posts WHERE guild_id = ? AND scheduled_at IS NOT NULL AND status IN ('PENDING','APPROVED')",
-                (guild_id,),
-            ) as cur:
-                for (iso_str,) in await cur.fetchall():
-                    reserved.add(iso_str)
-
-        slots: List[datetime] = []
-        t = start
-        while t <= end:
-            if t.isoformat() not in reserved:
-                slots.append(t)
-            t += timedelta(minutes=10)
-        if not slots:
-            return None
-        return random.choice(slots)
-
     async def refresh_review_message(self, interaction: discord.Interaction, post_id: int):
         async with aiosqlite.connect(DB_FILE) as db:
-            async with db.execute("SELECT review_message_id, user_id, post_type, content, is_anonymous, scheduled_at, status FROM dream_posts WHERE id = ?", (post_id,)) as cur:
+            async with db.execute("SELECT review_message_id, user_id, post_type, content, is_anonymous, recipient_id, scheduled_at, status FROM dream_posts WHERE id = ?", (post_id,)) as cur:
                 row = await cur.fetchone()
                 if not row:
                     return
-                msg_id, user_id, post_type, content, is_anonymous, scheduled_at, status = row
+                msg_id, user_id, post_type, content, is_anonymous, recipient_id, scheduled_at, status = row
         
         channel = interaction.channel
         if not isinstance(channel, discord.TextChannel) or not msg_id:
@@ -540,20 +567,26 @@ class DreamPosts(DreamPosts):
         except discord.NotFound:
             return
 
-        # [MODIFIED] is_anonymous 값에 따라 작성자 표시 (항상 익명이 됨)
-        author_disp = "익명" if is_anonymous else f"<@{user_id}>"
-        when = "랜덤(10~24시)"
-        if post_type == 'LETTER':
-            when = datetime.fromisoformat(scheduled_at).astimezone(KST).strftime("%m/%d %H:%M") if scheduled_at else "미지정"
-        elif status == 'APPROVED': # 메아리가 승인된 경우
-            when = datetime.fromisoformat(scheduled_at).astimezone(KST).strftime("%m/%d %H:%M")
-
-        title = "꿈의 메아리" if post_type == "ECHO" else "꿈편지"
+        author_disp = "익명"
+        when = datetime.fromisoformat(scheduled_at).astimezone(KST).strftime("%m/%d %H:%M") if scheduled_at else "미지정"
         
-        embed = discord.Embed(title=f"[검토] {title}", description=content, color=discord.Color.blurple())
+        # 받는 사람 표시
+        recipient_disp = "익명의 대상"
+        if recipient_id:
+            try:
+                guild = interaction.guild
+                if guild:
+                    member = guild.get_member(int(recipient_id))
+                    if member:
+                        recipient_disp = f"{member.display_name}({member.mention})"
+            except (ValueError, AttributeError):
+                pass
+        
+        embed = discord.Embed(title="[검토] 꿈편지", description=content, color=discord.Color.blurple())
         embed.add_field(name="작성자", value=author_disp, inline=True)
+        embed.add_field(name="받는 사람", value=recipient_disp, inline=True)
         embed.add_field(name="게시시각", value=when, inline=True)
-        embed.add_field(name="상태", value=status, inline=True)
+        embed.add_field(name="상태", value=status, inline=False)
         
         new_view = None if status != 'PENDING' else ReviewView(cog=self, post_id=post_id)
         await msg.edit(embed=embed, view=new_view)
@@ -593,7 +626,7 @@ class DreamPosts(DreamPosts):
         if not settings:
             return
         
-        channel_id = settings["main"] if post_type == "ECHO" else settings["letter"]
+        channel_id = settings["letter"]
         if not channel_id:
             return
         
@@ -604,13 +637,32 @@ class DreamPosts(DreamPosts):
             # 채널을 찾을 수 없는 경우 처리
             return
 
-        # [MODIFIED] is_anonymous 값에 따라 작성자 표시 (항상 익명이 됨)
-        author_disp = "익명"
+        # 받는 사람 정보 조회
+        async with aiosqlite.connect(DB_FILE) as db:
+            async with db.execute("SELECT recipient_id FROM dream_posts WHERE id = ?", (post_id,)) as cur:
+                row = await cur.fetchone()
+                recipient_id = row[0] if row else None
 
-        title = "꿈의 메아리" if post_type == "ECHO" else "꿈편지"
-        embed = discord.Embed(title=title, description=content, color=discord.Color.green())
+        author_disp = "익명"
+        
+        # 받는 사람 멘션 처리
+        recipient_mention = ""
+        if recipient_id:
+            try:
+                guild = self.bot.get_guild(guild_id)
+                if guild:
+                    member = guild.get_member(int(recipient_id))
+                    if member:
+                        recipient_mention = f"{member.mention} "
+            except (ValueError, AttributeError):
+                pass
+
+        embed = discord.Embed(title="꿈편지", description=content, color=discord.Color.green())
         embed.set_footer(text=author_disp)
-        await channel.send(embed=embed)
+        
+        # 받는 사람이 있으면 멘션과 함께 전송
+        message_content = recipient_mention if recipient_mention else None
+        await channel.send(content=message_content, embed=embed)
 
         async with aiosqlite.connect(DB_FILE) as db:
             await db.execute("UPDATE dream_posts SET status = 'POSTED' WHERE id = ?", (post_id,))
