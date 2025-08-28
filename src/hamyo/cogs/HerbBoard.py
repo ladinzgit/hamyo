@@ -121,7 +121,7 @@ class HerbBoard(commands.Cog):
 
             channel = guild.get_channel(channel_id)
             if not channel:
-                print(f"[HerbBoard] Guild {guild.name}의 채널(ID: {channel_id})을 찾을 수 없습니다.")
+                await self.log(f"Guild {guild.name}의 채널(ID: {channel_id})을 찾을 수 없습니다.")
                 continue
 
             # 채널의 기존 메시지 모두 삭제 (봇 권한 필요)
@@ -129,7 +129,7 @@ class HerbBoard(commands.Cog):
                 async for msg in channel.history(limit=100):
                     await msg.delete()
             except Exception as e:
-                print(f"[HerbBoard] 메시지 삭제 중 오류: {e}")
+                await self.log(f"메시지 삭제 중 오류: {e}")
 
             # 허브 추적 채널 목록 가져오기
             try:
@@ -155,7 +155,7 @@ class HerbBoard(commands.Cog):
                         filtered_ranked.append((uid, total_seconds))
                 
                 if not filtered_ranked:
-                    await channel.send("오늘 허브 채널 사용 기록이 없습니다.")
+                    await channel.send("이번 주 허브 채널 사용 기록이 없습니다.")
                     continue
 
                 start_str = start_date.strftime("%Y-%m-%d") if start_date else "-"
@@ -187,7 +187,7 @@ class HerbBoard(commands.Cog):
                 await channel.send(embed=embed)
 
             except Exception as e:
-                print(f"[HerbBoard] 순위표 생성 중 오류: {e}")
+                await self.log(f"순위표 생성 중 오류: {e}")
                 await channel.send("순위표 생성 중 오류가 발생했습니다.")
 
     @herb_board_poster.before_loop
@@ -199,7 +199,7 @@ class HerbBoard(commands.Cog):
         next_hour = (now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1))
         wait_seconds = (next_hour - now).total_seconds()
         
-        print(f"다음 허브 순위표 업데이트까지 {wait_seconds:.2f}초 대기합니다.")
+        await self.log(f"다음 허브 순위표 업데이트까지 {wait_seconds:.2f}초 대기합니다.")
         await asyncio.sleep(wait_seconds)
 
 async def setup(bot: commands.Bot):
