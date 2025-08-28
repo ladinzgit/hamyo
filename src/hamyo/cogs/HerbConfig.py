@@ -36,12 +36,7 @@ class HerbConfig(commands.Cog):
     
     @commands.group(name="허브", invoke_without_command=True)
     @has_admin_role()
-    async def voice(self, ctx):  
-        if ctx.author.id not in self.owner_ids:
-            await self.log(f"{ctx.author}({ctx.author.id})가 관리자 권한 없이 명령어 조회를 시도했습니다.")
-            await ctx.send("관리자 권한이 필요합니다.")
-            return
-        
+    async def voice(self, ctx):      
         command_name = ctx.invoked_with
         
         embed = discord.Embed(
@@ -90,10 +85,6 @@ class HerbConfig(commands.Cog):
     @voice.command(name="채널등록")
     @has_admin_role()
     async def register_channel(self, ctx, *channels: discord.abc.GuildChannel):
-        if not await self.is_owner(ctx):
-            await self.log(f"{ctx.author}({ctx.author.id})가 관리자 권한 없이 채널 등록을 시도했습니다.")
-            return await ctx.reply("관리자 권한이 필요합니다.")
-
         added = []
         for ch in channels:
             if isinstance(ch, (discord.VoiceChannel, discord.CategoryChannel)):
@@ -109,10 +100,6 @@ class HerbConfig(commands.Cog):
     @voice.command(name="채널제거")
     @has_admin_role()
     async def unregister_channel(self, ctx, *channels: discord.abc.GuildChannel):
-        if not await self.is_owner(ctx):
-            await self.log(f"{ctx.author}({ctx.author.id})가 관리자 권한 없이 채널 제거를 시도했습니다.")
-            return await ctx.send("관리자 권한이 필요합니다.")
-
         removed = []
         for ch in channels:
             if isinstance(ch, (discord.VoiceChannel, discord.CategoryChannel)):
@@ -128,9 +115,6 @@ class HerbConfig(commands.Cog):
     @voice.command(name="완전초기화")
     @has_admin_role()
     async def reset_all(self, ctx):
-        if not await self.is_owner(ctx):
-            return await ctx.send("관리자 권한이 필요합니다.")
-
         await self.data_manager.reset_data()
         await ctx.send("모든 사용자 기록 및 삭제 채널 정보가 초기화되었습니다.")
         await self.log(f"{ctx.author}({ctx.author.id})님에 의해 모든 사용자 기록 및 삭제 채널 정보가 초기화되었습니다.")
@@ -138,10 +122,6 @@ class HerbConfig(commands.Cog):
     @voice.command(name="채널초기화")
     @has_admin_role()
     async def reset_all_channel(self, ctx):
-        if not await self.is_owner(ctx):
-            await self.log(f"{ctx.author}({ctx.author.id})가 관리자 권한 없이 채널 제거를 시도했습니다.")
-            return await ctx.send("관리자 권한이 필요합니다.")
-
         await self.data_manager.reset_tracked_channels("aginari")
         await ctx.send("모든 채널 기록이 초기화되었습니다.")
         await self.log(f"{ctx.author}({ctx.author.id})님에 의해 모든 채널 기록이 초기화되었습니다.")
