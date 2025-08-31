@@ -492,9 +492,9 @@ class LevelChecker(commands.Cog):
                 # 채널이 특정 카테고리에 속하는지 확인하고 내용이 최소 길이(5자) 이상인지 확인
                 user_id = message.author.id
                 result = await self.process_board(user_id)
-                if result.get('success'):
-                    await message.add_reaction('<:BM_k_008:1399387531534930063>')
-                else:
+                await message.add_reaction('<:BM_k_008:1399387531534930063>')
+                
+                if not result.get('success'):
                     await self.log(f"게시판 퀘스트 처리 결과: {result}")
             except Exception as e:
                 await self.log(f"게시판 퀘스트 처리 중 오류 발생: {e}")
