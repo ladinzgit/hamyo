@@ -456,32 +456,31 @@ class LevelChecker(commands.Cog):
             if result.get('success'):
                 await message.add_reaction('📢')
                 return
-
+            
         # --- 다방일지 퀘스트 감지 ---
-        if message.channel.id != self.DIARY_CHANNEL_ID or len(message.content.strip()) < 5:
-            return
-
-        user_id = message.author.id
-
         try:
-            # get_quest_count로 오늘 작성했는지 확인 (0 또는 1 반환)
-            today_count = await self.data_manager.get_quest_count(
-                user_id, 
-                quest_type='daily', 
-                quest_subtype='diary',
-                timeframe='day'
-            )
+            if message.channel.id == self.DIARY_CHANNEL_ID and len(message.content.strip()) < 5:
+                user_id = message.author.id
 
-            if today_count > 0:
-                return  # 오늘 이미 작성함
-            
-            # 다방일지 퀘스트 처리
-            result = await self.process_diary(user_id)
-            
-            # 성공 시 반응 추가
-            if result['success']:
-                await message.add_reaction('<:BM_j_010:1399387534101843978>')
-            
+                # get_quest_count로 오늘 작성했는지 확인 (0 또는 1 반환)
+                today_count = await self.data_manager.get_quest_count(
+                    user_id, 
+                    quest_type='daily', 
+                    quest_subtype='diary',
+                    timeframe='day'
+                )
+
+                if today_count > 0:
+                    return  # 오늘 이미 작성함
+                
+                # 다방일지 퀘스트 처리
+                result = await self.process_diary(user_id)
+                
+                # 성공 시 반응 추가
+                if result['success']:
+                    await message.add_reaction('<:BM_j_010:1399387534101843978>')
+                    return
+                
         except Exception as e:
             await self.log(f"다방일지 처리 중 오류 발생: {e}")
 
