@@ -188,7 +188,7 @@ class HerbBoard(commands.Cog):
                     
                     if lower_ranks_value:
                         embed.add_field(
-                            name="✧·····················*﹡❋ ❋ ❋﹡*·····················✧",
+                            name="⠂⠄⠄⠂⠁⠁⠂⠄⠄⠂⠁⠁⠂⠄⠄⠂ ⠂⠄⠄⠂☆",
                             value=lower_ranks_value.strip(),
                             inline=False
                         )

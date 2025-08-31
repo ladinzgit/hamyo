@@ -666,13 +666,7 @@ class DreamPosts(DreamPosts):
         message += content
         message += "\n\n⋆｡°✶⋆.༘⋆° ̥✩ ̥°̩̥·.°̩̥˚̩̩̥͙✩.˚｡⋆୨୧⋆｡˚·. ̥✩°̩̥‧̥·̊°ˎˊ✶˚ ༘✩*⋆｡˚⋆"
         
-        
-        embed = discord.Embed(title="꿈편지", description=content, color=discord.Color.green())
-        embed.set_footer(text=author_disp)
-        
-        # 받는 사람이 있으면 멘션과 함께 전송
-        message_content = recipient_mention if recipient_mention else None
-        await channel.send(content=message_content, embed=embed)
+        await channel.send(content=message)
 
         async with aiosqlite.connect(DB_FILE) as db:
             await db.execute("UPDATE dream_posts SET status = 'POSTED' WHERE id = ?", (post_id,))
