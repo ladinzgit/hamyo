@@ -79,18 +79,13 @@ class HerbBoard(commands.Cog):
         async with self._lock:
             with open(HERB_BOARD_SETTINGS_FILE, 'w', encoding='utf-8') as f:
                 json.dump(self.settings, f, ensure_ascii=False, indent=4)
-
-    def calculate_points(self, seconds: int) -> int:
-        """음성 채널 사용 시간을 점수로 변환 (1분당 2점, 초 단위 내림)"""
-        minutes = seconds // 60
-        return minutes * 2
-
+                
     def format_duration(self, total_seconds: int) -> str:
         """시간을 포맷팅합니다."""
         days, remainder = divmod(total_seconds, 86400)
         hours, remainder = divmod(remainder, 3600)
         minutes, seconds = divmod(remainder, 60)
-        return f"{days}일 {hours}시간 {minutes}분 {seconds}초 ({self.calculate_points(total_seconds)}점)"
+        return f"{days}일 {hours}시간 {minutes}분 {seconds}초"
 
     @commands.group(name="허브순위설정", invoke_without_command=True)
     @has_admin_role()
@@ -164,23 +159,39 @@ class HerbBoard(commands.Cog):
                 # 임베드 생성
                 embed = discord.Embed(
                     title="🌿 허브 채널 사용 시간 순위",
-                    description=f"주간({start_str} ~ {end_str}) 기준",
+                    description=f"주간({start_str} ~ {end_str}) 기준의 순위를 조회합니다.",
                     color=discord.Color.green()
                 )
 
                 # 순위 목록 구성 (상위 10명)
                 rank_emojis = {1: "🥇", 2: "🥈", 3: "🥉"}
                 
-                for i, (uid, total_seconds) in enumerate(filtered_ranked[:10], 1):
+                # 1~3위는 개별 field로 표시
+                for i, (uid, total_seconds) in enumerate(filtered_ranked[:3], 1):
                     member = guild.get_member(uid)
                     member_name = member.mention if member else f"ID: {uid}"
-                    rank_emoji = rank_emojis.get(i, f"`{i}.`")
+                    rank_emoji = rank_emojis[i]
                     
                     embed.add_field(
                         name=f"{rank_emoji} {i}위",
-                        value=f"{member_name}\n{self.format_duration(total_seconds)}",
-                        inline=True if i <= 3 else False
+                        value=f"{member_name}\n◟. {self.format_duration(total_seconds)}",
+                        inline=True
                     )
+
+                # 4~10위는 하나의 field로 통합
+                if len(filtered_ranked) > 3:
+                    lower_ranks_value = ""
+                    for i, (uid, total_seconds) in enumerate(filtered_ranked[3:10], 4):
+                        member = guild.get_member(uid)
+                        member_name = member.mention if member else f"ID: {uid}"
+                        lower_ranks_value += f"`{i}.` {member_name} - {self.format_duration(total_seconds)}\n"
+                    
+                    if lower_ranks_value:
+                        embed.add_field(
+                            name="✧·····················*﹡❋ ❋ ❋﹡*·····················✧",
+                            value=lower_ranks_value.strip(),
+                            inline=False
+                        )
 
                 embed.set_footer(text=f"업데이트 시각: {now_kst().strftime('%Y-%m-%d %H:%M:%S KST')}")
 
