@@ -490,7 +490,7 @@ class LevelChecker(commands.Cog):
         
         try:
             # 채널이 특정 카테고리에 속하는지 확인
-            if message.channel.category_id == BOARD_CATEGORY_ID and len(message.content.strip()) >= 5:
+            if message.channel.category_id == BOARD_CATEGORY_ID:
                 user_id = message.author.id
                 result = await self.process_board(user_id)
                 if result.get('success'):
