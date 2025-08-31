@@ -441,7 +441,7 @@ class LevelChecker(commands.Cog):
     
     @commands.Cog.listener()
     async def on_message(self, message):
-        """메시지 이벤트 리스너 - 다방일지/삐삐 퀘스트 감지"""
+        """메시지 이벤트 리스너 - 다방일지/삐삐/게시판 퀘스트 감지"""
         # 봇 메시지 무시
         if message.author.bot:
             return
@@ -458,44 +458,46 @@ class LevelChecker(commands.Cog):
                 return
             
         # --- 다방일지 퀘스트 감지 ---
-        try:
-            if message.channel.id == self.DIARY_CHANNEL_ID and len(message.content.strip()) < 5:
+        if message.channel.id == self.DIARY_CHANNEL_ID:
+            # 최소 길이 체크 (5자 이상)
+            if len(message.content.strip()) >= 5:
                 user_id = message.author.id
 
-                # get_quest_count로 오늘 작성했는지 확인 (0 또는 1 반환)
-                today_count = await self.data_manager.get_quest_count(
-                    user_id, 
-                    quest_type='daily', 
-                    quest_subtype='diary',
-                    timeframe='day'
-                )
+                try:
+                    # get_quest_count로 오늘 작성했는지 확인 (0 또는 1 반환)
+                    today_count = await self.data_manager.get_quest_count(
+                        user_id, 
+                        quest_type='daily', 
+                        quest_subtype='diary',
+                        timeframe='day'
+                    )
 
-                if today_count > 0:
-                    return  # 오늘 이미 작성함
-                
-                # 다방일지 퀘스트 처리
-                result = await self.process_diary(user_id)
-                
-                # 성공 시 반응 추가
-                if result['success']:
-                    await message.add_reaction('<:BM_j_010:1399387534101843978>')
-                    return
-                
-        except Exception as e:
-            await self.log(f"다방일지 처리 중 오류 발생: {e}")
+                    if today_count > 0:
+                        return  # 오늘 이미 작성함
+                    
+                    # 다방일지 퀘스트 처리
+                    result = await self.process_diary(user_id)
+                    
+                    # 성공 시 반응 추가
+                    if result['success']:
+                        await message.add_reaction('<:BM_j_010:1399387534101843978>')
+                except Exception as e:
+                    await self.log(f"다방일지 처리 중 오류 발생: {e}")
 
         # --- 게시판 퀘스트 감지 ---
         BOARD_CATEGORY_ID = 1396829223267598348
         
-        try:
-            # 채널이 특정 카테고리에 속하는지 확인
-            if message.channel.category_id == BOARD_CATEGORY_ID:
+        if hasattr(message.channel, 'category_id') and message.channel.category_id == BOARD_CATEGORY_ID:
+            try:
+                # 채널이 특정 카테고리에 속하는지 확인하고 내용이 최소 길이(5자) 이상인지 확인
                 user_id = message.author.id
                 result = await self.process_board(user_id)
                 if result.get('success'):
-                    await message.add_reaction('📝')
-        except Exception as e:
-            await self.log(f"게시판 퀘스트 처리 중 오류 발생: {e}")
+                    await message.add_reaction('<:BM_k_008:1399387531534930063>')
+                else:
+                    await self.log(f"게시판 퀘스트 처리 결과: {result}")
+            except Exception as e:
+                await self.log(f"게시판 퀘스트 처리 중 오류 발생: {e}")
 
     async def process_bbibbi(self, user_id: int) -> Dict[str, Any]:
         """삐삐(특정 역할 멘션) 일일 퀘스트 처리"""
