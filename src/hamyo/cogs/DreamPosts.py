@@ -656,7 +656,17 @@ class DreamPosts(DreamPosts):
                         recipient_mention = f"{member.mention} "
             except (ValueError, AttributeError):
                 pass
+        
+        if recipient_mention:
+            message += f"{recipient_mention}님의 꿈결로 편지가 흘러들어왔묘… ꒰•ᴥ•꒱˘₊ ⊹˚₊\n달빛 따라 살며시 전해드린다묘 ˎˊ˗\n"
+        else:
+            message += "어느 이름 모를 별빛이 편지를 부쳐왔묘… ꒰⑅ˊᵕˋ⑅꒱\n꿈우체국을 거쳐 당신에게 살짝 내려앉았묘 ˎˊ˗\n\n"
 
+        message += "₊˚ ‿︵‿︵‿︵୨୧ · · ♡ · · ୨୧‿︵‿︵‿︵ ˚₊\n\n"
+        message += content
+        message += "\n\n⋆｡°✶⋆.༘⋆° ̥✩ ̥°̩̥·.°̩̥˚̩̩̥͙✩.˚｡⋆୨୧⋆｡˚·. ̥✩°̩̥‧̥·̊°ˎˊ✶˚ ༘✩*⋆｡˚⋆"
+        
+        
         embed = discord.Embed(title="꿈편지", description=content, color=discord.Color.green())
         embed.set_footer(text=author_disp)
         
