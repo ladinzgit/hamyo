@@ -213,7 +213,7 @@ class LevelCommands(commands.Cog):
             att_week = await _safe_get_quest(user_id, 'daily', 'attendance', 'week') or 0
             diary_week = await _safe_get_quest(user_id, 'daily', 'diary', 'week') or 0
             recommend_week = await _safe_get_quest(user_id, 'weekly', 'recommend', 'week') or 0
-            board_week = await _safe_get_quest(user_id, 'weekly', 'board', 'week') or 0
+            board_week = await _safe_get_quest(user_id, 'weekly', 'board_participate', 'week') or 0
             shop_week = await _safe_get_quest(user_id, 'weekly', 'shop_purchase', 'week') or 0
 
             # 5) 아이콘 유틸

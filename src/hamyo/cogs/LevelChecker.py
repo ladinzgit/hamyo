@@ -485,6 +485,19 @@ class LevelChecker(commands.Cog):
         except Exception as e:
             await self.log(f"다방일지 처리 중 오류 발생: {e}")
 
+        # --- 게시판 퀘스트 감지 ---
+        BOARD_CATEGORY_ID = 1396829223267598348
+        
+        try:
+            # 채널이 특정 카테고리에 속하는지 확인
+            if message.channel.category_id == BOARD_CATEGORY_ID and len(message.content.strip()) >= 5:
+                user_id = message.author.id
+                result = await self.process_board(user_id)
+                if result.get('success'):
+                    await message.add_reaction('📝')
+        except Exception as e:
+            await self.log(f"게시판 퀘스트 처리 중 오류 발생: {e}")
+
     async def process_bbibbi(self, user_id: int) -> Dict[str, Any]:
         """삐삐(특정 역할 멘션) 일일 퀘스트 처리"""
         result = {
@@ -574,9 +587,47 @@ class LevelChecker(commands.Cog):
         
         return await self._finalize_quest_result(user_id, result)
     
-    # ===========================================
-    # 음성방 퀘스트 처리
-    # ===========================================
+    async def process_board(self, user_id: int) -> Dict[str, Any]:
+        """
+        게시판 참여 시 호출: 주간 게시판 3회 달성 시 경험치 지급
+        on_message에서 특정 카테고리에 글 작성 시 호출됨.
+        """
+        await self.data_manager.ensure_initialized()
+        result = {
+            'success': False,
+            'exp_gained': 0,
+            'messages': [],
+            'quest_completed': []
+        }
+        try:
+            # 게시판 참여 기록 (quest_logs에 'weekly', 'board_participate'로 기록)
+            async with self.data_manager.db_connect() as db:
+                week_start = self.data_manager._get_week_start()
+                await db.execute("""
+                    INSERT INTO quest_logs (user_id, quest_type, quest_subtype, exp_gained, week_start)
+                    VALUES (?, 'weekly', 'board_participate', 0, ?)
+                """, (user_id, week_start))
+                await db.commit()
+
+            # 이번 주 게시판 참여 횟수 확인
+            board_count = await self.data_manager.get_quest_count(user_id, 'weekly', 'board_participate', 'week')
+
+            # 이미 보상 지급 여부 확인
+            already_rewarded = await self.data_manager.get_quest_count(user_id, 'weekly', 'board_participate_3', 'week') > 0
+
+            if board_count >= 3 and not already_rewarded:
+                exp = self.quest_exp['weekly']['board_participate']
+                await self.data_manager.add_exp(user_id, exp, 'weekly', 'board_participate_3')
+                result['success'] = True
+                result['exp_gained'] = exp
+                result['quest_completed'].append('weekly_board_participate_3')
+                result['messages'].append(f"📝 주간 게시판 3회 작성 달성! **+{exp} 다공**")
+                # 공통 후처리(메시지, 승급 등)
+                return await self._finalize_quest_result(user_id, result)
+        except Exception as e:
+            await self.log(f"게시판 퀘스트 처리 중 오류: {e}")
+            result['messages'].append("게시판 퀘스트 처리 중 오류가 발생했습니다.")
+        return result
 
     async def process_voice_30min(self, user_id: int) -> dict:
         """
