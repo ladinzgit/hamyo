@@ -3,6 +3,7 @@ data/
 config/
 .env
 event_data/
+src/hamyo/previous/
 
 # Python
 __pycache__/
