@@ -446,6 +446,10 @@ class LevelChecker(commands.Cog):
         if message.author.bot:
             return
 
+        # 스레드 채널 무시
+        if isinstance(message.channel, discord.Thread):
+            return
+
         # --- 삐삐 퀘스트 감지 ---
         BBIBBI_CHANNEL_ID = 1396829223267598346
         BBIBBI_ROLE_ID = 1396829213163520021
@@ -456,7 +460,7 @@ class LevelChecker(commands.Cog):
             if result.get('success'):
                 await message.add_reaction('📢')
                 return
-            
+        
         # --- 다방일지 퀘스트 감지 ---
         if message.channel.id == self.DIARY_CHANNEL_ID:
             # 최소 길이 체크 (5자 이상)
@@ -663,7 +667,7 @@ class LevelChecker(commands.Cog):
             await self.log(f"음성 30분 퀘스트 처리 중 오류: {e}")
             result['messages'].append("음성 30분 퀘스트 처리 중 오류가 발생했습니다.")
         return await self._finalize_quest_result(user_id, result)
-
+        
     async def process_voice_weekly(self, user_id: int, hour: int) -> dict:
         """
         음성방 주간 5/10/20시간 퀘스트 처리 (중복 지급 방지)

@@ -117,8 +117,6 @@ hamyo/
 │   ├── cogs/
 │   │   ├── LevelChecker.py     # 레벨 및 퀘스트 시스템
 │   │   ├── Economy.py          # 경제 시스템
-│   │   ├── StorageCog.py       # 인벤토리 관리
-│   │   ├── SchedulerCog.py     # 스케줄러 (자정 처리)
 │   │   └── VoiceTracker.py     # 음성방 활동 추적
 │   ├── data/
 │   │   └── level.db           # 레벨 및 경제 데이터베이스
