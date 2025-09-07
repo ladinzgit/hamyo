@@ -118,7 +118,6 @@ class CountChannelCog(commands.Cog):
             return
         channel = guild.get_channel(channel_id)
         if not isinstance(channel, discord.VoiceChannel):
-            await self.log(f"⚠️ 카운트 채널 {channel_id}가 음성 채널이 아닙니다 (길드: {guild.name})")
             return
 
         role_id = meta.get("role_id")
