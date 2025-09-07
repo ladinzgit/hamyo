@@ -350,19 +350,5 @@ class CountChannelCog(commands.Cog):
         for gid in TARGET_GUILD_IDS:
             tree.add_command(self.count_group, guild=discord.Object(id=gid))
 
-
-async def setup(bot: commands.Bot):
-    await bot.add_cog(CountChannelCog(bot))
-        
-        if cleaned_count > 0:
-            await self.log(f"🧹 유효하지 않은 카운트 채널 {cleaned_count}개 정리 (길드: {guild.name})")
-        
-        await interaction.response.send_message("\n".join(lines), ephemeral=True)
-
-    async def register_app_commands(self, tree: app_commands.CommandTree):
-        for gid in TARGET_GUILD_IDS:
-            tree.add_command(self.count_group, guild=discord.Object(id=gid))
-
-
 async def setup(bot: commands.Bot):
     await bot.add_cog(CountChannelCog(bot))
