@@ -158,7 +158,7 @@ class CountChannelCog(commands.Cog):
 
     async def set_voice_permissions(self, channel: discord.VoiceChannel):
         overwrites = {
-            channel.guild.default_role: discord.PermissionOverwrite(view_channel=True, manage_channels=False, manage_permissions=False, manage_webhooks=False, send_messages=False, connect=False, speak=False),
+            channel.guild.default_role: discord.PermissionOverwrite(view_channel=True, manage_channels=False, manage_permissions=False, manage_webhooks=False, send_messages=False, connect=False, speak=False, create_instant_invite=False),
             channel.guild.me: discord.PermissionOverwrite(view_channel=True, connect=True, manage_channels=True),
         }
         try:
