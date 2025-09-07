@@ -450,6 +450,10 @@ class LevelChecker(commands.Cog):
         if isinstance(message.channel, discord.Thread):
             return
 
+        # 시스템 메시지 무시 (스레드 생성, 핀 추가 등)
+        if message.type != discord.MessageType.default:
+            return
+
         # --- 삐삐 퀘스트 감지 ---
         BBIBBI_CHANNEL_ID = 1396829223267598346
         BBIBBI_ROLE_ID = 1396829213163520021
@@ -493,7 +497,6 @@ class LevelChecker(commands.Cog):
         
         if hasattr(message.channel, 'category_id') and message.channel.category_id == BOARD_CATEGORY_ID:
             try:
-                # 채널이 특정 카테고리에 속하는지 확인하고 내용이 최소 길이(5자) 이상인지 확인
                 user_id = message.author.id
                 result = await self.process_board(user_id)
                 await message.add_reaction('<:BM_k_008:1399387531534930063>')
