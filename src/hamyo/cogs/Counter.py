@@ -45,12 +45,13 @@ class SingleFileStore:
         self.load()
         return self._data.get("channels", {}).get(str(channel_id))
 
-    def set(self, channel_id: int, role_id: Optional[int], prefix: str, include_bots: bool):
+    def set(self, channel_id: int, role_id: Optional[int], prefix: str, include_bots: bool, additional_role_ids: Optional[List[int]] = None):
         self.load()
         self._data.setdefault("channels", {})[str(channel_id)] = {
             "role_id": role_id,
             "prefix": prefix,
             "include_bots": include_bots,
+            "additional_role_ids": additional_role_ids or [],
         }
         self.save()
 
@@ -98,14 +99,24 @@ class CountChannelCog(commands.Cog):
         return f"{prefix}{count}"
 
     @staticmethod
-    def count_members(guild: discord.Guild, role: Optional[discord.Role], include_bots: bool) -> int:
+    def count_members(guild: discord.Guild, role: Optional[discord.Role], include_bots: bool, additional_roles: Optional[List[discord.Role]] = None) -> int:
+        all_members = set()
+        
+        # 기본 역할의 멤버들 추가
         if role is None:
-            members = guild.members
+            all_members.update(guild.members)
         else:
-            members = role.members
+            all_members.update(role.members)
+        
+        # 추가 역할들의 멤버들 추가 (중복 제거됨)
+        if additional_roles:
+            for additional_role in additional_roles:
+                all_members.update(additional_role.members)
+        
+        # 봇 포함 여부에 따라 필터링
         if include_bots:
-            return len(members)
-        return sum(1 for m in members if not m.bot)
+            return len(all_members)
+        return sum(1 for m in all_members if not m.bot)
 
     def _is_target_guild(self, guild: discord.Guild) -> bool:
         return guild.id in TARGET_GUILD_IDS
@@ -122,16 +133,18 @@ class CountChannelCog(commands.Cog):
 
         role_id = meta.get("role_id")
         include_bots = meta.get("include_bots", False)
+        additional_role_ids = meta.get("additional_role_ids", [])
+        
         role = guild.get_role(role_id) if role_id else None
+        additional_roles = [guild.get_role(rid) for rid in additional_role_ids if guild.get_role(rid)]
 
         current_prefix = self.extract_prefix(channel.name)
         if current_prefix and current_prefix != meta.get("prefix"):
-            await self.log(f"📝 채널 접두어 업데이트: {channel.name} (길드: {guild.name})")
             meta["prefix"] = current_prefix
             self.store.save()
 
         prefix = meta.get("prefix") or (role.name if role else "전체 인원: ")
-        count = self.count_members(guild, role, include_bots)
+        count = self.count_members(guild, role, include_bots, additional_roles)
         desired = self.build_name(prefix, count)
 
         if channel.name != desired:
@@ -147,10 +160,6 @@ class CountChannelCog(commands.Cog):
         g = guild or None
         if not g or not self._is_target_guild(g):
             return
-        
-        channel_count = len(self.store.all_items())
-        if channel_count > 0:
-            await self.log(f"🔄 {channel_count}개 카운트 채널 업데이트 시작 (길드: {g.name})")
         
         for cid, _ in self.store.all_items():
             await self.update_one_channel(g, cid)
@@ -168,7 +177,6 @@ class CountChannelCog(commands.Cog):
 
     @tasks.loop(minutes=10)
     async def _reconcile(self):
-        await self.log("🔄 카운트 채널 정기 업데이트 시작")
         for guild in self.bot.guilds:
             if not self._is_target_guild(guild):
                 continue
@@ -208,7 +216,8 @@ class CountChannelCog(commands.Cog):
         역할="카운트할 역할 (@everyone 선택 시 서버 전체)",
         접두어="채널 이름의 접두어(기본: 역할 이름 또는 '전체 인원: ')",
         봇포함="봇 계정도 카운트에 포함할지 여부(기본: 포함 안 함)",
-        카테고리="생성할 카테고리(미지정 시 최상위)"
+        카테고리="생성할 카테고리(미지정 시 최상위)",
+        추가역할="함께 카운트할 추가 역할 (중복 제거됨)"
     )
     async def create_channel(
         self,
@@ -217,6 +226,7 @@ class CountChannelCog(commands.Cog):
         접두어: Optional[str] = None,
         봇포함: Optional[bool] = False,
         카테고리: Optional[discord.CategoryChannel] = None,
+        추가역할: Optional[discord.Role] = None,
     ):
         if interaction.guild is None or not self._is_target_guild(interaction.guild):
             return await interaction.response.send_message("이 명령은 지정된 길드에서만 사용할 수 있어요.", ephemeral=True)
@@ -226,12 +236,19 @@ class CountChannelCog(commands.Cog):
         default_prefix = (role.name + ": ") if role else "전체 인원: "
         prefix = (접두어 if 접두어 is not None else default_prefix)
 
+        # 추가 역할 처리
+        additional_roles = []
+        additional_role_ids = []
+        if 추가역할:
+            additional_roles.append(추가역할)
+            additional_role_ids.append(추가역할.id)
+
         for cid, meta in self.store.all_items():
             if meta.get("role_id") == (role.id if role else None):
                 await self.log(f"⚠️ 중복 채널 생성 시도: 역할 {role.name if role else '@everyone'} (길드: {guild.name})")
                 return await interaction.response.send_message("해당 역할에 대한 카운트 채널이 이미 존재합니다.", ephemeral=True)
 
-        count = self.count_members(guild, role, 봇포함 or False)
+        count = self.count_members(guild, role, 봇포함 or False, additional_roles)
         name = self.build_name(prefix, count)
 
         try:
@@ -241,7 +258,13 @@ class CountChannelCog(commands.Cog):
                 reason="역할 카운트 채널 생성",
                 user_limit=0,
             )
-            await self.log(f"✅ 카운트 채널 생성: {channel.name} (역할: {role.name if role else '@everyone'}, 길드: {guild.name})")
+            
+            role_info = role.name if role else '@everyone'
+            if additional_roles:
+                additional_names = [r.name for r in additional_roles]
+                role_info += f" + {', '.join(additional_names)}"
+            
+            await self.log(f"✅ 카운트 채널 생성: {channel.name} (역할: {role_info}, 길드: {guild.name})")
         except discord.Forbidden:
             await self.log(f"❌ 카운트 채널 생성 권한 부족 (길드: {guild.name})")
             return await interaction.response.send_message("채널 생성 권한이 부족합니다.", ephemeral=True)
@@ -250,10 +273,14 @@ class CountChannelCog(commands.Cog):
             return await interaction.response.send_message(f"채널 생성에 실패했습니다: {e}", ephemeral=True)
 
         await self.set_voice_permissions(channel)
-        self.store.set(channel.id, role.id if role else None, prefix, bool(봇포함))
+        self.store.set(channel.id, role.id if role else None, prefix, bool(봇포함), additional_role_ids)
+
+        additional_info = ""
+        if additional_roles:
+            additional_info = f" + 추가역할: {', '.join([r.name for r in additional_roles])}"
 
         await interaction.response.send_message(
-            f"{channel.mention} 채널을 생성했어요! (접두어: `{prefix}` / 봇 포함: `{bool(봇포함)}`)",
+            f"{channel.mention} 채널을 생성했어요! (접두어: `{prefix}` / 봇 포함: `{bool(봇포함)}`{additional_info})",
             ephemeral=True,
         )
 
@@ -293,13 +320,39 @@ class CountChannelCog(commands.Cog):
             ch = guild.get_channel(cid)
             if isinstance(ch, discord.VoiceChannel):
                 role_id = meta.get("role_id")
+                additional_role_ids = meta.get("additional_role_ids", [])
+                
                 role_txt = "@everyone" if not role_id else (guild.get_role(role_id).mention if guild.get_role(role_id) else f"<@&{role_id}>")
+                
+                if additional_role_ids:
+                    additional_mentions = []
+                    for rid in additional_role_ids:
+                        additional_role = guild.get_role(rid)
+                        if additional_role:
+                            additional_mentions.append(additional_role.mention)
+                        else:
+                            additional_mentions.append(f"<@&{rid}>")
+                    role_txt += f" + {', '.join(additional_mentions)}"
+                
                 prefix = meta.get("prefix", "")
                 inc_bots = "포함" if meta.get("include_bots", False) else "미포함"
                 lines.append(f"• {ch.mention} — 역할: {role_txt} / 접두어: `{prefix}` / 봇: {inc_bots}")
             else:
                 self.store.delete(cid)
                 cleaned_count += 1
+        
+        if cleaned_count > 0:
+            await self.log(f"🧹 유효하지 않은 카운트 채널 {cleaned_count}개 정리 (길드: {guild.name})")
+        
+        await interaction.response.send_message("\n".join(lines), ephemeral=True)
+
+    async def register_app_commands(self, tree: app_commands.CommandTree):
+        for gid in TARGET_GUILD_IDS:
+            tree.add_command(self.count_group, guild=discord.Object(id=gid))
+
+
+async def setup(bot: commands.Bot):
+    await bot.add_cog(CountChannelCog(bot))
         
         if cleaned_count > 0:
             await self.log(f"🧹 유효하지 않은 카운트 채널 {cleaned_count}개 정리 (길드: {guild.name})")
