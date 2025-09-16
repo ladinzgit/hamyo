@@ -150,7 +150,6 @@ class CountChannelCog(commands.Cog):
         if channel.name != desired:
             try:
                 await channel.edit(name=desired, reason="역할 카운트 자동 업데이트")
-                await self.log(f"🔄 카운트 채널 이름 업데이트: {channel.name} → {desired} (길드: {guild.name})")
             except discord.Forbidden:
                 await self.log(f"❌ 카운트 채널 {channel.name} 수정 권한 부족 (길드: {guild.name})")
             except discord.HTTPException as e:

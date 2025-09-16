@@ -78,6 +78,7 @@ class Economy(commands.Cog):
                 "`*온 지급 @유저 금액 [횟수]` : 특정 유저에게 온을 지급합니다. (권한 필요)\n"
                 "`*온 회수 @유저 금액` : 특정 유저의 온을 회수합니다. (권한 필요)\n"
                 "`*온 인증 @유저 조건 [횟수]` : 인증 조건을 만족한 유저에게 온을 지급합니다. (권한 필요)\n"
+                "`*온 채널일괄지급 금액 [#채널]` : 해당 채널에 채팅을 한 모든 유저에게 온을 지급합니다. (권한 필요)\n"
                 "예시: `*온 지급 @유저 1000 10` → 10000 지급, `*온 인증 @유저 업 10` → 업 인증 10회분 지급"
             ),
             inline=False
@@ -227,8 +228,134 @@ class Economy(commands.Cog):
         await ctx.reply(embed=embed)
         await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게서 {amount} {unit} 회수.")
 
+    @on.command(name="채널일괄지급")
+    @only_in_guild()
+    @has_auth_role()
+    async def bulk_give_channel(self, ctx, amount: int, channel: discord.TextChannel = None):
+        """Give coins to all users who have chatted in the specified channel."""
+        if amount <= 0:
+            await ctx.reply("금액은 0보다 커야 합니다.")
+            return
+
+        target_channel = channel or ctx.channel
+        unit = await self.get_currency_unit()
+
+        # 처리 중 메시지 전송
+        processing_embed = discord.Embed(
+            title=f"{unit}: 채널 일괄 지급 처리 중...",
+            description=f"{target_channel.mention}에서 채팅한 유저들을 찾고 있다묘...",
+            colour=discord.Colour.from_rgb(255, 255, 0)
+        )
+        processing_msg = await ctx.reply(embed=processing_embed)
+
+        # 채널에서 메시지를 보낸 유저들 수집 (중복 제거)
+        unique_users = set()
+        try:
+            async for message in target_channel.history(limit=None):
+                if not message.author.bot:  # 봇 제외
+                    unique_users.add(message.author)
+        except discord.Forbidden:
+            await processing_msg.edit(embed=discord.Embed(
+                title="❌ 오류",
+                description=f"{target_channel.mention}의 메시지 기록에 접근할 수 없습니다.",
+                colour=discord.Colour.red()
+            ))
+            return
+        except Exception as e:
+            await processing_msg.edit(embed=discord.Embed(
+                title="❌ 오류",
+                description=f"메시지 기록을 읽는 중 오류가 발생했습니다: {str(e)}",
+                colour=discord.Colour.red()
+            ))
+            return
+
+        if not unique_users:
+            await processing_msg.edit(embed=discord.Embed(
+                title="ℹ️ 알림",
+                description=f"{target_channel.mention}에서 채팅한 유저가 없습니다.",
+                colour=discord.Colour.blue()
+            ))
+            return
+
+        # 각 유저에게 지급
+        successful_users = []
+        failed_users = []
+        
+        for user in unique_users:
+            try:
+                await balance_manager.give(str(user.id), amount)
+                successful_users.append(user)
+            except Exception as e:
+                failed_users.append(f"{user.display_name}: {str(e)}")
+
+        # 결과 임베드 생성
+        total_given = len(successful_users) * amount
+        
+        embed = discord.Embed(
+            title=f"{unit}: 채널 일괄 지급 완료 ₍ᐢ..ᐢ₎",
+            description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀´ㅅ` )
+(⠀ {target_channel.mention}에서 채팅한 **{len(successful_users)}명**에게
+(⠀ ⠀ ⠀각각 **{amount}**{unit}씩 줬다묘...✩
+(⠀ ⠀ ⠀총 **{total_given}**{unit} 지급했다묘!
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+""",
+            colour=discord.Colour.from_rgb(151, 214, 181)
+        )
+        
+        # 지급받은 유저 목록 (최대 25개 필드 제한)
+        user_mentions = [user.mention for user in successful_users]
+        
+        # 유저 목록을 여러 필드로 나누어 표시 (필드당 최대 1024자)
+        field_count = 0
+        current_field_value = ""
+        
+        for mention in user_mentions:
+            # 새로운 멘션을 추가했을 때 1024자를 넘는지 확인
+            test_value = current_field_value + mention + ", "
+            if len(test_value) > 1024 or field_count >= 24:  # 필드 제한 고려
+                # 현재 필드 추가
+                if current_field_value:
+                    embed.add_field(
+                        name=f"지급받은 유저 목록 ({field_count + 1})",
+                        value=current_field_value.rstrip(", "),
+                        inline=False
+                    )
+                    field_count += 1
+                current_field_value = mention + ", "
+            else:
+                current_field_value = test_value
+        
+        # 마지막 필드 추가
+        if current_field_value and field_count < 25:
+            embed.add_field(
+                name=f"지급받은 유저 목록 ({field_count + 1})" if field_count > 0 else "지급받은 유저 목록",
+                value=current_field_value.rstrip(", "),
+                inline=False
+            )
+
+        # 실패한 유저가 있다면 표시
+        if failed_users:
+            failure_text = "\n".join(failed_users[:10])  # 최대 10개만 표시
+            if len(failed_users) > 10:
+                failure_text += f"\n... 및 {len(failed_users) - 10}명 더"
+            embed.add_field(
+                name="지급 실패",
+                value=failure_text,
+                inline=False
+            )
+
+        embed.set_footer(
+            text=f"요청자: {ctx.author}",
+            icon_url=ctx.author.display_avatar.url
+        )
+        embed.timestamp = ctx.message.created_at
+
+        await processing_msg.edit(embed=embed)
+        await self.log(f"{ctx.author}({ctx.author.id})이 {target_channel.name}({target_channel.id}) 채널에서 {len(successful_users)}명에게 각각 {amount} {unit} 일괄 지급.")
 
 
 async def setup(bot):
-    
     await bot.add_cog(Economy(bot))
