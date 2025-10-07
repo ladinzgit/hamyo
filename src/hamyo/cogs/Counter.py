@@ -14,6 +14,13 @@ from discord.ext import commands, tasks
 
 TARGET_GUILD_IDS: List[int] = [1396829213100605580, 1378632284068122685]
 
+def only_in_guild():
+    async def predicate(ctx):
+        if ctx.guild and ctx.guild.id in TARGET_GUILD_IDS:
+            return True
+        return False  # 메시지 없이 무반응
+    return commands.check(predicate)
+
 STORAGE_FILE = "data/count_channels.json"
 
 class SingleFileStore:
@@ -211,6 +218,7 @@ class CountChannelCog(commands.Cog):
 
     @count_group.command(name="채널생성", description="역할 카운트 음성 채널을 생성합니다.")
     @app_commands.default_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
     @app_commands.describe(
         역할="카운트할 역할 (@everyone 선택 시 서버 전체)",
         접두어="채널 이름의 접두어(기본: 역할 이름 또는 '전체 인원: ')",
@@ -285,6 +293,7 @@ class CountChannelCog(commands.Cog):
 
     @count_group.command(name="채널삭제", description="카운트 채널 트래킹을 중단하고 채널을 삭제합니다.")
     @app_commands.default_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
     @app_commands.describe(채널="삭제할 음성 채널")
     async def delete_channel(self, interaction: discord.Interaction, 채널: discord.VoiceChannel):
         if interaction.guild is None or not self._is_target_guild(interaction.guild):
@@ -305,6 +314,7 @@ class CountChannelCog(commands.Cog):
 
     @count_group.command(name="채널목록", description="현재 관리 중인 카운트 채널 목록을 보여줍니다.")
     @app_commands.default_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
     async def list_channels(self, interaction: discord.Interaction):
         if interaction.guild is None or not self._is_target_guild(interaction.guild):
             return await interaction.response.send_message("이 명령은 지정된 길드에서만 사용할 수 있어요.", ephemeral=True)
