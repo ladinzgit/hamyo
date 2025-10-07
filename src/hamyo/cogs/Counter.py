@@ -263,7 +263,7 @@ class CountChannelCog(commands.Cog):
                 additional_names = [r.name for r in additional_roles]
                 role_info += f" + {', '.join(additional_names)}"
             
-            await self.log(f"✅ 카운트 채널 생성: {channel.name} (역할: {role_info}, 길드: {guild.name})")
+            await self.log(f"✅ 카운트 채널 생성: {channel.name} (역할: {role_info}, 길드: {guild.name}), 유저: {interaction.user.id}")
         except discord.Forbidden:
             await self.log(f"❌ 카운트 채널 생성 권한 부족 (길드: {guild.name})")
             return await interaction.response.send_message("채널 생성 권한이 부족합니다.", ephemeral=True)
