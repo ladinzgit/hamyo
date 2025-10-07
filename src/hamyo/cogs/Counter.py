@@ -292,7 +292,7 @@ class CountChannelCog(commands.Cog):
 
         tracked = self.store.get(채널.id)
         if not tracked:
-            await self.log(f"⚠️ 비관리 채널 삭제 시도: {채널.name} (길드: {interaction.guild.name})")
+            await self.log(f"⚠️ 비관리 채널 삭제 시도: {채널.name} (길드: {interaction.guild.name}), 유저: {interaction.user.id}")
             return await interaction.response.send_message("해당 채널은 카운트 채널로 관리되고 있지 않아요.", ephemeral=True)
 
         self.store.delete(채널.id)
