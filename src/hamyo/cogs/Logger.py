@@ -46,7 +46,7 @@ class Logger(commands.Cog):
         self.log_channel_id = channel.id
         self._save_log_channel(channel.id)
         await ctx.send(f"로그 채널이 {channel.mention}로 설정되었습니다.")
-        await self.log(f"로그 채널이 {channel.name} ({channel.id})로 설정되었습니다.")
+        await self.log(f"로그 채널이 {channel.name} ({channel.id})로 설정되었습니다. [길드: {ctx.guild.name if ctx.guild else 'DM'}({ctx.guild.id if ctx.guild else 'N/A'}), 채널: {ctx.channel.name if hasattr(ctx.channel, 'name') else 'DM'}({ctx.channel.id})]")
     
     async def log(self, message, file_name=None):
         """로그 메시지를 지정된 채널에 전송합니다."""
@@ -76,7 +76,7 @@ class Logger(commands.Cog):
     # Cog error handler
     async def cog_command_error(self, ctx, error):
         print(f"An error occurred in the {self.__class__.__name__} cog: {error}")
-        await self.log(f"An error occurred in the {self.__class__.__name__} cog: {error}")
+        await self.log(f"An error occurred in the {self.__class__.__name__} cog: {error} [길드: {ctx.guild.name if ctx.guild else 'DM'}, 채널: {ctx.channel.name if hasattr(ctx.channel, 'name') else 'DM'}({ctx.channel.id})]")
 
 async def setup(bot):
     await bot.add_cog(Logger(bot))

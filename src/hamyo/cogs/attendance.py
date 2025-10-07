@@ -232,6 +232,7 @@ class AttendanceCog(commands.Cog):
         embed.set_footer(text=f"페이지 {page}/{total_pages} | 총 {len(rows)}명 출석")
         embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
         await ctx.send(embed=embed)
+        await self.log(f"{ctx.author}({ctx.author.id})가 출석 순위 조회 [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
     # 출석 허용 채널 관리 명령어 (관리자만)
     @commands.group(name="출석채널", invoke_without_command=True)
@@ -250,6 +251,7 @@ class AttendanceCog(commands.Cog):
             await db.execute("INSERT OR IGNORE INTO attendance_allowed_channels (channel_id) VALUES (?)", (channel.id,))
             await db.commit()
         await ctx.send(f"{channel.mention} 채널이 출석 명령어 허용 채널로 추가되었습니다.")
+        await self.log(f"{ctx.author}({ctx.author.id})가 출석 허용 채널 추가: {channel.name}({channel.id}) [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
     @attendance_channel.command(name="제거")
     @only_in_guild()
@@ -260,6 +262,7 @@ class AttendanceCog(commands.Cog):
             await db.execute("DELETE FROM attendance_allowed_channels WHERE channel_id = ?", (channel.id,))
             await db.commit()
         await ctx.send(f"{channel.mention} 채널이 출석 명령어 허용 채널에서 제거되었습니다.")
+        await self.log(f"{ctx.author}({ctx.author.id})가 출석 허용 채널 제거: {channel.name}({channel.id}) [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
     @attendance_channel.command(name="목록")
     @only_in_guild()
@@ -273,6 +276,7 @@ class AttendanceCog(commands.Cog):
         else:
             mentions = [f"<#{row[0]}>" for row in rows]
             await ctx.send("출석 명령어 허용 채널 목록:\n" + ", ".join(mentions))
+        await self.log(f"{ctx.author}({ctx.author.id})가 출석 허용 채널 목록 조회 [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
     @attendance_channel.command(name="유저초기화")
     @only_in_guild()
@@ -318,6 +322,7 @@ class AttendanceCog(commands.Cog):
                 f"✅ {user.mention}님의 오늘 출석이 초기화되었습니다.\n"
                 f"출석 횟수가 {count}회 → {new_count}회로 조정되었고, 지급된 100온도 회수되었습니다."
             )
+            await self.log(f"{ctx.author}({ctx.author.id})가 {user}({user.id}) 출석 초기화 [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
 async def setup(bot):
     await bot.add_cog(AttendanceCog(bot))

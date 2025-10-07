@@ -177,10 +177,10 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
             embed.set_footer(text="반영까지 최대 1분이 소요될 수 있습니다.")
 
             await interaction.followup.send(embed=embed)
-            await self.log(f"{interaction.user}({interaction.user.id})님께서 {user}({user.id})님의 {period} 기록을 조회했습니다.")
+            await self.log(f"{interaction.user}({interaction.user.id})님께서 {user}({user.id})님의 {period} 기록을 조회했습니다. [길드: {interaction.guild.name}({interaction.guild.id}), 채널: {interaction.channel.name if interaction.channel else 'DM'}({interaction.channel_id})]")
 
         except Exception as e:
-            await self.log(f"음성 채팅 기록 확인 중 오류 발생: {e}")
+            await self.log(f"음성 채팅 기록 확인 중 오류 발생: {e} [길드: {interaction.guild.name if interaction.guild else 'N/A'}, 채널: {interaction.channel.name if interaction.channel else 'DM'}({interaction.channel_id})]")
             await interaction.response.send_message("기록 조회 중 오류가 발생했습니다.", ephemeral=True)
         
         
@@ -278,7 +278,7 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
             await interaction.followup.send(embed=embed)
         
         except Exception as e:
-            await self.log(f"순위 확인 중 오류 발생: {e}")
+            await self.log(f"순위 확인 중 오류 발생: {e} [길드: {interaction.guild.name if interaction.guild else 'N/A'}, 채널: {interaction.channel.name if interaction.channel else 'DM'}({interaction.channel_id})]")
             await interaction.response.send_message("순위 조회 중 오류가 발생했습니다.", ephemeral=True)
             
 
@@ -376,7 +376,7 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
                 await interaction.followup.send(embed=embed)
 
             except Exception as e:
-                await self.log(f"순위 확인 중 오류 발생: {e}")
+                await self.log(f"역할 순위 확인 중 오류 발생: {e} [길드: {interaction.guild.name if interaction.guild else 'N/A'}, 채널: {interaction.channel.name if interaction.channel else 'DM'}({interaction.channel_id})]")
                 await interaction.response.send_message("역할 순위 조회 중 오류가 발생했습니다.", ephemeral=True)
 
 async def setup(bot: commands.Bot):

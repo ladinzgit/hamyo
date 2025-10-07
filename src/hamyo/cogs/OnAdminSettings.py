@@ -79,7 +79,7 @@ class OnAdminSettings(commands.Cog):
             inline=False
         )
         await ctx.reply(embed=embed)
-        await self.log(f"{ctx.author}({ctx.author.id})이 온설정 명령어 도움말을 조회함.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 온설정 명령어 도움말을 조회함. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
     @settings.command(name="인증추가")
     @only_in_guild()
@@ -88,7 +88,7 @@ class OnAdminSettings(commands.Cog):
         """Add an authentication condition (auth item) with reward amount."""
         await balance_manager.add_auth_item(condition, reward_amount)
         await ctx.send(f"인증 조건 '{condition}'(보상: {reward_amount})이(가) 추가되었습니다.")
-        await self.log(f"{ctx.author}({ctx.author.id})이 인증 조건 '{condition}'(보상: {reward_amount}) 추가.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 인증 조건 '{condition}'(보상: {reward_amount}) 추가. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
     @settings.command(name="인증제거")
     @only_in_guild()
@@ -97,7 +97,7 @@ class OnAdminSettings(commands.Cog):
         """Remove an authentication condition (auth item)."""
         await balance_manager.remove_auth_item(condition)
         await ctx.send(f"인증 조건 '{condition}'이(가) 제거되었습니다.")
-        await self.log(f"{ctx.author}({ctx.author.id})이 인증 조건 '{condition}' 제거.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 인증 조건 '{condition}' 제거. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
     @settings.command(name="인증목록")
     @only_in_guild()
@@ -110,7 +110,7 @@ class OnAdminSettings(commands.Cog):
         else:
             msg = "\n".join([f"{item['item']} (보상: {item['reward_amount']})" for item in items])
             await ctx.send(f"인증 조건 목록:\n{msg}")
-        await self.log(f"{ctx.author}({ctx.author.id})이 인증 조건 목록을 조회함.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 인증 조건 목록을 조회함. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
     @settings.command(name="인증역할추가")
     @only_in_guild()
@@ -119,7 +119,7 @@ class OnAdminSettings(commands.Cog):
         """Add a role that can use 인증/지급/회수 명령어."""
         await balance_manager.add_auth_role(role.id)
         await ctx.send(f"인증 명령어 사용 역할로 '{role.name}'이(가) 추가되었습니다.")
-        await self.log(f"{ctx.author}({ctx.author.id})이 인증 명령어 사용 역할 '{role.name}'({role.id}) 추가.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 인증 명령어 사용 역할 '{role.name}'({role.id}) 추가. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
     @settings.command(name="인증역할제거")
     @only_in_guild()
@@ -128,7 +128,7 @@ class OnAdminSettings(commands.Cog):
         """Remove a role from 인증 명령어 사용 역할."""
         await balance_manager.remove_auth_role(role.id)
         await ctx.send(f"인증 명령어 사용 역할에서 '{role.name}'이(가) 제거되었습니다.")
-        await self.log(f"{ctx.author}({ctx.author.id})이 인증 명령어 사용 역할 '{role.name}'({role.id}) 제거.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 인증 명령어 사용 역할 '{role.name}'({role.id}) 제거. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
     @settings.command(name="인증역할목록")
     @only_in_guild()
@@ -142,7 +142,7 @@ class OnAdminSettings(commands.Cog):
             roles = [discord.utils.get(ctx.guild.roles, id=rid) for rid in role_ids]
             msg = "\n".join([role.name if role else f"ID:{rid}" for role, rid in zip(roles, role_ids)])
             await ctx.send(f"인증 명령어 사용 역할 목록:\n{msg}")
-        await self.log(f"{ctx.author}({ctx.author.id})이 인증 명령어 사용 역할 목록을 조회함.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 인증 명령어 사용 역할 목록을 조회함. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
     @settings.command(name="화폐단위등록")
     @only_in_guild()
@@ -151,7 +151,7 @@ class OnAdminSettings(commands.Cog):
         """Set the currency unit (emoji only)."""
         await balance_manager.set_currency_unit(emoji)
         await ctx.send(f"화폐 단위가 '{emoji}'로 설정되었습니다.")
-        await self.log(f"{ctx.author}({ctx.author.id})이 화폐 단위를 '{emoji}'로 설정.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 화폐 단위를 '{emoji}'로 설정. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
     @settings.command(name="온채널추가")
     @only_in_guild()
@@ -161,7 +161,7 @@ class OnAdminSettings(commands.Cog):
         channel = channel or ctx.channel
         await balance_manager.add_allowed_channel(channel.id)
         await ctx.send(f"{channel.mention} 채널이 온(경제) 명령어 허용 채널로 추가되었습니다.")
-        await self.log(f"{ctx.author}({ctx.author.id})이 온(경제) 명령어 허용 채널 '{channel.name}'({channel.id}) 추가.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 온(경제) 명령어 허용 채널 '{channel.name}'({channel.id}) 추가. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
     @settings.command(name="온채널제거")
     @only_in_guild()
@@ -171,7 +171,7 @@ class OnAdminSettings(commands.Cog):
         channel = channel or ctx.channel
         await balance_manager.remove_allowed_channel(channel.id)
         await ctx.send(f"{channel.mention} 채널이 온(경제) 명령어 허용 채널에서 제거되었습니다.")
-        await self.log(f"{ctx.author}({ctx.author.id})이 온(경제) 명령어 허용 채널 '{channel.name}'({channel.id}) 제거.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 온(경제) 명령어 허용 채널 '{channel.name}'({channel.id}) 제거. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
     @settings.command(name="온채널목록")
     @only_in_guild()
@@ -184,7 +184,7 @@ class OnAdminSettings(commands.Cog):
         else:
             mentions = [f"<#{cid}>" for cid in ids]
             await ctx.send("온(경제) 명령어 허용 채널 목록:\n" + ", ".join(mentions))
-        await self.log(f"{ctx.author}({ctx.author.id})이 온(경제) 명령어 허용 채널 목록을 조회함.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 온(경제) 명령어 허용 채널 목록을 조회함. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
     @settings.command(name="온초기화")
     @only_in_guild()
@@ -193,7 +193,7 @@ class OnAdminSettings(commands.Cog):
         """모든 유저의 온(화폐) 잔액을 초기화합니다. (설정은 유지)"""
         await balance_manager.reset_all_balances()
         await ctx.send("모든 유저의 온(화폐) 잔액이 초기화되었습니다.")
-        await self.log(f"{ctx.author}({ctx.author.id})이 모든 유저의 온(화폐) 잔액 초기화.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 모든 유저의 온(화폐) 잔액 초기화. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
 
 async def setup(bot):

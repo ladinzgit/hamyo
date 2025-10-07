@@ -86,7 +86,7 @@ class VoiceConfig(commands.Cog):
             if isinstance(ch, (discord.VoiceChannel, discord.CategoryChannel)):
                 await self.data_manager.register_tracked_channel(ch.id, "voice")
                 added.append(ch.mention)
-                await self.log(f"{ctx.author}({ctx.author.id})님에 의해 추적 채널/카테고리에 {ch.mention}({ch.id})를 등록 완료하였습니다.")
+                await self.log(f"{ctx.author}({ctx.author.id})님에 의해 추적 채널/카테고리에 {ch.mention}({ch.id})를 등록 완료하였습니다. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
         if added:
             await ctx.reply(f"다음 채널/카테고리를 보이스 추적에 등록했습니다:\n{', '.join(added)}")
@@ -102,7 +102,7 @@ class VoiceConfig(commands.Cog):
             if isinstance(ch, (discord.VoiceChannel, discord.CategoryChannel)):
                 await self.data_manager.unregister_tracked_channel(ch.id, "voice")
                 removed.append(ch.mention)
-                await self.log(f"{ctx.author}({ctx.author.id})님에 의해 {ch.mention}({ch.id})채널 추적을 중지하였습니다.")
+                await self.log(f"{ctx.author}({ctx.author.id})님에 의해 {ch.mention}({ch.id})채널 추적을 중지하였습니다. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
         if removed:
             await ctx.send(f"다음 채널/카테고리를 보이스 추적에서 제거했습니다:\n{', '.join(removed)}")
@@ -115,7 +115,7 @@ class VoiceConfig(commands.Cog):
     async def reset_all(self, ctx):
         await self.data_manager.reset_data()
         await ctx.send("모든 사용자 기록 및 삭제 채널 정보가 초기화되었습니다.")
-        await self.log(f"{ctx.author}({ctx.author.id})님에 의해 모든 사용자 기록 및 삭제 채널 정보가 초기화되었습니다.")
+        await self.log(f"{ctx.author}({ctx.author.id})님에 의해 모든 사용자 기록 및 삭제 채널 정보가 초기화되었습니다. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
         
     @voice.command(name="채널초기화")
     @only_in_guild()
@@ -123,8 +123,7 @@ class VoiceConfig(commands.Cog):
     async def reset_all_channel(self, ctx):
         await self.data_manager.reset_tracked_channels("voice")
         await ctx.send("모든 채널 기록이 초기화되었습니다.")
-        await self.log(f"{ctx.author}({ctx.author.id})님에 의해 모든 채널 기록이 초기화되었습니다.")
-
+        await self.log(f"{ctx.author}({ctx.author.id})님에 의해 모든 채널 기록이 초기화되었습니다. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
     @voice.command(name="데이터통합")
     @only_in_guild()
@@ -134,6 +133,7 @@ class VoiceConfig(commands.Cog):
         deleted_path = "src/florence/jsons/deleted_channels.json"
         await self.data_manager.migrate_multiple_user_times(user_paths, deleted_path)
         await ctx.send("데이터 통합 마이그레이션이 완료되었습니다.")
+        await self.log(f"{ctx.author}({ctx.author.id})님에 의해 데이터 통합 마이그레이션 실행 [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(VoiceConfig(bot))
