@@ -151,9 +151,9 @@ class CountChannelCog(commands.Cog):
             try:
                 await channel.edit(name=desired, reason="역할 카운트 자동 업데이트")
             except discord.Forbidden:
-                await self.log(f"❌ 카운트 채널 {channel.name} 수정 권한 부족 (길드: {guild.name})")
+                await self.log(f"❌ 카운트 채널 {channel.name} 수정 권한 부족 (길드: {guild.name}) [시스템]")
             except discord.HTTPException as e:
-                await self.log(f"❌ 카운트 채널 {channel.name} 수정 실패: {e} (길드: {guild.name})")
+                await self.log(f"❌ 카운트 채널 {channel.name} 수정 실패: {e} (길드: {guild.name}) [시스템]")
 
     async def update_all_channels(self, guild: Optional[discord.Guild] = None):
         g = guild or None
@@ -170,9 +170,9 @@ class CountChannelCog(commands.Cog):
         }
         try:
             await channel.edit(overwrites=overwrites, reason="카운트 채널 권한 설정")
-            await self.log(f"🔒 카운트 채널 권한 설정 완료: {channel.name} (길드: {channel.guild.name})")
+            await self.log(f"🔒 카운트 채널 권한 설정 완료: {channel.name} (길드: {channel.guild.name}) [시스템]")
         except discord.HTTPException as e:
-            await self.log(f"❌ 카운트 채널 권한 설정 실패: {channel.name} - {e} (길드: {channel.guild.name})")
+            await self.log(f"❌ 카운트 채널 권한 설정 실패: {channel.name} - {e} (길드: {channel.guild.name}) [시스템]")
 
     @tasks.loop(minutes=10)
     async def _reconcile(self):
@@ -182,7 +182,7 @@ class CountChannelCog(commands.Cog):
             try:
                 await self.update_all_channels(guild)
             except Exception as e:
-                await self.log(f"❌ 길드 {guild.name} 카운트 채널 정기 업데이트 중 오류: {e}")
+                await self.log(f"❌ 길드 {guild.name} 카운트 채널 정기 업데이트 중 오류: {e} [시스템]")
 
     @_reconcile.before_loop
     async def _before_reconcile(self):
@@ -244,7 +244,7 @@ class CountChannelCog(commands.Cog):
 
         for cid, meta in self.store.all_items():
             if meta.get("role_id") == (role.id if role else None):
-                await self.log(f"⚠️ 중복 채널 생성 시도: 역할 {role.name if role else '@everyone'} (길드: {guild.name})")
+                await self.log(f"⚠️ 중복 채널 생성 시도: 역할 {role.name if role else '@everyone'} (길드: {guild.name}) [유저: {interaction.user.id}]")
                 return await interaction.response.send_message("해당 역할에 대한 카운트 채널이 이미 존재합니다.", ephemeral=True)
 
         count = self.count_members(guild, role, 봇포함 or False, additional_roles)
@@ -263,12 +263,12 @@ class CountChannelCog(commands.Cog):
                 additional_names = [r.name for r in additional_roles]
                 role_info += f" + {', '.join(additional_names)}"
             
-            await self.log(f"✅ 카운트 채널 생성: {channel.name} (역할: {role_info}, 길드: {guild.name}), 유저: {interaction.user.id}")
+            await self.log(f"✅ 카운트 채널 생성: {channel.name} (역할: {role_info}, 길드: {guild.name}) [유저: {interaction.user.id}]")
         except discord.Forbidden:
-            await self.log(f"❌ 카운트 채널 생성 권한 부족 (길드: {guild.name})")
+            await self.log(f"❌ 카운트 채널 생성 권한 부족 (길드: {guild.name}) [유저: {interaction.user.id}]")
             return await interaction.response.send_message("채널 생성 권한이 부족합니다.", ephemeral=True)
         except discord.HTTPException as e:
-            await self.log(f"❌ 카운트 채널 생성 실패: {e} (길드: {guild.name})")
+            await self.log(f"❌ 카운트 채널 생성 실패: {e} (길드: {guild.name}) [유저: {interaction.user.id}]")
             return await interaction.response.send_message(f"채널 생성에 실패했습니다: {e}", ephemeral=True)
 
         await self.set_voice_permissions(channel)
@@ -292,15 +292,15 @@ class CountChannelCog(commands.Cog):
 
         tracked = self.store.get(채널.id)
         if not tracked:
-            await self.log(f"⚠️ 비관리 채널 삭제 시도: {채널.name} (길드: {interaction.guild.name}), 유저: {interaction.user.id}")
+            await self.log(f"⚠️ 비관리 채널 삭제 시도: {채널.name} (길드: {interaction.guild.name}) [유저: {interaction.user.id}]")
             return await interaction.response.send_message("해당 채널은 카운트 채널로 관리되고 있지 않아요.", ephemeral=True)
 
         self.store.delete(채널.id)
         try:
             await 채널.delete(reason="카운트 채널 삭제")
-            await self.log(f"🗑️ 카운트 채널 삭제: {채널.name} (길드: {interaction.guild.name})")
+            await self.log(f"🗑️ 카운트 채널 삭제: {채널.name} (길드: {interaction.guild.name}) [유저: {interaction.user.id}]")
         except discord.HTTPException as e:
-            await self.log(f"❌ 카운트 채널 삭제 실패: {채널.name} - {e} (길드: {interaction.guild.name})")
+            await self.log(f"❌ 카운트 채널 삭제 실패: {채널.name} - {e} (길드: {interaction.guild.name}) [유저: {interaction.user.id}]")
         await interaction.response.send_message("채널을 삭제했어요.", ephemeral=True)
 
     @count_group.command(name="채널목록", description="현재 관리 중인 카운트 채널 목록을 보여줍니다.")
@@ -341,7 +341,7 @@ class CountChannelCog(commands.Cog):
                 cleaned_count += 1
         
         if cleaned_count > 0:
-            await self.log(f"🧹 유효하지 않은 카운트 채널 {cleaned_count}개 정리 (길드: {guild.name})")
+            await self.log(f"🧹 유효하지 않은 카운트 채널 {cleaned_count}개 정리 (길드: {guild.name}) [유저: {interaction.user.id}]")
         
         await interaction.response.send_message("\n".join(lines), ephemeral=True)
 
