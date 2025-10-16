@@ -3,8 +3,8 @@
 # 🌸 hamyo (하묘)
 ### *몽경수행* - 꿈과 현실 사이의 디스코드 다기능 봇
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg?style=flat-square&logo=python)](https://www.python.org/)
-[![Discord.py](https://img.shields.io/badge/discord.py-2.0+-5865F2.svg?style=flat-square&logo=discord)](https://discordpy.readthedocs.io/)
+[![Python](https://img.shields.io/badge/Python-3.13+-blue.svg?style=flat-square&logo=python)](https://www.python.org/)
+[![Discord.py](https://img.shields.io/badge/discord.py-2.5+-5865F2.svg?style=flat-square&logo=discord)](https://discordpy.readthedocs.io/)
 [![SQLite](https://img.shields.io/badge/SQLite-Database-003B57.svg?style=flat-square&logo=sqlite)](https://www.sqlite.org/)
 
 *차향이 스며든 꿈의 세계로 떠나는 여행 ☕*
@@ -15,38 +15,33 @@
 
 ## ✨ 주요 기능
 
-### 📈 **몽경수행 레벨/퀘스트 시스템**
-- ⭐ **다공(경험치) 획득**: 다양한 활동으로 성장
-- 🎭 **역할 승급**: 허브 → 다도 → 다호 → 다경
-- 📊 **퀘스트 시스템**: 일간/주간/일회성 수행 과제
-- 📅 **출석 수행**: 매일 접속으로 다공 획득
-- 📝 **다방일지**: 일기 작성으로 내면 성찰
-- 🌱 **추천 인증**: 서버 홍보 참여 보상
-- 📚 **게시판 참여**: 커뮤니티 활동 장려
-- 📢 **삐삐 퀘스트**: 특정 역할 멘션 활동
-- 🏆 **마일스톤 보상**: 출석/일지 연속 달성 시 추가 보상
+### 📈 **몽경수행: 레벨/퀘스트 시스템**
+- **다공(경험치) 획득**: 서버 내 다양한 활동을 통해 성장합니다.
+- **역할(경지) 승급**: `허브` → `다도` → `다호` → `다경` 순서로 더 높은 경지에 도달하세요.
+- **퀘스트 시스템**: 일일/주간/일회성 수행 과제를 통해 다공을 획득할 수 있습니다.
+  - **일일**: 출석, 다방일지 작성, 음성 활동(30분), 삐삐(특정 역할 멘션)
+  - **주간**: 추천 인증, 주간 출석/일지 달성, 음성 활동(5/10/20시간), 상점 이용, 게시판 활동
+  - **일회성**: 자기소개, 후기 작성 등 특별 과제
+- **순위 시스템**: 누적/월간/주간/일간 다공 획득량 순위를 확인하며 다른 수행자들과 경쟁할 수 있습니다.
 
 ### 💰 **경제 시스템**
-- 💰 **화폐 관리**: 다양한 아이템 구매 및 관리
-- 🎁 **인벤토리**: 수집한 아이템 보관소
-- 🏪 **상점**: 유용한 아이템 구매
-- 💎 **랭크 보상**: 레벨 달성 시 경제적 혜택
-- 🎯 **퀘스트 보상**: 수행 완료 시 경제적 인센티브
+- **온(화폐) 관리**: 서버 전용 화폐 '온'을 획득하고 사용할 수 있습니다.
+- **인증 보상**: 특정 활동(예: 서버 추천)을 인증받고 '온'을 보상으로 획득하세요.
+- **관리 기능**: 관리자는 유저에게 '온'을 지급하거나 회수할 수 있습니다.
 
-### 🔊 **보이스 측정 시스템**
-- 🎤 **실시간 추적**: 음성방 참여 시간 자동 측정
-- ⏰ **30분 단위 보상**: 일일 퀘스트 자동 완료
-- 📊 **주간 마일스톤**: 5/10/20시간 달성 보상
-- 🏆 **음성 랭크**: 참여도에 따른 등급 시스템
-- 📈 **통계 제공**: 개인별 음성방 활동 기록
+### 🔊 **음성 활동 측정 시스템**
+- **실시간 추적**: 음성 채널 참여 시간을 자동으로 측정하고 기록합니다.
+- **자동 보상**: 측정된 시간을 바탕으로 일일/주간 음성 활동 퀘스트가 자동으로 완료됩니다.
+- **통계 제공**: 개인별/역할별 음성 활동 시간을 기간(일간/주간/월간/누적)에 따라 상세히 확인할 수 있습니다.
+- **음성 랭킹**: 서버 전체 또는 특정 역할 내에서 가장 활발히 음성 채널에 참여한 유저 순위를 볼 수 있습니다.
 
 ---
 
 ## 🚀 시작하기
 
 ### 📋 필요 사항
-- **Python 3.8+**
-- **Poetry** (Python 패키지 관리자)
+- **Python 3.13+**
+- **Poetry** (Python 패키지 및 의존성 관리자)
 
 ### 🔧 설치 방법
 
@@ -71,12 +66,40 @@
    ```
 
 4. **환경 설정**
-   ```bash
-   # .env 파일 생성 또는 환경변수 설정
-   # DISCORD_TOKEN=your_bot_token_here
+   - 프로젝트 루트 디렉토리에 `.env` 파일을 생성하고 아래 내용을 추가하세요.
+   ```env
+   DISCORD_TOKEN=your_bot_token_here
    ```
 
 5. **봇 실행**
+   - **참고**: 봇의 메인 실행 파일이 현재 프로젝트에 포함되어 있지 않습니다. `discord.py` 기본 코드를 참고하여 `src/hamyo/main.py`와 같은 파일을 직접 생성해야 합니다.
+   ```python
+   # src/hamyo/main.py 예시
+   import discord
+   import os
+   from discord.ext import commands
+   from dotenv import load_dotenv
+
+   load_dotenv()
+   TOKEN = os.getenv('DISCORD_TOKEN')
+
+   intents = discord.Intents.default()
+   intents.message_content = True
+   intents.members = True
+
+   bot = commands.Bot(command_prefix='*', intents=intents)
+
+   @bot.event
+   async def on_ready():
+       print(f'{bot.user} has connected to Discord!')
+       # Cogs 로드
+       for filename in os.listdir('./src/hamyo/cogs'):
+           if filename.endswith('.py'):
+               await bot.load_extension(f'hamyo.cogs.{filename[:-3]}')
+
+   bot.run(TOKEN)
+   ```
+   - 위와 같이 `main.py` 파일을 생성한 후, 아래 명령어로 봇을 실행할 수 있습니다.
    ```bash
    # Poetry 가상환경에서 실행
    poetry run python src/hamyo/main.py
@@ -90,22 +113,21 @@
 
 ## 🎮 주요 명령어
 
-### 📊 몽경수행
-```
-*내정보     - 현재 다공 및 역할 확인
-*출석       - 출석 체크 및 다공 획득
-```
+### 📊 **몽경수행 (레벨)**
+- `*내정보 [@유저]` : 자신 또는 다른 유저의 몽경수행 현황(다공, 경지, 퀘스트 진행도)을 확인합니다.
+- `*출석` : 출석 체크를 하고 일일 퀘스트를 완료합니다.
+- `*순위 [기간]` : 다공 획득량 순위를 확인합니다. (기간: `일간`, `주간`, `월간`, `누적`)
 
-### 💰 경제
-```
-*온 확인    - 보유 화폐 확인
-```
+### 💰 **온 (경제)**
+- `*온 확인 [@유저]` : 자신 또는 다른 유저의 '온' 보유량을 확인합니다.
+- `*온 지급 @유저 금액 [횟수]` : (관리자) 유저에게 '온'을 지급합니다.
+- `*온 회수 @유저 금액` : (관리자) 유저의 '온'을 회수합니다.
+- `*온 인증 @유저 조건 [횟수]` : (관리자) 조건 달성을 인증하고 보상을 지급합니다.
 
-### 🔊 보이스 활동
-```
-자동 추적   - 음성방 참여 시 자동으로 시간 측정
-자동 보상   - 30분 달성 시 퀘스트 자동 완료
-```
+### 🔊 **보이스 활동**
+- `/보이스 확인 [유저] [기간] [기준일]` : 자신 또는 다른 유저의 음성 활동 시간을 확인합니다.
+- `/보이스 순위 [기간] [페이지]` : 서버 전체 음성 활동 순위를 확인합니다.
+- `/보이스 역할순위 [역할] [기간] [페이지]` : 특정 역할 내 음성 활동 순위를 확인합니다.
 
 ---
 
@@ -113,52 +135,33 @@
 
 ```
 hamyo/
+├── data/                     # SQLite 데이터베이스 파일 저장 위치
+│   ├── balance.db
+│   ├── level_system.db
+│   └── voice_logs.db
 ├── src/hamyo/
-│   ├── cogs/
-│   │   ├── LevelChecker.py     # 레벨 및 퀘스트 시스템
-│   │   ├── Economy.py          # 경제 시스템
-│   │   └── VoiceTracker.py     # 음성방 활동 추적
-│   ├── data/
-│   │   └── level.db           # 레벨 및 경제 데이터베이스
-│   ├── LevelDataManager.py    # 레벨 시스템 DB 매니저
-│   └── main.py                # 봇 메인 파일
-├── pyproject.toml             # Poetry 설정
-├── requirements.txt           # 의존성 목록
+│   ├── cogs/                 # 기능별 명령어 및 로직 (Cogs)
+│   │   ├── Economy.py        # 경제 시스템
+│   │   ├── LevelChecker.py   # 레벨 및 퀘스트 로직
+│   │   ├── LevelCommand.py   # 레벨 관련 명령어
+│   │   ├── VoiceTracker.py   # 음성 활동 추적 로직
+│   │   └── VoiceCommands.py  # 음성 활동 관련 명령어
+│   ├── balance_data_manager.py # 경제 DB 관리
+│   ├── DataManager.py          # 음성 활동 DB 관리
+│   └── LevelDataManager.py   # 레벨 시스템 DB 관리
+├── pyproject.toml            # Poetry 의존성 및 프로젝트 설정
 └── README.md
 ```
 
 ---
 
-## 🎨 특별한 특징
-
-### 🌸 **몽환적 컨셉**
-- 차와 꿈을 테마로 한 감성적인 경험
-- 한국적 감성이 담긴 역할명과 용어 ("다공", "다도", "다호", "다경")
-
-### 🔄 **자동화 시스템**
-- 실시간 음성방 활동 자동 추적
-- 퀘스트 완료 시 자동 알림 및 보상 지급
-- 역할 승급 시 자동 축하 메시지
-
-### 📱 **사용자 친화적**
-- 직관적인 명령어 시스템
-- 시각적으로 아름다운 임베드 메시지
-- 상세한 진행 상황 안내
-
-### 🎯 **다양한 참여 방식**
-- 출석체크를 통한 꾸준한 참여 유도
-- 일기 작성으로 개인 성찰 시간 제공
-- 음성방 활동을 통한 실질적 소통 장려
-
----
-
 ## 🤝 기여하기
 
-1. 이 저장소를 포크합니다
-2. 새로운 기능 브랜치를 만듭니다 (`git checkout -b feature/AmazingFeature`)
-3. 변경사항을 커밋합니다 (`git commit -m 'Add some AmazingFeature'`)
-4. 브랜치에 푸시합니다 (`git push origin feature/AmazingFeature`)
-5. Pull Request를 열어주세요
+1. 이 저장소를 포크(Fork)합니다.
+2. 새로운 기능 브랜치를 만듭니다 (`git checkout -b feature/AmazingFeature`).
+3. 변경사항을 커밋합니다 (`git commit -m 'Add some AmazingFeature'`).
+4. 브랜치에 푸시합니다 (`git push origin feature/AmazingFeature`).
+5. Pull Request를 열어주세요.
 
 ---
 
@@ -169,8 +172,6 @@ hamyo/
 ---
 
 ## 📞 문의
-
-프로젝트에 대한 질문이나 제안사항이 있으시면 언제든지 연락해주세요!
 
 - **Discord**: ladinz
 - **Issues**: [GitHub Issues](https://github.com/ladinzgit/hamyo/issues)
