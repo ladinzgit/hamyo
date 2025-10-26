@@ -7,20 +7,21 @@ from typing import Optional, Dict, List, Tuple
 import pytz
 
 KST = pytz.timezone("Asia/Seoul")
+db_path = "data/voice_logs.db"
 
 class DataManager:
     _instance = None
     _initialized = False
     _init_lock = asyncio.Lock()
 
-    def __new__(cls, db_path: str = "data/voice_logs.db"):
+    def __new__(cls, db_path: str = db_path):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance.db_path = db_path
             cls._instance._db = None
         return cls._instance
         
-    def __init__(self, db_path: str = "data/voice_logs.db"):
+    def __init__(self, db_path: str = db_path):
         # Only set the db_path if this is a new instance
         if not hasattr(self, 'db_path'):
             self.db_path = db_path
@@ -33,10 +34,10 @@ class DataManager:
                 # Check again in case another task initialized while we were waiting
                 if not DataManager._initialized:
                     await self.initialize()
+                    DataManager._initialized = True
 
     async def initialize(self):
         """Initialize the database connection and create tables if they don't exist."""
-        import os
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         
         if self._db is None:
@@ -64,7 +65,6 @@ class DataManager:
                 )
             """)
             await self._db.commit()
-            DataManager._initialized = True
 
     async def close(self):
         if self._db:
