@@ -69,7 +69,10 @@ class Economy(commands.Cog):
         )
         embed.add_field(
             name="일반 명령어",
-            value="`*온 확인 [@유저]` : 자신의 또는 다른 유저의 잔액을 확인합니다.",
+            value=(
+                "`*온 확인 [@유저]` : 자신의 또는 다른 유저의 잔액을 확인합니다.\n"
+                "`*온 송금 @유저 금액` : 다른 유저에게 온을 송금합니다. (수수료: 500온, 50,000온 이상 1,000온)"
+            ),
             inline=False
         )
         embed.add_field(
@@ -109,6 +112,227 @@ class Economy(commands.Cog):
         embed.timestamp = ctx.message.created_at
    
         await ctx.reply(embed=embed)
+        
+    @on.command(name="송금")
+    @only_in_guild()
+    @in_allowed_channel()
+    async def transfer_money(self, ctx, member: discord.Member, amount: int):
+        """Transfer a specific amount of coins to another user."""
+        unit = await self.get_currency_unit()
+        if member.bot:
+            embed = discord.Embed(
+                title=f"{unit}、온 송금 실패 ₍ᐢ..ᐢ₎",
+                description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀`ㅅ´ )
+(⠀ 기몽한테 {unit}을 보내는 것은
+(⠀⠀⠀⠀ ⠀⠀⠀⠀ 안 된다묘.....!!!!
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+""",
+                colour=discord.Colour.from_rgb(151, 214, 181)
+            )
+            
+            sender_balance = await balance_manager.get_balance(str(ctx.author.id))
+                        
+            embed.set_footer(
+                text=f"요청자: {ctx.author} | 현재 잔액: {sender_balance}", 
+                icon_url=ctx.author.display_avatar.url
+            )
+            embed.timestamp = ctx.message.created_at
+            
+            await ctx.reply(embed=embed)
+            return
+            
+        if member.id == ctx.author.id:
+            embed = discord.Embed(
+                title=f"{unit}、온 송금 실패 ₍ᐢ..ᐢ₎",
+                description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀`ㅅ´ )
+(⠀ {ctx.author.mention}한테 {unit}을 보내는 것은
+(⠀⠀⠀⠀ ⠀⠀⠀⠀ 안 된다묘.....!!!!
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+""",
+                colour=discord.Colour.from_rgb(151, 214, 181)
+            )
+            
+            sender_balance = await balance_manager.get_balance(str(ctx.author.id))
+                        
+            embed.set_footer(
+                text=f"요청자: {ctx.author} | 현재 잔액: {sender_balance}", 
+                icon_url=ctx.author.display_avatar.url
+            )
+            embed.timestamp = ctx.message.created_at
+            
+            await ctx.reply(embed=embed)
+            return
+
+        if amount <= 0:
+            embed = discord.Embed(
+                title=f"{unit}、온 송금 실패 ₍ᐢ..ᐢ₎",
+                description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀`ㅅ´ )
+(⠀ {ctx.author.mention}은 바보냐묘..!!!
+(⠀⠀⠀⠀ ⠀⠀⠀⠀ 1{unit}부터 보낼 수 있다묘...!!!!
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+""",
+                colour=discord.Colour.from_rgb(151, 214, 181)
+            )
+            
+            sender_balance = await balance_manager.get_balance(str(ctx.author.id))
+                        
+            embed.set_footer(
+                text=f"요청자: {ctx.author} | 현재 잔액: {sender_balance}", 
+                icon_url=ctx.author.display_avatar.url
+            )
+            embed.timestamp = ctx.message.created_at
+            
+            await ctx.reply(embed=embed)
+            return
+
+        # 송금 수수료 계산
+        fee = 1000 if amount >= 50000 else 500
+        total_cost = amount + fee
+
+        # 잔액 확인
+        balance = await balance_manager.get_balance(str(ctx.author.id))
+        unit = await self.get_currency_unit()
+        if balance < total_cost:
+            embed = discord.Embed(
+                title=f"{unit}、온 송금 실패 ₍ᐢ..ᐢ₎",
+                description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀´ㅅ` )
+(⠀ {ctx.author.mention}은 그지다묘.....
+(⠀⠀⠀{amount}{unit}을 보내려면 {total_cost}{unit}이 필요한데
+(⠀⠀⠀⠀ ⠀ {balance}{unit} 밖에 없어서 못 보낸다묘.......
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+""",
+                colour=discord.Colour.from_rgb(151, 214, 181)
+            )
+            
+            sender_balance = await balance_manager.get_balance(str(ctx.author.id))
+                        
+            embed.set_footer(
+                text=f"요청자: {ctx.author} | 현재 잔액: {sender_balance}", 
+                icon_url=ctx.author.display_avatar.url
+            )
+            embed.timestamp = ctx.message.created_at
+            
+            await ctx.reply(embed=embed)
+            return
+
+        # 일일 송금 횟수 확인
+        sent_count = await balance_manager.get_daily_transfer_count(str(ctx.author.id), True)
+        if sent_count >= 3:
+            embed = discord.Embed(
+                title=f"{unit}、온 송금 실패 ₍ᐢ..ᐢ₎",
+                description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀´ㅅ` )
+(⠀ {ctx.author.mention}은 기부천사냐묘..?!!
+(⠀⠀⠀⠀ 오늘은 {sent_count}번이나 보내서
+(⠀⠀⠀⠀ 더 이상 못 보낸다묘.......
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+""",
+                colour=discord.Colour.from_rgb(151, 214, 181)
+            )
+            
+            sender_balance = await balance_manager.get_balance(str(ctx.author.id))
+                        
+            embed.set_footer(
+                text=f"요청자: {ctx.author} | 현재 잔액: {sender_balance}", 
+                icon_url=ctx.author.display_avatar.url
+            )
+            embed.timestamp = ctx.message.created_at
+            
+            await ctx.reply(embed=embed)
+            return
+
+        # 일일 수취 횟수 확인
+        received_count = await balance_manager.get_daily_transfer_count(str(member.id), False)
+        if received_count >= 5:
+            embed = discord.Embed(
+                title=f"{unit}、온 송금 실패 ₍ᐢ..ᐢ₎",
+                description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀`ㅅ´ )
+(⠀ {member.id}은 인기쟁이다묘..!!!!
+(⠀⠀⠀⠀ 오늘은 {received_count}번이나 받아서
+(⠀⠀⠀⠀ 더 이상 못 받는다묘.......
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+""",
+                colour=discord.Colour.from_rgb(151, 214, 181)
+            )
+            
+            sender_balance = await balance_manager.get_balance(str(ctx.author.id))
+                        
+            embed.set_footer(
+                text=f"요청자: {ctx.author} | 현재 잔액: {sender_balance}", 
+                icon_url=ctx.author.display_avatar.url
+            )
+            embed.timestamp = ctx.message.created_at
+            
+            await ctx.reply(embed=embed)
+            return
+
+        # 송금 실행
+        success = await balance_manager.transfer(str(ctx.author.id), str(member.id), amount, fee)
+        
+        if success:
+            embed = discord.Embed(
+                title=f"{unit}、온 송금 ₍ᐢ..ᐢ₎",
+                description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀´ㅅ` )
+(⠀ {ctx.author.mention}님이 {member.mention}에게
+(⠀ ⠀ ⠀**{amount}**{unit} 보냈다묘...✩
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+""",
+                colour=discord.Colour.from_rgb(151, 214, 181)
+            )
+            
+            sender_balance = await balance_manager.get_balance(str(ctx.author.id))
+            
+            embed.set_footer(
+                text=f"요청자: {ctx.author} | 회수 후 잔액: {sender_balance}", 
+                icon_url=ctx.author.display_avatar.url
+            )
+            embed.timestamp = ctx.message.created_at
+            
+            await ctx.reply(embed=embed)
+            await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})에게 {amount} 송금 (수수료: {fee})")
+        else:
+            embed = discord.Embed(
+                title=f"{unit}、온 송금 실패 ₍ᐢ..ᐢ₎",
+                description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀´ㅅ` )
+(⠀⠀ 엥... 뭔가 이상하다묘..??
+(⠀⠀⠀⠀ 어디선가 오류가 났다묘..... 
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+""",
+                colour=discord.Colour.from_rgb(151, 214, 181)
+            )
+            
+            sender_balance = await balance_manager.get_balance(str(ctx.author.id))
+                        
+            embed.set_footer(
+                text=f"요청자: {ctx.author} | 현재 잔액: {sender_balance}", 
+                icon_url=ctx.author.display_avatar.url
+            )
+            embed.timestamp = ctx.message.created_at
+            
+            await ctx.reply(embed=embed)
 
     @on.command(name="지급")
     @only_in_guild()
