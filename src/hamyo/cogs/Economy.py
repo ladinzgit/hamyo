@@ -71,7 +71,8 @@ class Economy(commands.Cog):
             name="일반 명령어",
             value=(
                 "`*온 확인 [@유저]` : 자신의 또는 다른 유저의 잔액을 확인합니다.\n"
-                "`*온 송금 @유저 금액` : 다른 유저에게 온을 송금합니다. (수수료: 500온, 50,000온 이상 1,000온)"
+                "`*온 송금 @유저 금액` : 다른 유저에게 온을 송금합니다. (수수료: 500온, 50,000온 이상 1,000온)\n"
+                "`*온 수수료` : 송금 수수료를 확인합니다."
             ),
             inline=False
         )
@@ -195,7 +196,10 @@ class Economy(commands.Cog):
             return
 
         # 송금 수수료 계산
-        fee = 1000 if amount >= 50000 else 500
+        try:
+            fee = await balance_manager.get_fee_for_amount(amount)
+        except Exception:
+            fee = 1000 if amount >= 50000 else 500
         total_cost = amount + fee
 
         # 잔액 확인
@@ -227,9 +231,10 @@ class Economy(commands.Cog):
             await ctx.reply(embed=embed)
             return
 
-        # 일일 송금 횟수 확인
+        # 일일 송금/수취 횟수 확인
+        send_limit, receive_limit = await balance_manager.get_daily_limits()
         sent_count = await balance_manager.get_daily_transfer_count(str(ctx.author.id), True)
-        if sent_count >= 3:
+        if sent_count >= send_limit:
             embed = discord.Embed(
                 title=f"{unit}、온 송금 실패 ₍ᐢ..ᐢ₎",
                 description=f"""
@@ -243,21 +248,21 @@ class Economy(commands.Cog):
 """,
                 colour=discord.Colour.from_rgb(151, 214, 181)
             )
-            
+
             sender_balance = await balance_manager.get_balance(str(ctx.author.id))
-                        
+
             embed.set_footer(
                 text=f"요청자: {ctx.author} | 현재 잔액: {sender_balance}", 
                 icon_url=ctx.author.display_avatar.url
             )
             embed.timestamp = ctx.message.created_at
-            
+
             await ctx.reply(embed=embed)
             return
 
         # 일일 수취 횟수 확인
         received_count = await balance_manager.get_daily_transfer_count(str(member.id), False)
-        if received_count >= 5:
+        if received_count >= receive_limit:
             embed = discord.Embed(
                 title=f"{unit}、온 송금 실패 ₍ᐢ..ᐢ₎",
                 description=f"""
@@ -271,15 +276,15 @@ class Economy(commands.Cog):
 """,
                 colour=discord.Colour.from_rgb(151, 214, 181)
             )
-            
+
             sender_balance = await balance_manager.get_balance(str(ctx.author.id))
-                        
+
             embed.set_footer(
                 text=f"요청자: {ctx.author} | 현재 잔액: {sender_balance}", 
                 icon_url=ctx.author.display_avatar.url
             )
             embed.timestamp = ctx.message.created_at
-            
+
             await ctx.reply(embed=embed)
             return
 
@@ -333,6 +338,40 @@ class Economy(commands.Cog):
             embed.timestamp = ctx.message.created_at
             
             await ctx.reply(embed=embed)
+
+    @on.command(name="수수료")
+    @only_in_guild()
+    @in_allowed_channel()
+    async def check_transfer_fee(self, ctx):
+        """Check the transfer fee structure."""
+        fee_tiers = await balance_manager.get_fee_tiers()
+        unit = await self.get_currency_unit()
+        
+        embed = discord.Embed(
+            title="온 송금 수수료 안내 ₍ᐢ..ᐢ₎",
+            description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀´ㅅ` )
+(⠀ 현재 수수료 설정이다묘...✩
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+
+""",
+            colour=discord.Colour.from_rgb(151, 214, 181)
+        )
+        if fee_tiers:
+            tiers_text = "\n".join([f"• {tier['min_amount']:,}{unit} 이상: {tier['fee']:,}{unit}" for tier in sorted(fee_tiers, key=lambda x: x['min_amount'])])
+            embed.add_field(name="현재 수수료 구간", value=tiers_text, inline=False)
+        else:
+            embed.add_field(name="현재 수수료 구간", value="설정된 수수료 구간이 없습니다.", inline=False)
+        embed.set_footer(
+            text=f"요청자: {ctx.author}",
+            icon_url=ctx.author.display_avatar.url
+        )
+        embed.timestamp = ctx.message.created_at
+        
+        await ctx.reply(embed=embed)
+        await self.log(f"{ctx.author}({ctx.author.id})이 수수 목록을 조회함. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
     @on.command(name="지급")
     @only_in_guild()

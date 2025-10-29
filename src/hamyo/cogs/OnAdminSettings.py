@@ -60,6 +60,24 @@ class OnAdminSettings(commands.Cog):
             inline=False
         )
         embed.add_field(
+            name="수수료 관리",
+            value=(
+                "`*온설정 수수료` : 현재 수수료 구간을 확인합니다.\n"
+                "`*온설정 수수료 설정 <최소금액> <수수료>` : 새로운 수수료 구간을 추가합니다.\n"
+                "`*온설정 수수료 삭제 <최소금액>` : 수수료 구간을 삭제합니다."
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="일일 제한 관리",
+            value=(
+                "`*온설정 제한` : 현재 일일 제한을 확인합니다.\n"
+                "`*온설정 제한 설정 송금 <횟수>` : 일일 송금 횟수 제한을 설정합니다.\n"
+                "`*온설정 제한 설정 수취 <횟수>` : 일일 수취 횟수 제한을 설정합니다."
+            ),
+            inline=False
+        )
+        embed.add_field(
             name="화폐 단위 설정",
             value="`*온설정 화폐단위등록 <이모지>` : 서버 내 화폐 단위를 설정합니다.",
             inline=False
@@ -194,6 +212,136 @@ class OnAdminSettings(commands.Cog):
         await balance_manager.reset_all_balances()
         await ctx.send("모든 유저의 온(화폐) 잔액이 초기화되었습니다.")
         await self.log(f"{ctx.author}({ctx.author.id})이 모든 유저의 온(화폐) 잔액 초기화. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
+
+    @settings.group(name="수수료", invoke_without_command=True)
+    @only_in_guild()
+    @commands.has_permissions(administrator=True)
+    async def fee(self, ctx):
+        """수수료 설정 관련 명령어 출력 및 현재 수수료 구간 확인"""
+        unit = await balance_manager.get_currency_unit()
+        unit = unit['emoji'] if unit else "코인"
+        fee_tiers = await balance_manager.get_fee_tiers()
+        
+        embed = discord.Embed(
+            title="온 송금 수수료 명령어",
+            description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀´ㅅ` )
+(⠀ 현재 수수료 설정이다묘...✩
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+
+사용 가능한 명령어:
+`*온설정 수수료 설정 <최소금액> <수수료>` : 새로운 수수료 구간 추가
+`*온설정 수수료 삭제 <최소금액>` : 수수료 구간 삭제
+""",
+            colour=discord.Colour.from_rgb(151, 214, 181)
+        )
+
+        if fee_tiers:
+            tiers_text = "\n".join([f"• {tier['min_amount']:,}{unit} 이상: {tier['fee']:,}{unit}" for tier in sorted(fee_tiers, key=lambda x: x['min_amount'])])
+            embed.add_field(name="현재 수수료 구간", value=tiers_text, inline=False)
+        else:
+            embed.add_field(name="현재 수수료 구간", value="설정된 수수료 구간이 없습니다.", inline=False)
+        
+        await ctx.reply(embed=embed)
+        await self.log(f"{ctx.author}({ctx.author.id})이 수수 목록을 조회함. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
+
+    @fee.command(name="설정")
+    @only_in_guild()
+    @commands.has_permissions(administrator=True)
+    async def set_fee(self, ctx, min_amount: int, fee: int):
+        """수수료 구간 설정"""
+        if min_amount < 0 or fee < 0:
+            await ctx.reply("최소 금액과 수수료는 0 이상이어야 합니다.")
+            return
+        
+        unit = await balance_manager.get_currency_unit()
+        unit = unit['emoji'] if unit else "코인"
+        await balance_manager.set_fee_tier(min_amount, fee)
+        
+        await ctx.send(f"수수료 구간이 {min_amount:,}{unit} 이상 → {fee:,}{unit}로 설정되었습니다.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 수수료 구간 설정: {min_amount:,}{unit} 이상 → {fee:,}{unit}")
+
+    @fee.command(name="삭제")
+    @only_in_guild()
+    @commands.has_permissions(administrator=True)
+    async def delete_fee(self, ctx, min_amount: int):
+        """수수료 구간 삭제"""
+        unit = await balance_manager.get_currency_unit()
+        unit = unit['emoji'] if unit else "코인"
+        success = await balance_manager.delete_fee_tier(min_amount)
+        
+        if success:
+            await ctx.send(f"수수료 구간 {min_amount:,}{unit} 이상이 삭제되었습니다.")  
+            await self.log(f"{ctx.author}({ctx.author.id})이 수수료 구간 삭제: {min_amount:,}{unit} 이상")
+        else:
+            await ctx.send(f"수수료 구간 {min_amount:,}{unit} 이상이 존재하지 않습니다.")
+            await self.log(f"{ctx.author}({ctx.author.id})이 수수료 구간 삭제 시도: {min_amount:,}{unit} 이상")
+
+    @settings.group(name="제한설정", invoke_without_command=True)
+    @only_in_guild()
+    @commands.has_permissions(administrator=True)
+    async def limit(self, ctx):
+        """일일 송금/수취 제한 설정 관련 명령어 그룹"""
+        unit = await balance_manager.get_currency_unit()
+        unit = unit['emoji'] if unit else "코인"
+        send_limit, receive_limit = await balance_manager.get_daily_limits()
+        
+        embed = discord.Embed(
+            title=f"{unit}、온 일일 제한 설정 ₍ᐢ..ᐢ₎",
+            description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀´ㅅ` )
+(⠀ 현재 일일 제한 설정이다묘...✩
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+
+사용 가능한 명령어:
+`*온설정 제한설정 송금 <횟수>` : 일일 송금 횟수 제한 설정
+`*온설정 제한설정 수취 <횟수>` : 일일 수취 횟수 제한 설정
+
+현재 설정:
+• 일일 송금 제한: {send_limit}회
+• 일일 수취 제한: {receive_limit}회
+""",
+            colour=discord.Colour.from_rgb(151, 214, 181)
+        )
+        await ctx.reply(embed=embed)
+
+    @limit.command(name="송금")
+    @only_in_guild()
+    @commands.has_permissions(administrator=True)
+    async def set_send_limit(self, ctx, limit: int):
+        """일일 송금 횟수 제한 설정"""
+        if limit <= 0:
+            await ctx.reply("제한 횟수는 0보다 커야 합니다.")
+            return
+        
+        unit = await balance_manager.get_currency_unit()
+        unit = unit['emoji'] if unit else "코인"
+        current_send, current_receive = await balance_manager.get_daily_limits()
+        await balance_manager.set_daily_limits(limit, current_receive)
+        
+        await ctx.send(f"일일 송금 제한이 {limit}회로 설정되었습니다.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 일일 송금 제한 설정: {limit}회")
+
+    @limit.command(name="수취")
+    @only_in_guild()
+    @commands.has_permissions(administrator=True)
+    async def set_receive_limit(self, ctx, limit: int):
+        """일일 수취 횟수 제한 설정"""
+        if limit <= 0:
+            await ctx.reply("제한 횟수는 0보다 커야 합니다.")
+            return
+        
+        unit = await balance_manager.get_currency_unit()
+        unit = unit['emoji'] if unit else "코인"
+        current_send, current_receive = await balance_manager.get_daily_limits()
+        await balance_manager.set_daily_limits(current_send, limit)
+        
+        await ctx.send(f"일일 수취 제한이 {limit}회로 설정되었습니다.")
+        await self.log(f"{ctx.author}({ctx.author.id})이 일일 수취 제한 설정: {limit}회")
 
 
 async def setup(bot):

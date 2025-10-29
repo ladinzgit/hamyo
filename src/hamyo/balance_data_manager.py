@@ -3,6 +3,7 @@ import asyncio
 import os
 from datetime import datetime
 import pytz
+import json
 
 KST = pytz.timezone("Asia/Seoul")
 DB_FILE = "data/balance.db"
@@ -72,6 +73,19 @@ class BalanceDataManager:
                 amount INTEGER NOT NULL,                    -- 송금 금액
                 fee INTEGER NOT NULL,                       -- 수수료
                 timestamp TEXT NOT NULL                     -- 송금 시각
+            )
+        """)
+        await self._db.execute("""
+            CREATE TABLE IF NOT EXISTS fee_tiers (          -- 수수료 단계 테이블
+                fee_threshold INTEGER PRIMARY KEY,          -- 기준 금액 (이 금액 이상일 때 해당 수수료 적용)
+                fee INTEGER NOT NULL                        -- 수수료
+            )
+        """)
+        await self._db.execute("""
+            CREATE TABLE IF NOT EXISTS transfer_limits (    -- 송금 제한 테이블
+                id INTEGER PRIMARY KEY CHECK (id = 1),      -- 하나만 존재하도록 강제
+                daily_send_limit INTEGER DEFAULT 3,         -- 일일 송금 제한
+                daily_receive_limit INTEGER DEFAULT 5       -- 일일 수취 제한
             )
         """)
         await self._db.commit()
@@ -186,9 +200,9 @@ class BalanceDataManager:
         await self._db.execute("DELETE FROM balances")
         await self._db.commit()
 
-    # 온 송금 기능
+    # 화폐 송금 기능
     async def transfer(self, sender_id: str, receiver_id: str, amount: int, fee: int) -> bool:
-        """온 송금 기능 구현"""
+        """화폐 송금 기능 구현"""
         await self.ensure_initialized()
         try:
             # 송금 전 시작점 설정
@@ -250,6 +264,99 @@ class BalanceDataManager:
         async with self._db.execute(query, (user_id, today)) as cursor:
             count = await cursor.fetchone()
             return count[0] if count else 0
+
+    # 화폐 수수료 설정
+    async def set_fee_tiers(self, tiers: list):
+        await self.ensure_initialized()
+        normalized_input = []
+        for t in tiers or []:
+            try:
+                thr = int(t.get("threshold") if t.get("threshold") is not None else t.get("min_amount"))
+                fee = int(t.get("fee"))
+                normalized_input.append({"threshold": thr, "fee": fee})
+            except Exception:
+                continue
+
+        # 수수료 오름차순 정렬
+        normalized = sorted(normalized_input, key=lambda x: x["threshold"]) if normalized_input else []
+        await self._db.execute("DELETE FROM fee_tiers")
+        for t in normalized:
+            await self._db.execute("INSERT INTO fee_tiers (fee_threshold, fee) VALUES (?, ?)", (t["threshold"], t["fee"]))
+        await self._db.commit()
+
+    # 화폐 수수료 조회
+    async def get_fee_tiers(self) -> list:
+        await self.ensure_initialized()
+        async with self._db.execute("SELECT fee_threshold, fee FROM fee_tiers ORDER BY fee_threshold ASC") as cursor:
+            rows = await cursor.fetchall()
+            return [{"min_amount": int(row[0]), "fee": int(row[1])} for row in rows]
+
+    # 화폐 수수료 개별 설정
+    async def set_fee_tier(self, min_amount: int, fee: int):
+        await self.ensure_initialized()
+        tiers = await self.get_fee_tiers()
+        normalized = [{"threshold": t["min_amount"], "fee": t["fee"]} for t in tiers]
+
+        # 업데이트 / 추가
+        found = False
+        for t in normalized:
+            if t["threshold"] == int(min_amount):
+                t["fee"] = int(fee)
+                found = True
+                break
+        if not found:
+            normalized.append({"threshold": int(min_amount), "fee": int(fee)})
+
+        await self.set_fee_tiers(normalized)
+
+    # 화폐 수수료 개별 삭제
+    async def delete_fee_tier(self, min_amount: int) -> bool:
+        await self.ensure_initialized()
+        tiers = await self.get_fee_tiers()
+        filtered = [t for t in tiers if int(t["min_amount"]) != int(min_amount)]
+        if len(filtered) == len(tiers):
+            return False
+        normalized = [{"threshold": t["min_amount"], "fee": t["fee"]} for t in filtered]
+        await self.set_fee_tiers(normalized)
+        return True
+
+    # 화폐 수수료 계산
+    async def get_fee_for_amount(self, amount: int) -> int:
+        await self.ensure_initialized()
+        tiers = await self.get_fee_tiers()
+        if not tiers:
+            return 0
+
+        selected_fee = None
+        for t in tiers:
+            if amount >= t.get("threshold", 0):
+                selected_fee = t.get("fee")
+            else:
+                break
+        return selected_fee if selected_fee is not None else (1000 if amount >= 50000 else 500)
+
+    # 일일 송금/수취 한도 설정
+    async def set_daily_limits(self, send_limit: int, receive_limit: int):
+        await self.ensure_initialized()
+        async with self._db.execute("SELECT 1 FROM transfer_limits WHERE id = 1") as cursor:
+            exists = await cursor.fetchone()
+        if exists:
+            await self._db.execute("UPDATE transfer_limits SET daily_send_limit = ?, daily_receive_limit = ? WHERE id = 1", (int(send_limit), int(receive_limit)))
+        else:
+            await self._db.execute("INSERT INTO transfer_limits (id, daily_send_limit, daily_receive_limit) VALUES (1, ?, ?)", (int(send_limit), int(receive_limit)))
+        await self._db.commit()
+
+    # 일일 송금/수취 한도 조회
+    async def get_daily_limits(self):
+        await self.ensure_initialized()
+        async with self._db.execute("SELECT daily_send_limit, daily_receive_limit FROM transfer_limits WHERE id = 1") as cursor:
+            row = await cursor.fetchone()
+            if row:
+                try:
+                    return int(row[0]), int(row[1])
+                except Exception:
+                    pass
+        return 3, 5
 
 # 싱글턴 인스턴스
 balance_manager = BalanceDataManager()
