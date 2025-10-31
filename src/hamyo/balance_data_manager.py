@@ -329,7 +329,7 @@ class BalanceDataManager:
 
         selected_fee = None
         for t in tiers:
-            if amount >= t.get("threshold", 0):
+            if amount >= t.get("min_amount", 0):
                 selected_fee = t.get("fee")
             else:
                 break
