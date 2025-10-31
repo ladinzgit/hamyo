@@ -324,8 +324,6 @@ class BalanceDataManager:
     async def get_fee_for_amount(self, amount: int) -> int:
         await self.ensure_initialized()
         tiers = await self.get_fee_tiers()
-        if not tiers:
-            return 0
 
         selected_fee = None
         for t in tiers:
