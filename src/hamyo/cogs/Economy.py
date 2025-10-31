@@ -371,7 +371,7 @@ class Economy(commands.Cog):
         embed.timestamp = ctx.message.created_at
         
         await ctx.reply(embed=embed)
-        await self.log(f"{ctx.author}({ctx.author.id})이 수수 목록을 조회함. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
+        await self.log(f"{ctx.author}({ctx.author.id})이 수수료 목록을 조회함. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
     @on.command(name="지급")
     @only_in_guild()
