@@ -335,8 +335,6 @@ class OnAdminSettings(commands.Cog):
             await ctx.reply("제한 횟수는 0보다 커야 합니다.")
             return
         
-        unit = await balance_manager.get_currency_unit()
-        unit = unit['emoji'] if unit else "코인"
         current_send, current_receive = await balance_manager.get_daily_limits()
         await balance_manager.set_daily_limits(current_send, limit)
         
