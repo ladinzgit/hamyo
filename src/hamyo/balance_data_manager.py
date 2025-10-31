@@ -3,8 +3,6 @@ import asyncio
 import os
 from datetime import datetime
 import pytz
-import json
-
 KST = pytz.timezone("Asia/Seoul")
 DB_FILE = "data/balance.db"
 
