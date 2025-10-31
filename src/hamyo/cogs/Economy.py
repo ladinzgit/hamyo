@@ -343,7 +343,7 @@ class Economy(commands.Cog):
     @only_in_guild()
     @in_allowed_channel()
     async def check_transfer_fee(self, ctx):
-        """Check the transfer fee structure."""
+        """송금 수수료 구조를 확인합니다."""
         fee_tiers = await balance_manager.get_fee_tiers()
         unit = await self.get_currency_unit()
         
