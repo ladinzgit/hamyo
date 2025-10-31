@@ -245,7 +245,7 @@ class OnAdminSettings(commands.Cog):
             embed.add_field(name="현재 수수료 구간", value="설정된 수수료 구간이 없습니다.", inline=False)
         
         await ctx.reply(embed=embed)
-        await self.log(f"{ctx.author}({ctx.author.id})이 수수 목록을 조회함. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
+        await self.log(f"{ctx.author}({ctx.author.id})이 수수료 목록을 조회함. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
     @fee.command(name="설정")
     @only_in_guild()
