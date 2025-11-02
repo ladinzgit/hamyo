@@ -1,0 +1,62 @@
+name: Auto Deploy to Server and Notify Discord
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Remote Server via SSH
+        id: deploy
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /home/hamyo/hamyo
+            git pull origin main
+            sudo systemctl restart hamyo.service
+
+      - name: Notify Discord (Embed)
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then
+            COLOR=3066993   # 파란색 (성공)
+            TITLE="✅ 자동 배포 성공"
+          else
+            COLOR=15158332  # 빨간색 (실패)
+            TITLE="❌ 자동 배포 실패"
+          fi
+
+          COMMIT_MSG=$(echo "${{ github.event.head_commit.message }}" | jq -Rsa .)
+
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d "{
+              \"username\": \"Deploy Bot\",
+              \"embeds\": [{
+                \"title\": \"$TITLE\",
+                \"color\": $COLOR,
+                \"fields\": [
+                  {\"name\": \"📦 저장소\", \"value\": \"${{ github.repository }}\", \"inline\": true},
+                  {\"name\": \"🌿 브랜치\", \"value\": \"${{ github.ref_name }}\", \"inline\": true},
+                  {\"name\": \"👤 작성자\", \"value\": \"${{ github.actor }}\", \"inline\": true},
+                  {\"name\": \"💬 커밋 메시지\", \"value\": $COMMIT_MSG, \"inline\": false},
+                  {\"name\": \"🔗 커밋 링크\", \"value\": \"[보기](https://github.com/${{ github.repository }}/commit/${{ github.sha }})\", \"inline\": false},
+                  {\"name\": \"⚙️ 서버 상태\", \"value\": \"$STATUS\", \"inline\": true}
+                ],
+                \"footer\": {
+                  \"text\": \"자동 배포 시스템 by GitHub Actions\"
+                },
+                \"timestamp\": \"${{ github.event.head_commit.timestamp }}\"
+              }]
+            }" \
+            ${{ secrets.DISCORD_WEBHOOK }}
