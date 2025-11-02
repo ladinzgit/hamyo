@@ -887,6 +887,4 @@ class Birthday(commands.Cog):
 async def setup(bot):
     """Cog 설정"""
     await bot.add_cog(Birthday(bot))
-    
-    # 영구 뷰 등록 (봇 재시작 시에도 버튼이 작동하도록)
     bot.add_view(BirthdayButtonView(bot))
