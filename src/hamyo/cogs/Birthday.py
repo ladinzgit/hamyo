@@ -549,7 +549,7 @@ class Birthday(commands.Cog):
             colour=discord.Colour.from_rgb(151, 214, 181)
         )
         embed.set_footer(
-            text="생일을 등록하고 특별한 혜택을 받으세요! 🎉"
+            text="생일을 등록하고 특별한 혜택을 받으라묘! 🎉"
         )
         
         view = BirthdayButtonView(self.bot)
