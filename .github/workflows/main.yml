@@ -1,0 +1,42 @@
+name: Auto Deploy to Server and Notify Discord
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Remote Server via SSH
+        id: deploy
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /home/hamyo/hamyo
+            git pull origin main
+            sudo systemctl restart hamyo.service
+
+      - name: Notify Discord (with commit message)
+        if: always()
+        uses: Ilshidur/action-discord@master
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          args: |
+            ${{ job.status == 'success' && '✅ **자동 배포 성공 🎉**' || '❌ **자동 배포 실패 ⚠️**' }}
+            ───────────────────────
+            • 저장소: **${{ github.repository }}**
+            • 브랜치: **${{ github.ref_name }}**
+            • 커밋: [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+            • 작성자: **${{ github.actor }}**
+            • 메시지: 
+              > ${{ github.event.head_commit.message }}
+            • 상태: **${{ job.status }}**
+            • 서버 봇 자동 재시작 완료 💫
