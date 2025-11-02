@@ -24,19 +24,39 @@ jobs:
             git pull origin main
             sudo systemctl restart hamyo.service
 
-      - name: Notify Discord (with commit message)
+      - name: Notify Discord (Embed)
         if: always()
-        uses: Ilshidur/action-discord@master
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          args: |
-            ${{ job.status == 'success' && '✅ **자동 배포 성공 🎉**' || '❌ **자동 배포 실패 ⚠️**' }}
-            ───────────────────────
-            • 저장소: **${{ github.repository }}**
-            • 브랜치: **${{ github.ref_name }}**
-            • 커밋: [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
-            • 작성자: **${{ github.actor }}**
-            • 메시지: 
-              > ${{ github.event.head_commit.message }}
-            • 상태: **${{ job.status }}**
-            • 서버 봇 자동 재시작 완료 💫
+        run: |
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then
+            COLOR=3066993   # 파란색 (성공)
+            TITLE="✅ 자동 배포 성공"
+          else
+            COLOR=15158332  # 빨간색 (실패)
+            TITLE="❌ 자동 배포 실패"
+          fi
+
+          COMMIT_MSG=$(echo "${{ github.event.head_commit.message }}" | jq -Rsa .)
+
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d "{
+              \"username\": \"Deploy Bot\",
+              \"embeds\": [{
+                \"title\": \"$TITLE\",
+                \"color\": $COLOR,
+                \"fields\": [
+                  {\"name\": \"📦 저장소\", \"value\": \"${{ github.repository }}\", \"inline\": true},
+                  {\"name\": \"🌿 브랜치\", \"value\": \"${{ github.ref_name }}\", \"inline\": true},
+                  {\"name\": \"👤 작성자\", \"value\": \"${{ github.actor }}\", \"inline\": true},
+                  {\"name\": \"💬 커밋 메시지\", \"value\": $COMMIT_MSG, \"inline\": false},
+                  {\"name\": \"🔗 커밋 링크\", \"value\": \"[보기](https://github.com/${{ github.repository }}/commit/${{ github.sha }})\", \"inline\": false},
+                  {\"name\": \"⚙️ 서버 상태\", \"value\": \"$STATUS\", \"inline\": true}
+                ],
+                \"footer\": {
+                  \"text\": \"자동 배포 시스템 by GitHub Actions\"
+                },
+                \"timestamp\": \"${{ github.event.head_commit.timestamp }}\"
+              }]
+            }" \
+            ${{ secrets.DISCORD_WEBHOOK }}
