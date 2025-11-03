@@ -422,14 +422,23 @@ class BirthdayButtonView(discord.ui.View):
         success = await birthday_db.delete_birthday(str(interaction.user.id))
         
         if success:
+            # 현재 수정 횟수 조회 (삭제 후에도 유지됨)
+            edit_count = await birthday_db.get_user_edit_count(str(interaction.user.id))
+            remaining_edits = 2 - edit_count
+            
+            remaining_text = ""
+            if remaining_edits > 0:
+                remaining_text = f"\n(⠀⠀⠀⠀ 수정 횟수는 유지되어 앞으로 **{remaining_edits}번** 더 수정 가능하다묘!"
+            else:
+                remaining_text = "\n(⠀⠀⠀⠀ 수정 횟수가 2번 모두 소진되어 더 이상 등록할 수 없다묘...!"
+            
             embed = discord.Embed(
                 title="🎂 생일 삭제 완료 ₍ᐢ..ᐢ₎",
                 description=f"""
 ⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
 ╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
 (⠀⠀⠀´ㅅ` )
-(⠀ {interaction.user.mention}의 생일 정보를 삭제했다묘...
-(⠀⠀⠀⠀ 다시 등록하고 싶으면 등록 버튼을 눌러라묘...!
+(⠀ {interaction.user.mention}의 생일 정보를 삭제했다묘...{remaining_text}
 ╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
 """,
                 colour=discord.Colour.from_rgb(151, 214, 181)
@@ -509,8 +518,9 @@ class Birthday(commands.Cog):
             value=(
                 "`*생일 버튼` : 생일 등록/확인/삭제 버튼이 있는 메시지를 전송합니다.\n"
                 "`*생일 확인 @유저` : 특정 유저의 생일을 조회합니다.\n"
-                "`*생일 삭제 @유저` : 특정 유저의 생일을 삭제합니다.\n"
+                "`*생일 삭제 @유저` : 특정 유저의 생일을 삭제합니다. (수정 횟수는 유지)\n"
                 "`*생일 관리자변경 @유저 월 일 [연도]` : 특정 유저의 생일을 변경합니다.\n"
+                "`*생일 수정횟수초기화 @유저` : 특정 유저의 수정 횟수를 초기화합니다.\n"
             ),
             inline=False
         )
@@ -542,6 +552,7 @@ class Birthday(commands.Cog):
 (⠀⠀⠀⠀ 
 (⠀ ⚠️ **주의사항**:
 (⠀⠀⠀ • 생일 등록/수정은 **총 2회**로 제한된다묘...!
+(⠀⠀⠀ • 생일을 삭제해도 수정 횟수는 유지된다묘...!
 (⠀⠀⠀ • 연도를 입력하지 않으면 나이 관련 서비스를 못 받는다묘...
 (⠀⠀⠀ • 월과 일은 필수로 입력해야 한다묘...!
 ╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
@@ -658,13 +669,23 @@ class Birthday(commands.Cog):
         success = await birthday_db.delete_birthday(str(member.id))
         
         if success:
+            # 현재 수정 횟수 조회 (삭제 후에도 유지됨)
+            edit_count = await birthday_db.get_user_edit_count(str(member.id))
+            remaining_edits = 2 - edit_count
+            
+            remaining_text = ""
+            if remaining_edits > 0:
+                remaining_text = f"\n(⠀⠀⠀⠀ 수정 횟수는 유지되어 앞으로 **{remaining_edits}번** 더 수정 가능하다묘!"
+            else:
+                remaining_text = "\n(⠀⠀⠀⠀ 수정 횟수가 2번 모두 소진되어 더 이상 등록할 수 없다묘...!"
+            
             embed = discord.Embed(
                 title="🎂 생일 삭제 완료 ₍ᐢ..ᐢ₎",
                 description=f"""
 ⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
 ╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
 (⠀⠀⠀´ㅅ` )
-(⠀ {member.mention}의 생일 정보를 삭제했다묘...
+(⠀ {member.mention}의 생일 정보를 삭제했다묘...{remaining_text}
 ╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
 """,
                 colour=discord.Colour.from_rgb(151, 214, 181)
@@ -865,6 +886,81 @@ class Birthday(commands.Cog):
         else:
             embed = discord.Embed(
                 title="🎂 생일 변경 실패 ₍ᐢ..ᐢ₎",
+                description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀`ㅅ´ )
+(⠀⠀ 엥... 뭔가 이상하다묘..??
+(⠀⠀⠀⠀ 어디선가 오류가 났다묘.....
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+""",
+                colour=discord.Colour.from_rgb(151, 214, 181)
+            )
+            embed.set_footer(
+                text=f"요청자: {ctx.author}",
+                icon_url=ctx.author.display_avatar.url
+            )
+            embed.timestamp = ctx.message.created_at
+            
+            await ctx.reply(embed=embed)
+    
+    @birthday.command(name="수정횟수초기화")
+    @only_in_guild()
+    @commands.has_permissions(administrator=True)
+    async def reset_edit_count(self, ctx, member: discord.Member):
+        """관리자가 특정 유저의 수정 횟수 초기화 (관리자 전용)"""
+        # 현재 수정 횟수 확인
+        current_count = await birthday_db.get_user_edit_count(str(member.id))
+        
+        if current_count == 0:
+            embed = discord.Embed(
+                title="🎂 수정 횟수 초기화 ₍ᐢ..ᐢ₎",
+                description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀´ㅅ` )
+(⠀ {member.mention}의 수정 횟수는 이미 0이다묘...
+(⠀⠀⠀⠀ 초기화할 필요가 없다묘...!
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+""",
+                colour=discord.Colour.from_rgb(151, 214, 181)
+            )
+            embed.set_footer(
+                text=f"요청자: {ctx.author}",
+                icon_url=ctx.author.display_avatar.url
+            )
+            embed.timestamp = ctx.message.created_at
+            
+            await ctx.reply(embed=embed)
+            return
+        
+        success = await birthday_db.reset_edit_count(str(member.id))
+        
+        if success:
+            embed = discord.Embed(
+                title="🎂 수정 횟수 초기화 완료 ₍ᐢ..ᐢ₎",
+                description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀´ㅅ` )
+(⠀ {member.mention}의 수정 횟수를 초기화했다묘...
+(⠀⠀⠀⠀ 이전 수정 횟수: **{current_count}회**
+(⠀⠀⠀⠀ 이제 다시 **2번** 수정할 수 있다묘...!
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+""",
+                colour=discord.Colour.from_rgb(151, 214, 181)
+            )
+            embed.set_footer(
+                text=f"요청자: {ctx.author}",
+                icon_url=ctx.author.display_avatar.url
+            )
+            embed.timestamp = ctx.message.created_at
+            
+            await ctx.reply(embed=embed)
+            await self.log(f"{ctx.author}({ctx.author.id})이 {member}({member.id})의 수정 횟수를 초기화함. (이전: {current_count}회)")
+        else:
+            embed = discord.Embed(
+                title="🎂 수정 횟수 초기화 실패 ₍ᐢ..ᐢ₎",
                 description=f"""
 ⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
 ╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮

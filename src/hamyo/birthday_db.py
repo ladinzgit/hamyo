@@ -15,24 +15,65 @@ async def init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     
     async with aiosqlite.connect(DB_PATH) as db:
-        # 생일 정보 테이블
+        # 생일 정보 테이블 (edit_count 제거)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS birthdays (
                 user_id TEXT PRIMARY KEY,
                 year INTEGER,
                 month INTEGER NOT NULL,
                 day INTEGER NOT NULL,
-                edit_count INTEGER DEFAULT 0,
                 registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
         
-        # 기존 테이블에 edit_count 컬럼 추가 (마이그레이션)
+        # 수정 횟수 관리 테이블 (별도 테이블로 분리)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_edit_count (
+                user_id TEXT PRIMARY KEY,
+                edit_count INTEGER DEFAULT 0,
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # 기존 birthdays 테이블에서 edit_count 데이터를 user_edit_count로 마이그레이션
         try:
-            await db.execute("ALTER TABLE birthdays ADD COLUMN edit_count INTEGER DEFAULT 0")
-        except Exception:
-            pass  # 이미 컬럼이 있으면 무시
+            # edit_count 컬럼이 있는지 확인
+            async with db.execute("PRAGMA table_info(birthdays)") as cursor:
+                columns = await cursor.fetchall()
+                has_edit_count = any(col[1] == 'edit_count' for col in columns)
+            
+            if has_edit_count:
+                # 기존 데이터 마이그레이션
+                await db.execute("""
+                    INSERT OR REPLACE INTO user_edit_count (user_id, edit_count, last_updated)
+                    SELECT user_id, edit_count, updated_at FROM birthdays WHERE edit_count > 0
+                """)
+                
+                # birthdays 테이블에서 edit_count 컬럼 제거
+                # SQLite는 컬럼 삭제를 직접 지원하지 않으므로 테이블 재생성
+                await db.execute("""
+                    CREATE TABLE IF NOT EXISTS birthdays_new (
+                        user_id TEXT PRIMARY KEY,
+                        year INTEGER,
+                        month INTEGER NOT NULL,
+                        day INTEGER NOT NULL,
+                        registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                await db.execute("""
+                    INSERT INTO birthdays_new (user_id, year, month, day, registered_at, updated_at)
+                    SELECT user_id, year, month, day, registered_at, updated_at FROM birthdays
+                """)
+                
+                await db.execute("DROP TABLE birthdays")
+                await db.execute("ALTER TABLE birthdays_new RENAME TO birthdays")
+                
+                print("✅ Migration completed: edit_count moved to user_edit_count table")
+        except Exception as e:
+            print(f"⚠️ Migration warning (can be ignored if fresh install): {e}")
         
         await db.commit()
     print(f"✅ Birthday DB initialized at {DB_PATH}")
@@ -43,6 +84,51 @@ async def get_db():
     db = await aiosqlite.connect(DB_PATH)
     db.row_factory = aiosqlite.Row
     return db
+
+
+async def get_user_edit_count(user_id: str) -> int:
+    """
+    유저의 수정 횟수 조회
+    
+    Args:
+        user_id: 디스코드 유저 ID (문자열)
+    
+    Returns:
+        int: 수정 횟수 (0-2)
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT edit_count FROM user_edit_count WHERE user_id = ?", (user_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else 0
+
+
+async def increment_edit_count(user_id: str) -> int:
+    """
+    유저의 수정 횟수 증가
+    
+    Args:
+        user_id: 디스코드 유저 ID (문자열)
+    
+    Returns:
+        int: 증가된 수정 횟수
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        # 현재 수정 횟수 조회
+        current_count = await get_user_edit_count(user_id)
+        new_count = current_count + 1
+        
+        await db.execute("""
+            INSERT INTO user_edit_count (user_id, edit_count, last_updated)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(user_id) DO UPDATE SET
+                edit_count = excluded.edit_count,
+                last_updated = CURRENT_TIMESTAMP
+        """, (user_id, new_count))
+        await db.commit()
+        
+        return new_count
 
 
 async def register_birthday(user_id: str, year: Optional[int], month: int, day: int) -> bool:
@@ -60,31 +146,28 @@ async def register_birthday(user_id: str, year: Optional[int], month: int, day: 
     """
     try:
         async with aiosqlite.connect(DB_PATH) as db:
-            # 기존 데이터 확인
-            async with db.execute(
-                "SELECT edit_count FROM birthdays WHERE user_id = ?", (user_id,)
-            ) as cursor:
-                row = await cursor.fetchone()
-                current_edit_count = row[0] if row else 0
+            # 기존 수정 횟수 확인
+            current_edit_count = await get_user_edit_count(user_id)
             
             # 수정 횟수가 2 이상이면 실패
             if current_edit_count >= 2:
                 return False
             
-            # 새로운 수정 횟수 계산
-            new_edit_count = current_edit_count + 1
-            
+            # 생일 정보 저장/업데이트
             await db.execute("""
-                INSERT INTO birthdays (user_id, year, month, day, edit_count, updated_at)
-                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                INSERT INTO birthdays (user_id, year, month, day, updated_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(user_id) DO UPDATE SET
                     year = excluded.year,
                     month = excluded.month,
                     day = excluded.day,
-                    edit_count = ?,
                     updated_at = CURRENT_TIMESTAMP
-            """, (user_id, year, month, day, new_edit_count, new_edit_count))
+            """, (user_id, year, month, day))
             await db.commit()
+            
+            # 수정 횟수 증가
+            await increment_edit_count(user_id)
+        
         return True
     except Exception as e:
         print(f"❌ 생일 등록 오류: {e}")
@@ -106,10 +189,10 @@ async def admin_update_birthday(user_id: str, year: Optional[int], month: int, d
     """
     try:
         async with aiosqlite.connect(DB_PATH) as db:
-            # 기존 edit_count 유지하면서 생일만 업데이트
+            # 생일 정보만 업데이트 (edit_count는 건드리지 않음)
             await db.execute("""
-                INSERT INTO birthdays (user_id, year, month, day, edit_count, updated_at)
-                VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
+                INSERT INTO birthdays (user_id, year, month, day, updated_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(user_id) DO UPDATE SET
                     year = excluded.year,
                     month = excluded.month,
@@ -140,11 +223,8 @@ async def get_birthday(user_id: str) -> Optional[Dict]:
         ) as cursor:
             row = await cursor.fetchone()
             if row:
-                # sqlite3.Row는 get() 메서드가 없으므로 키 존재 여부 확인 후 접근
-                try:
-                    edit_count = row["edit_count"]
-                except (KeyError, IndexError):
-                    edit_count = 0
+                # 수정 횟수는 별도 테이블에서 조회
+                edit_count = await get_user_edit_count(user_id)
                 
                 return {
                     "user_id": row["user_id"],
@@ -160,7 +240,7 @@ async def get_birthday(user_id: str) -> Optional[Dict]:
 
 async def delete_birthday(user_id: str) -> bool:
     """
-    생일 정보 삭제
+    생일 정보 삭제 (수정 횟수는 유지됨)
     
     Args:
         user_id: 디스코드 유저 ID (문자열)
@@ -170,11 +250,34 @@ async def delete_birthday(user_id: str) -> bool:
     """
     try:
         async with aiosqlite.connect(DB_PATH) as db:
+            # birthdays 테이블에서만 삭제, user_edit_count는 유지
             await db.execute("DELETE FROM birthdays WHERE user_id = ?", (user_id,))
             await db.commit()
         return True
     except Exception as e:
         print(f"❌ 생일 삭제 오류: {e}")
+        return False
+
+
+async def reset_edit_count(user_id: str) -> bool:
+    """
+    관리자 전용: 특정 유저의 수정 횟수 초기화
+    
+    Args:
+        user_id: 디스코드 유저 ID (문자열)
+    
+    Returns:
+        bool: 성공 여부
+    """
+    try:
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute(
+                "DELETE FROM user_edit_count WHERE user_id = ?", (user_id,)
+            )
+            await db.commit()
+        return True
+    except Exception as e:
+        print(f"❌ 수정 횟수 초기화 오류: {e}")
         return False
 
 
