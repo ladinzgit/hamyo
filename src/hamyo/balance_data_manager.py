@@ -82,8 +82,8 @@ class BalanceDataManager:
         await self._db.execute("""
             CREATE TABLE IF NOT EXISTS transfer_limits (    -- 송금 제한 테이블
                 id INTEGER PRIMARY KEY CHECK (id = 1),      -- 하나만 존재하도록 강제
-                daily_send_limit INTEGER DEFAULT 3,         -- 일일 송금 제한
-                daily_receive_limit INTEGER DEFAULT 5       -- 일일 수취 제한
+                daily_send_limit INTEGER,         -- 일일 송금 제한
+                daily_receive_limit INTEGER       -- 일일 수취 제한
             )
         """)
         await self._db.commit()
