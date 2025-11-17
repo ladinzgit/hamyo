@@ -988,46 +988,31 @@ class Birthday(commands.Cog):
         all_birthdays = await birthday_db.get_all_birthdays()
         
         if not all_birthdays:
-            embed = discord.Embed(
-                title="🎂 생일 목록 ₍ᐢ..ᐢ₎",
-                description=f"""
-⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+            message = """⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
 ╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
 (⠀⠀⠀´ㅅ` )
 (⠀ 아직 등록된 생일이 없다묘...
 (⠀⠀⠀⠀ 유저들이 생일을 등록하면 여기에 나타난다묘...!
-╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
-""",
-                colour=discord.Colour.from_rgb(151, 214, 181)
-            )
-            embed.set_footer(
-                text=f"요청자: {ctx.author}",
-                icon_url=ctx.author.display_avatar.url
-            )
-            embed.timestamp = ctx.message.created_at
-            
-            await ctx.reply(embed=embed)
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯"""
+            await ctx.reply(message)
             return
         
         # 월/일 순으로 정렬
         sorted_birthdays = sorted(all_birthdays, key=lambda x: (x["month"], x["day"]))
         
-        # 임베드 생성
-        embed = discord.Embed(
-            title="🎂 생일 목록 ₍ᐢ..ᐢ₎",
-            description=f"""
-⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
-╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
-(⠀⠀⠀´ㅅ` )
-(⠀ 현재 등록된 생일 목록이다묘...✩
-(⠀⠀⠀⠀ 총 **{len(sorted_birthdays)}명**이 등록했다묘!
-╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
-""",
-            colour=discord.Colour.from_rgb(151, 214, 181)
-        )
+        # 메시지 헤더
+        message_lines = [
+            "⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎",
+            "╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮",
+            "(⠀⠀⠀´ㅅ` )",
+            f"(⠀ 현재 등록된 생일 목록이다묘...✩",
+            f"(⠀⠀⠀⠀ 총 **{len(sorted_birthdays)}명**이 등록했다묘!",
+            "╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯",
+            ""
+        ]
         
-        # 생일 정보를 필드로 추가 (최대 25개까지만 표시 가능)
-        for birthday_data in sorted_birthdays[:25]:
+        # 생일 정보 추가
+        for birthday_data in sorted_birthdays:
             user_id = birthday_data["user_id"]
             year = birthday_data["year"]
             month = birthday_data["month"]
@@ -1052,26 +1037,34 @@ class Birthday(commands.Cog):
             birthday_str = f"{year}년 " if year else ""
             birthday_str += f"{month}월 {day}일"
             
-            embed.add_field(
-                name=f"👤 {user_name}",
-                value=f"🎂 {birthday_str}{age_text}",
-                inline=True
-            )
+            message_lines.append(f"🎂 **{birthday_str}** - {user_name}{age_text}")
         
-        # 25개 초과 시 안내 문구 추가
-        if len(sorted_birthdays) > 25:
-            embed.set_footer(
-                text=f"요청자: {ctx.author} | 25명 이상 등록되어 처음 25명만 표시됩니다.",
-                icon_url=ctx.author.display_avatar.url
-            )
+        # 메시지 전송 (Discord 메시지 길이 제한: 2000자)
+        message = "\n".join(message_lines)
+        
+        # 메시지가 너무 길면 분할 전송
+        if len(message) > 2000:
+            chunks = []
+            current_chunk = message_lines[0:7]  # 헤더 포함
+            
+            for line in message_lines[7:]:
+                test_chunk = "\n".join(current_chunk + [line])
+                if len(test_chunk) > 1900:  # 여유 공간 확보
+                    chunks.append("\n".join(current_chunk))
+                    current_chunk = [line]
+                else:
+                    current_chunk.append(line)
+            
+            if current_chunk:
+                chunks.append("\n".join(current_chunk))
+            
+            # 첫 번째 청크는 reply, 나머지는 일반 메시지
+            await ctx.reply(chunks[0])
+            for chunk in chunks[1:]:
+                await ctx.send(chunk)
         else:
-            embed.set_footer(
-                text=f"요청자: {ctx.author}",
-                icon_url=ctx.author.display_avatar.url
-            )
-        embed.timestamp = ctx.message.created_at
+            await ctx.reply(message)
         
-        await ctx.reply(embed=embed)
         await self.log(f"{ctx.author}({ctx.author.id})이 생일 목록을 조회함. (총 {len(sorted_birthdays)}명) [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
 
