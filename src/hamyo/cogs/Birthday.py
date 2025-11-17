@@ -521,6 +521,7 @@ class Birthday(commands.Cog):
                 "`*생일 삭제 @유저` : 특정 유저의 생일을 삭제합니다. (수정 횟수는 유지)\n"
                 "`*생일 관리자변경 @유저 월 일 [연도]` : 특정 유저의 생일을 변경합니다.\n"
                 "`*생일 수정횟수초기화 @유저` : 특정 유저의 수정 횟수를 초기화합니다.\n"
+                "`*생일 목록` : 등록된 모든 생일 목록을 월/일 순으로 조회합니다.\n"
             ),
             inline=False
         )
@@ -978,6 +979,100 @@ class Birthday(commands.Cog):
             embed.timestamp = ctx.message.created_at
             
             await ctx.reply(embed=embed)
+    
+    @birthday.command(name="목록")
+    @only_in_guild()
+    @commands.has_permissions(administrator=True)
+    async def list_birthdays(self, ctx):
+        """등록된 모든 생일 목록 조회 (관리자 전용)"""
+        all_birthdays = await birthday_db.get_all_birthdays()
+        
+        if not all_birthdays:
+            embed = discord.Embed(
+                title="🎂 생일 목록 ₍ᐢ..ᐢ₎",
+                description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀´ㅅ` )
+(⠀ 아직 등록된 생일이 없다묘...
+(⠀⠀⠀⠀ 유저들이 생일을 등록하면 여기에 나타난다묘...!
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+""",
+                colour=discord.Colour.from_rgb(151, 214, 181)
+            )
+            embed.set_footer(
+                text=f"요청자: {ctx.author}",
+                icon_url=ctx.author.display_avatar.url
+            )
+            embed.timestamp = ctx.message.created_at
+            
+            await ctx.reply(embed=embed)
+            return
+        
+        # 월/일 순으로 정렬
+        sorted_birthdays = sorted(all_birthdays, key=lambda x: (x["month"], x["day"]))
+        
+        # 임베드 생성
+        embed = discord.Embed(
+            title="🎂 생일 목록 ₍ᐢ..ᐢ₎",
+            description=f"""
+⠀.⠀♡ 묘묘묘... ‧₊˚ ⯎
+╭◜ᘏ ⑅ ᘏ◝  ͡  ◜◝  ͡  ◜◝╮
+(⠀⠀⠀´ㅅ` )
+(⠀ 현재 등록된 생일 목록이다묘...✩
+(⠀⠀⠀⠀ 총 **{len(sorted_birthdays)}명**이 등록했다묘!
+╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
+""",
+            colour=discord.Colour.from_rgb(151, 214, 181)
+        )
+        
+        # 생일 정보를 필드로 추가 (최대 25개까지만 표시 가능)
+        for birthday_data in sorted_birthdays[:25]:
+            user_id = birthday_data["user_id"]
+            year = birthday_data["year"]
+            month = birthday_data["month"]
+            day = birthday_data["day"]
+            
+            # 유저 정보 가져오기
+            try:
+                member = await ctx.guild.fetch_member(int(user_id))
+                user_name = f"{member.display_name} ({member.name})"
+            except:
+                user_name = f"Unknown User (ID: {user_id})"
+            
+            # 나이 계산 (연도가 있는 경우만)
+            age_text = ""
+            if year:
+                current_date = datetime.now()
+                age = current_date.year - year
+                if current_date.month < month or (current_date.month == month and current_date.day < day):
+                    age -= 1
+                age_text = f" ({age}살)"
+            
+            birthday_str = f"{year}년 " if year else ""
+            birthday_str += f"{month}월 {day}일"
+            
+            embed.add_field(
+                name=f"👤 {user_name}",
+                value=f"🎂 {birthday_str}{age_text}",
+                inline=True
+            )
+        
+        # 25개 초과 시 안내 문구 추가
+        if len(sorted_birthdays) > 25:
+            embed.set_footer(
+                text=f"요청자: {ctx.author} | 25명 이상 등록되어 처음 25명만 표시됩니다.",
+                icon_url=ctx.author.display_avatar.url
+            )
+        else:
+            embed.set_footer(
+                text=f"요청자: {ctx.author}",
+                icon_url=ctx.author.display_avatar.url
+            )
+        embed.timestamp = ctx.message.created_at
+        
+        await ctx.reply(embed=embed)
+        await self.log(f"{ctx.author}({ctx.author.id})이 생일 목록을 조회함. (총 {len(sorted_birthdays)}명) [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
 
 async def setup(bot):
