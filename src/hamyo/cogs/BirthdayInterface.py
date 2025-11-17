@@ -152,19 +152,24 @@ class BirthdayInterface(commands.Cog):
                 min_days = days
                 closest_birthday = birthday
         
-        # 마지막으로 지나간 생일 (어제 이전)
+        # 마지막으로 지나간 생일 (가장 최근에 생일이 지난 사람)
         last_birthday = None
-        max_days_ago = -float('inf')
+        min_days_passed = float('inf')
         
         for birthday in valid_birthdays:
-            days = self.calculate_days_until(birthday["month"], birthday["day"])
-            if days == 0:  # 오늘 생일은 제외
+            days_until = self.calculate_days_until(birthday["month"], birthday["day"])
+            
+            # days_until이 0이면 오늘 생일이므로 제외
+            if days_until == 0:
                 continue
             
-            # 365일 이상이면 이미 지난 생일
-            days_ago = 365 - days if days < 365 else 0
-            if days_ago > max_days_ago and days_ago > 0:
-                max_days_ago = days_ago
+            # 지나간 생일까지의 일수 계산 (365 - days_until)
+            # 예: 내일이 생일이면 days_until=1, 지나간 지 364일
+            # 어제가 생일이었으면 days_until=364, 지나간 지 1일
+            days_passed = 365 - days_until
+            
+            if days_passed < min_days_passed:
+                min_days_passed = days_passed
                 last_birthday = birthday
         
         # 이번 달 생일 리스트
@@ -180,11 +185,11 @@ class BirthdayInterface(commands.Cog):
         message_parts.append("# <:BM_n_012:1409036132263399536>､ 생일 달력 ɞ˚‧｡⋆\n")
         
         # 오늘의 날짜
-        message_parts.append(f"## <a:BM_s_006:1397193378340409445> 오늘은?")
+        message_parts.append(f"## <a:BM_s_009:1397193395377803394> 오늘은묘 ?")
         message_parts.append(f"> ✧･ﾟ: *✧･ﾟ:* **{now.year}년 {now.month}월 {now.day}일** *:･ﾟ✧*:･ﾟ✧\n")
         
         # 최근접 생일과 D-Day
-        message_parts.append("## <a:BM_s_006:1397193378340409445> 다가오는 생일은?")
+        message_parts.append("## <a:BM_s_009:1397193395377803394> 다가오는 생일은묘 ?")
         if closest_birthday:
             member = guild.get_member(int(closest_birthday["user_id"]))
             if member:
@@ -195,7 +200,7 @@ class BirthdayInterface(commands.Cog):
             message_parts.append("˚ ༘♡ ⋆｡˚ 예정된 생일이 없어요\n")
         
         # 마지막 생일
-        message_parts.append("## <a:BM_s_006:1397193378340409445> 지난 생일은?")
+        message_parts.append("## <a:BM_s_009:1397193395377803394> 지난 생일은묘 ?")
         if last_birthday:
             member = guild.get_member(int(last_birthday["user_id"]))
             if member:
@@ -206,21 +211,15 @@ class BirthdayInterface(commands.Cog):
             message_parts.append("˚ ༘♡ ⋆｡˚ 최근 생일이 없어요\n")
         
         # 이번 달 생일 리스트
-        message_parts.append(f"## <a:BM_s_006:1397193378340409445> {today_month}월의 생일들 *!*")
+        message_parts.append(f"## <a:BM_s_009:1397193395377803394> {today_month}월의 생일들묘 *!*")
         if this_month_birthdays:
             month_list = []
             for birthday in this_month_birthdays:
                 member = guild.get_member(int(birthday["user_id"]))
                 if member:
                     is_today = "🎂" if birthday["day"] == today_day else "🎈"
-                    age_info = ""
-                    if birthday["year"]:
-                        age = now.year - birthday["year"]
-                        if now.month < birthday["month"] or (now.month == birthday["month"] and now.day < birthday["day"]):
-                            age -= 1
-                        age_info = f" (**{age + 1}세**)"
                     
-                    month_list.append(f"> {is_today} **{birthday['day']}일** - {member.mention}{age_info}")
+                    month_list.append(f"> {is_today} **{birthday['day']}일** - {member.mention}")
             
             if month_list:
                 message_parts.append("\n".join(month_list))
