@@ -9,9 +9,11 @@ import birthday_db
 from datetime import datetime, timedelta
 import json
 from pathlib import Path
+import pytz
 
 GUILD_ID = [1396829213100605580, 1378632284068122685]
 CONFIG_PATH = Path("config/birthday_config.json")
+KST = pytz.timezone("Asia/Seoul")
 
 
 def only_in_guild():
@@ -88,7 +90,7 @@ class BirthdayInterface(commands.Cog):
         config[guild_key]["guild_id"] = guild_id
         config[guild_key]["channel_id"] = channel_id
         config[guild_key]["message_id"] = message_id
-        config[guild_key]["last_updated"] = datetime.now().isoformat()
+        config[guild_key]["last_updated"] = datetime.now(KST).isoformat()
         
         save_config(config)
     
@@ -111,15 +113,15 @@ class BirthdayInterface(commands.Cog):
     
     def calculate_days_until(self, month: int, day: int) -> int:
         """다음 생일까지 남은 일수 계산"""
-        today = datetime.now()
+        today = datetime.now(KST)
         current_year = today.year
         
         # 올해 생일
-        birthday_this_year = datetime(current_year, month, day)
+        birthday_this_year = KST.localize(datetime(current_year, month, day))
         
         # 생일이 이미 지났으면 내년 생일로 계산
         if birthday_this_year < today:
-            birthday_next = datetime(current_year + 1, month, day)
+            birthday_next = KST.localize(datetime(current_year + 1, month, day))
         else:
             birthday_next = birthday_this_year
         
@@ -128,7 +130,7 @@ class BirthdayInterface(commands.Cog):
     
     async def create_birthday_message(self, guild: discord.Guild) -> str:
         """생일 정보 메시지 생성 (Markdown 형식)"""
-        now = datetime.now()
+        now = datetime.now(KST)
         today_month = now.month
         today_day = now.day
         
@@ -191,14 +193,27 @@ class BirthdayInterface(commands.Cog):
         # 메시지 생성 (Markdown 형식)
         message_parts = []
         
-        # 제목 (큰 글씨)
+        # 1. 제목 (큰 글씨)
         message_parts.append("（ <:BM_a_000:1399387512945774672> ）₊ **생일 달력**")
 
         # 오늘의 날짜
         message_parts.append(f"-# <:BM_inv:1384475516152582144> ୨ {now.year} . {now.month} . {now.day} ୧")
         message_parts.append("⠀\n")
         
-        # 최근접 생일과 D-Day
+        # 2. 오늘 생일 (있을 경우에만 표시)
+        if today_birthdays:
+            message_parts.append("## <a:slg03:1378567322985304184> 오늘 생일이다묘 .ᐟ")
+            message_parts.append(f"> -# <:BM_inv:1384475516152582144> **{today_month}월 {today_day}일**")
+            for b in today_birthdays:
+                member = guild.get_member(int(b["user_id"]))
+                if member:
+                    message_parts.append(f"> <a:BM_gliter_005:1377697008344891572> {member.mention} <a:BM_gliter_005:1377697008344891572>")
+            message_parts.append("\n")
+            
+            # 3. 구분선 (오늘 생일이 있을 경우에만)
+            message_parts.append("𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃\n")
+        
+        # 4. 다가오는 생일
         message_parts.append("## <a:slg13:1378567371324653618> 다가오는 생일이다묘 .ᐟ")
         if closest_birthdays:
             # 같은 D-Day인 모든 생일 날짜(같은 날짜일 것) 표시 후 멘션들 나열
@@ -212,7 +227,7 @@ class BirthdayInterface(commands.Cog):
         else:
             message_parts.append("> 아직 예정된 생일이 없다묘...\n")
         
-        # 이번 달 생일 리스트
+        # 5. 이번 달 생일 리스트
         message_parts.append(f"## <a:slg13:1378567371324653618> {today_month}월의 생일이다묘 .ᐟ")
         if this_month_birthdays:
             month_list = []
@@ -249,20 +264,6 @@ class BirthdayInterface(commands.Cog):
         # else:
         #     message_parts.append("-# 최근 생일이 없었다묘...\n")
 
-        message_parts.append("\n𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃")
-
-        # 오늘 생일 (최근 생일 아래에 출력)
-        message_parts.append("\n## <a:slg03:1378567322985304184> 오늘 생일이다묘 .ᐟ")
-        if today_birthdays:
-            message_parts.append(f"> -# <:BM_inv:1384475516152582144> **{today_month}월 {today_day}일**")
-            for b in today_birthdays:
-                member = guild.get_member(int(b["user_id"]))
-                if member:
-                    message_parts.append(f"> <a:BM_gliter_005:1377697008344891572> {member.mention} <a:BM_gliter_005:1377697008344891572>")
-            message_parts.append("\n")
-        else:
-            message_parts.append("> -# 오늘 생일이 없다묘...\n")
-        
         # 푸터
         message_parts.append("\n-# <a:BM_m_001:1399387800373301319> 매일 자정에 자동으로 업데이트 된다묘 .ᐟ.ᐟ <a:BM_m_002:1399387809772470342>")
         
@@ -328,12 +329,12 @@ class BirthdayInterface(commands.Cog):
         """자정까지 대기"""
         await self.bot.wait_until_ready()
         
-        # 다음 자정까지 대기
-        now = datetime.now()
+        # 다음 자정까지 대기 (KST 기준)
+        now = datetime.now(KST)
         next_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         wait_seconds = (next_midnight - now).total_seconds()
         
-        await self.log(f"생일 자동 업데이트 시작 예정: {next_midnight.strftime('%Y-%m-%d %H:%M:%S')} ({wait_seconds:.0f}초 후)")
+        await self.log(f"생일 자동 업데이트 시작 예정 (KST): {next_midnight.strftime('%Y-%m-%d %H:%M:%S')} ({wait_seconds:.0f}초 후)")
         await discord.utils.sleep_until(next_midnight)
     
     @commands.group(name="생일설정", invoke_without_command=True)
