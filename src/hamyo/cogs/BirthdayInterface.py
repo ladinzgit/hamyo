@@ -113,7 +113,8 @@ class BirthdayInterface(commands.Cog):
     
     def calculate_days_until(self, month: int, day: int) -> int:
         """다음 생일까지 남은 일수 계산"""
-        today = datetime.now(KST)
+        now = datetime.now(KST)
+        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
         current_year = today.year
         
         # 올해 생일
