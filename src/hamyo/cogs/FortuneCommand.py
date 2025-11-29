@@ -101,6 +101,8 @@ class FortuneCommand(commands.Cog):
         prompt = f"{birth_text} {today_text} 오늘의 운세를 알려줘"
 
         try:
+            waiting_message = await ctx.reply("운세를 불러오는 중이다묘... 잠시만 기다려달라묘!", mention_author=False)
+            
             completion = await self.client.chat.completions.create(
                 model="gpt-5.1",
                 messages=[
@@ -132,11 +134,24 @@ class FortuneCommand(commands.Cog):
             # 후처리: ' 묘' -> '묘', '묘 '는 그대로 두어 문장 구조는 유지
             # fortune_text = fortune_text.replace(" 묘", "묘")
         except Exception as e:
-            await ctx.reply("운세를 불러오다 미끄러졌다묘... 잠시 후 다시 시도해달라묘!")
+            if waiting_message:
+                try:
+                    await waiting_message.edit(content="운세를 불러오다 미끄러졌다묘... 잠시 후 다시 시도해달라묘!")
+                except Exception:
+                    await ctx.reply("운세를 불러오다 미끄러졌다묘... 잠시 후 다시 시도해달라묘!", mention_author=False)
+            else:
+                await ctx.reply("운세를 불러오다 미끄러졌다묘... 잠시 후 다시 시도해달라묘!", mention_author=False)            
             await self.log(f"운세 생성 오류: {e} [길드: {ctx.guild.name}({ctx.guild.id}), 사용자: {ctx.author}({ctx.author.id})]")
             return
 
-        await ctx.reply(fortune_text, mention_author=False)
+        try:
+            if waiting_message:
+                await waiting_message.edit(content=fortune_text)
+            else:
+                await ctx.reply(fortune_text, mention_author=False)
+        except Exception:
+            await ctx.reply(fortune_text, mention_author=False)
+            
         fortune_db.mark_target_used(ctx.guild.id, ctx.author.id, today_str)
 
         # 운세 역할 회수 (사용 중에는 멘션 대상에서 제외)
