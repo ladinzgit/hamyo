@@ -9,6 +9,8 @@ import birthday_db
 import fortune_db
 from .BirthdayInterface import KST, only_in_guild
 
+from dotenv import load_dotenv
+load_dotenv()
 
 class FortuneCommand(commands.Cog):
     """*운세 명령어를 처리하는 Cog"""
