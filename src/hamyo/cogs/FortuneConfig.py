@@ -184,12 +184,16 @@ class FortuneConfig(commands.Cog):
             await ctx.reply("count는 1 이상이어야 한다묘! 최소 하루 이상 넣어달라묘.")
             return
 
-        fortune_db.upsert_target(ctx.guild.id, member.id, count)
-        await ctx.reply(f"{member.mention} 님을 운세 대상에 추가했다묘! {count}일 후 자동으로 사라진다묘.")
-        await self.log(f"{ctx.author}({ctx.author.id})가 {member}({member.id})를 운세 대상(count={count})으로 등록 [길드: {ctx.guild.name}({ctx.guild.id})]")
+        existing = fortune_db.get_target(ctx.guild.id, member.id)
+        base_count = int(existing.get("count", 0)) if existing else 0
+        new_count = base_count + count
+
+        fortune_db.upsert_target(ctx.guild.id, member.id, new_count)
+        await ctx.reply(f"{member.mention} 님을 운세 대상에 추가했다묘! 기존 {base_count}일에 {count}일을 더해 **총 {new_count}일**로 설정했다묘.")
+        await self.log(f"{ctx.author}({ctx.author.id})가 {member}({member.id})를 운세 대상(count {base_count}→{new_count})으로 등록/갱신 [길드: {ctx.guild.name}({ctx.guild.id})]")
 
         # 바로 역할 부여
-        if int(count) > 0:
+        if int(new_count) > 0:
             await self._grant_role(ctx.guild, member)
 
     @fortune_setup.command(name="대상삭제")
