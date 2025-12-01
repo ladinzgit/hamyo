@@ -74,11 +74,11 @@ class TimeSummaryView(discord.ui.View):
         date_range_pretty = self.date_range.replace(" ~ ", " → ")
         desc_lines = [
             f"-# {self.period}､ {date_range_pretty}",
-            f"총합: {self.format_duration(self.total_seconds)}",
+            f"**총합:** {self.format_duration(self.total_seconds)}",
         ]
         if self.rank:
             rank_num, total_users = self.rank
-            desc_lines.append(f"순위: {rank_num}위 / {total_users}명")
+            desc_lines.append(f"**순위:** {rank_num}위 / {total_users}명")
             
         desc_lines.append("𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃")
 
