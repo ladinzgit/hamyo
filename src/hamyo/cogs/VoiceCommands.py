@@ -4,7 +4,258 @@ from discord.ext import commands, tasks
 from datetime import datetime, timedelta
 from DataManager import DataManager
 import pytz
-from typing import List
+import re
+from typing import Callable, List, Optional, Tuple
+
+
+class TimeSummaryView(discord.ui.View):
+    def __init__(
+        self,
+        *,
+        owner_id: int,
+        user: discord.Member,
+        period: str,
+        date_range: str,
+        total_seconds: int,
+        categories: List[Tuple[Optional[int], dict]],
+        formatter: Callable[[int], str],
+        rank: Optional[Tuple[int, int]] = None,
+    ):
+        super().__init__(timeout=180)
+        self.owner_id = owner_id
+        self.user = user
+        self.period = period
+        self.date_range = date_range
+        self.total_seconds = total_seconds
+        self.categories = categories
+        self.format_duration = formatter
+        self.rank = rank  # (rank, total_users)
+        self.selected_index: Optional[int] = None
+        self.message: Optional[discord.Message] = None
+
+        summary_label = f"총합 {self.format_duration(total_seconds)}"
+        window_label = f"{period} • {date_range}"
+        self.add_item(discord.ui.Button(style=discord.ButtonStyle.primary, label=summary_label, disabled=True))
+        self.add_item(discord.ui.Button(style=discord.ButtonStyle.secondary, label=window_label, disabled=True))
+
+        if categories:
+            options = []
+            for idx, (_, cat) in enumerate(categories):
+                label = cat["name"] if len(cat["name"]) < 95 else f"{cat['name'][:95]}…"
+                options.append(
+                    discord.SelectOption(
+                        label=label,
+                        description=f"총합 {self.format_duration(cat['total'])}",
+                        value=str(idx),
+                        default=False,
+                    )
+                )
+
+            self.category_select = discord.ui.Select(
+                placeholder="카테고리를 선택하면 채널별 기록을 보여준다묘 .ᐟ",
+                options=options,
+                min_values=1,
+                max_values=1,
+            )
+            self.category_select.callback = self.on_select
+            self.add_item(self.category_select)
+
+    def render_content(self) -> str:
+        # deprecated, kept for backwards compatibility with any lingering calls
+        return ""
+
+    def render_embed(self) -> discord.Embed:
+        def extract_name(text: str) -> str:
+            match = re.search(r"([가-힣A-Za-z0-9_]+)$", text or "")
+            return match.group(1) if match else text
+
+        display_label = extract_name(self.user.display_name)
+        title = f"<:BM_k_003:1399387520135069770>､ {display_label}님의 음성 기록"
+        date_range_pretty = self.date_range.replace(" ~ ", " 🠒 ")
+        desc_lines = [
+            f"-# {self.period}､ {date_range_pretty}",
+            f"총합: {self.format_duration(self.total_seconds)}",
+        ]
+        if self.rank:
+            rank_num, total_users = self.rank
+            desc_lines.append(f"순위: {rank_num}위 / {total_users}명")
+            
+        desc_lines.append("𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃")
+
+        embed = discord.Embed(
+            title=title,
+            description="\n".join(desc_lines),
+            colour=discord.Colour.from_rgb(253, 237, 134),
+        )
+
+        if self.selected_index is not None and self.categories:
+            cat = self.categories[self.selected_index][1]
+            embed.add_field(
+                name=f"{cat['name']} 채널별 기록",
+                value=self.render_category_block(cat),
+                inline=False,
+            )
+        else:
+            summary_lines = []
+            for _, cat in self.categories:
+                summary_lines.append(f"<a:BM_moon_001:1378716907624202421>{cat['name']}: {self.format_duration(cat['total'])}")
+            summary_text = "\n".join(summary_lines) if summary_lines else "표시할 카테고리가 없습니다."
+            summary_text += "\n\n세부 기록을 확인할 카테고리를 아래에서 선택하라묘 .ᐟ"
+            embed.add_field(
+                name="카테고리별 요약 일람",
+                value=summary_text,
+                inline=False,
+            )
+
+        embed.set_thumbnail(url=self.user.display_avatar)
+        embed.set_footer(text="반영까지 최대 1분이 소요될 수 있다묘 .ᐟ")
+        return embed
+
+    def render_category_block(self, cat: dict) -> str:
+        lines = []
+        for cname, sec, pos in sorted(cat["channels"], key=lambda x: x[2]):
+            lines.append(f"<a:BM_moon_001:1378716907624202421>{cname}: {self.format_duration(sec)}")
+
+        if cat.get("deleted_total", 0) > 0:
+            lines.append(f"<a:BM_moon_001:1378716907624202421>삭제된 채널: {self.format_duration(cat['deleted_total'])}")
+
+        if lines:
+            lines.append("")
+        lines.append(f"<:BM_a_000:1399387512945774672> **총 {self.format_duration(cat['total'])}** 채웠다묘 .ᐟ")
+        return "\n".join(lines)
+
+    async def on_select(self, interaction: discord.Interaction):
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("이 컨트롤은 명령어 실행자만 사용할 수 있어요.", ephemeral=True)
+            return
+
+        self.selected_index = int(self.category_select.values[0])
+        for opt in self.category_select.options:
+            opt.default = opt.value == str(self.selected_index)
+        await interaction.response.edit_message(embed=self.render_embed(), view=self)
+
+    async def on_timeout(self):
+        for child in self.children:
+            if isinstance(child, (discord.ui.Button, discord.ui.Select)):
+                child.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
+
+
+class RankingView(discord.ui.View):
+    def __init__(
+        self,
+        *,
+        owner_id: int,
+        ranked: List[Tuple[int, int]],
+        formatter: Callable[[int], str],
+        name_resolver: Callable[[int], str],
+        title: str,
+        window_label: str,
+        page: int,
+        footer_note: str,
+        emoji_prefix: str = "<:BM_k_003:1399387520135069770>､ ",
+        colour: Optional[discord.Colour] = None,
+    ):
+        super().__init__(timeout=180)
+        self.owner_id = owner_id
+        self.ranked = ranked
+        self.format_duration = formatter
+        self.name_resolver = name_resolver
+        self.title = title
+        self.window_label = window_label
+        self.items_per_page = 10
+        self.page = page
+        self.total_pages = max(1, (len(ranked) + self.items_per_page - 1) // self.items_per_page)
+        self.footer_note = footer_note
+        self.emoji_prefix = emoji_prefix
+        self.colour = colour or discord.Colour.from_rgb(253, 237, 134)
+        self.message: Optional[discord.Message] = None
+        self.user_rank_info = next(((idx + 1, secs) for idx, (uid, secs) in enumerate(ranked) if uid == owner_id), None)
+
+        self.prev_button = discord.ui.Button(style=discord.ButtonStyle.secondary, label="◀ 이전")
+        self.next_button = discord.ui.Button(style=discord.ButtonStyle.secondary, label="다음 ▶")
+        self.prev_button.callback = self.go_prev
+        self.next_button.callback = self.go_next
+
+        self.add_item(self.prev_button)
+        self.add_item(self.next_button)
+        self.update_button_states()
+
+    def update_button_states(self):
+        self.prev_button.disabled = self.page <= 1
+        self.next_button.disabled = self.page >= self.total_pages
+
+    def render_page(self) -> str:
+        start_index = (self.page - 1) * self.items_per_page
+        current = self.ranked[start_index : start_index + self.items_per_page]
+
+        rows = []
+        for idx, (uid, seconds) in enumerate(current, start=start_index + 1):
+            name = self.name_resolver(uid)
+            prefix = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else f"{idx:>2}위"
+            marker = " • 당신" if self.user_rank_info and self.user_rank_info[0] == idx else ""
+            rows.append(f"{prefix} {name} — {self.format_duration(seconds)}{marker}")
+
+        if not rows:
+            rows.append("표시할 기록이 없습니다.")
+
+        body = "\n".join(rows)
+        meta = f"{self.window_label}\n페이지 {self.page}/{self.total_pages}"
+        extras = []
+        if self.footer_note:
+            extras.append(self.footer_note)
+
+        embed = discord.Embed(
+            title=f"{self.emoji_prefix} {self.title}",
+            description=meta,
+            colour=self.colour,
+        )
+        embed.add_field(name="랭킹", value=f"\n{body}\n", inline=False)
+        if self.user_rank_info:
+            embed.add_field(
+                name="내 순위",
+                value=f"{self.user_rank_info[0]}위 • {self.format_duration(self.user_rank_info[1])}",
+                inline=False,
+            )
+        if extras:
+            embed.set_footer(text=" • ".join(extras))
+
+        return embed
+
+    async def go_prev(self, interaction: discord.Interaction):
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("이 컨트롤은 명령어 실행자만 사용할 수 있어요.", ephemeral=True)
+            return
+
+        if self.page > 1:
+            self.page -= 1
+            self.update_button_states()
+        await interaction.response.edit_message(embed=self.render_page(), view=self)
+
+    async def go_next(self, interaction: discord.Interaction):
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("이 컨트롤은 명령어 실행자만 사용할 수 있어요.", ephemeral=True)
+            return
+
+        if self.page < self.total_pages:
+            self.page += 1
+            self.update_button_states()
+        await interaction.response.edit_message(embed=self.render_page(), view=self)
+
+    async def on_timeout(self):
+        for child in self.children:
+            if isinstance(child, discord.ui.Button):
+                child.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
+
 
 class VoiceCommands(commands.GroupCog, group_name="보이스"):
     def __init__(self, bot):
@@ -77,6 +328,8 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
         app_commands.Choice(name="월간", value="월간"),
         app_commands.Choice(name="누적", value="누적")
     ])
+
+
     async def check_time(self, interaction: discord.Interaction, 
                         user: discord.Member = None, 
                         period: str = "일간",
@@ -147,43 +400,34 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
 
             sorted_categories = sorted(category_details.items(), key=lambda x: (x[1]["position"], x[1]["name"]))
 
-            embed = discord.Embed(
-                title="음성 기록 확인",
-                description=f"{user.mention}님의 {period}({start_str} ~ {end_str}) 기록입니다.",
-                colour=discord.Colour.from_rgb(253, 237, 134)
+            # 순위 계산 (동일 기간/채널 기준)
+            rank, total_users, user_total, _, _ = await self.data_manager.get_user_rank(
+                user.id,
+                period,
+                base_datetime,
+                tracked_channels,
             )
 
-            for _, cat in sorted_categories:
-                cat_total = cat["total"]
-                cat_title = f"**{cat['name']}**"
-                field_value = ""
-
-                for cname, sec, pos in sorted(cat["channels"], key=lambda x: x[2]):
-                    field_value += f"{cname}: {self.format_duration(sec)}\n"
-
-                if cat.get("deleted_total", 0) > 0:
-                    field_value += f"삭제된 채널: {self.format_duration(cat['deleted_total'])}\n"
-
-                field_value += f"\n**{cat['name']} 종합 시간**: {self.format_duration(cat_total)}"
-                embed.add_field(name=cat_title, value=field_value, inline=False)
-
-            embed.add_field(
-                name="───────── ౨ৎ ─────────",
-                value=f"**종합**: {self.format_duration(total_seconds)}",
-                inline=False
+            view = TimeSummaryView(
+                owner_id=interaction.user.id,
+                user=user,
+                period=period,
+                date_range=f"{start_str} ~ {end_str}",
+                total_seconds=total_seconds,
+                categories=sorted_categories,
+                formatter=self.format_duration,
+                rank=(rank, total_users) if rank else None,
             )
-            
-            embed.set_thumbnail(url=user.display_avatar)
-            embed.set_footer(text="반영까지 최대 1분이 소요될 수 있습니다.")
 
-            await interaction.followup.send(embed=embed)
+            message = await interaction.followup.send(embed=view.render_embed(), view=view)
+            view.message = message
             await self.log(f"{interaction.user}({interaction.user.id})님께서 {user}({user.id})님의 {period} 기록을 조회했습니다. [길드: {interaction.guild.name}({interaction.guild.id}), 채널: {interaction.channel.name if interaction.channel else 'DM'}({interaction.channel_id})]")
 
         except Exception as e:
             await self.log(f"음성 채팅 기록 확인 중 오류 발생: {e} [길드: {interaction.guild.name if interaction.guild else 'N/A'}, 채널: {interaction.channel.name if interaction.channel else 'DM'}({interaction.channel_id})]")
             await interaction.response.send_message("기록 조회 중 오류가 발생했습니다.", ephemeral=True)
-        
-        
+
+
     @app_commands.command(name="순위", description="음성 채널 사용 시간 순위를 확인합니다.")
     @app_commands.describe(
         period="확인할 기간을 선택합니다. (일간/주간/월간/누적, 기본값: 일간)",
@@ -196,11 +440,13 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
         app_commands.Choice(name="월간", value="월간"),
         app_commands.Choice(name="누적", value="누적")
     ])
+
+
     async def check_ranking(self, interaction: discord.Interaction, 
                         period: str = "일간", 
                         page: int = 1,
                         base_date: str = None):
-        
+
         try:
             # 기준일 파싱
             if base_date:
@@ -212,14 +458,14 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
                     return
             else:
                 base_datetime = datetime.now(self.tz)
-            
+
             # 페이지 유효성 검사
             if page < 1:
                 await interaction.response.send_message("페이지 번호는 1 이상이어야 합니다.", ephemeral=True)
                 return
-            
+
             await interaction.response.defer() # 시간이 오래 걸릴 것을 대비해 defer 처리
-            
+
             # 총 시간 데이터 조회
             tracked_channels = await self.get_expanded_tracked_channels()
             all_data, start_date, end_date = await self.data_manager.get_all_users_times(period, base_datetime, tracked_channels)
@@ -231,8 +477,6 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
                 return await interaction.followup.send("해당 기간에 해당하는 기록이 없습니다.", ephemeral=True)
 
             items_per_page = 10
-            start_index = (page - 1) * items_per_page
-            end_index = start_index + items_per_page
             total_pages = (len(ranked) + items_per_page - 1) // items_per_page
 
             if page > total_pages:
@@ -240,47 +484,33 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
 
             start_str = start_date.strftime("%Y-%m-%d") if start_date else "-"
             end_str = (end_date - timedelta(days=1)).strftime("%Y-%m-%d") if end_date else "-"
-            
-            # 임베드 생성
-            embed = discord.Embed(
-                title=f"음성 채널 순위",
-                description=f"{period}({start_str} ~ {end_str}) 기준의 순위를 조회합니다.",
-                colour=discord.Colour.from_rgb(253, 237, 134)
-            )
-            embed.set_footer(text=f"페이지: {page}/{total_pages} • 반영까지 최대 1분이 소요될 수 있습니다.")
-            embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
 
-            # 현재 페이지의 순위 표시
-            for i, (uid, seconds) in enumerate(ranked[start_index:end_index], start=start_index + 1):
+            window_label = f"{period} ({start_str} ~ {end_str})"
+            footer_note = "반영까지 최대 1분이 소요될 수 있습니다."
+
+            def resolve_name(uid: int) -> str:
                 member = interaction.guild.get_member(uid)
-                name = member.display_name if member else f"알 수 없음 ({uid})"
-                embed.add_field(
-                    name=f"{i}위 - {name}",
-                    value=self.format_duration(seconds),
-                    inline=False
-                )
-                
-            # 호출자의 순위가 현재 페이지에 포함되어 있지 않은 경우 하단에 추가 표시
-            caller_id = interaction.user.id
-            if caller_id not in [uid for uid, _ in ranked[start_index:end_index]]:
-                for i, (uid, seconds) in enumerate(ranked, start=1):
-                    if uid == caller_id:
-                        member = interaction.guild.get_member(uid)
-                        name = member.display_name if member else f"알 수 없음 ({uid})"
-                        embed.add_field(
-                            name="───────── ౨ৎ ─────────",
-                            value=f"**{i}위 -** {interaction.user.mention}\n{self.format_duration(seconds)}",
-                            inline=False
-                        )
-                        break
+                return member.display_name if member else f"알 수 없음 ({uid})"
 
+            view = RankingView(
+                owner_id=interaction.user.id,
+                ranked=ranked,
+                formatter=self.format_duration,
+                name_resolver=resolve_name,
+                title="음성 채널 순위",
+                window_label=window_label,
+                page=page,
+                footer_note=footer_note,
+                emoji_prefix="<:BM_k_003:1399387520135069770>､ ",
+            )
 
-            await interaction.followup.send(embed=embed)
-        
+            message = await interaction.followup.send(embed=view.render_page(), view=view)
+            view.message = message
+
         except Exception as e:
             await self.log(f"순위 확인 중 오류 발생: {e} [길드: {interaction.guild.name if interaction.guild else 'N/A'}, 채널: {interaction.channel.name if interaction.channel else 'DM'}({interaction.channel_id})]")
             await interaction.response.send_message("순위 조회 중 오류가 발생했습니다.", ephemeral=True)
-            
+
 
     @app_commands.command(name="역할순위", description="특정 역할 내에서 음성 채널 사용 시간 순위를 확인합니다.")
     @app_commands.describe(
@@ -295,89 +525,77 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
         app_commands.Choice(name="월간", value="월간"),
         app_commands.Choice(name="누적", value="누적")
     ])
+
+
     async def check_role_ranking(self, interaction: discord.Interaction,
                                 role: discord.Role,
                                 period: str = "일간",
                                 page: int = 1,
                                 base_date: str = None):
-            try:
-                # 기준일 파싱
-                if base_date:
-                    try:
-                        base_datetime = datetime.strptime(base_date, "%Y-%m-%d")
-                        base_datetime = base_datetime.replace(tzinfo=self.tz)
-                    except ValueError:
-                        await interaction.response.send_message("날짜 형식이 올바르지 않습니다. YYYY-MM-DD 형식으로 입력해주세요.", ephemeral=True)
-                        return
-                else:
-                    base_datetime = datetime.now(self.tz)
-
-                if page < 1:
-                    await interaction.response.send_message("페이지 번호는 1 이상이어야 합니다.")
+        try:
+            # 기준일 파싱
+            if base_date:
+                try:
+                    base_datetime = datetime.strptime(base_date, "%Y-%m-%d")
+                    base_datetime = base_datetime.replace(tzinfo=self.tz)
+                except ValueError:
+                    await interaction.response.send_message("날짜 형식이 올바르지 않습니다. YYYY-MM-DD 형식으로 입력해주세요.", ephemeral=True)
                     return
-                
-                await interaction.response.defer()  # 시간이 오래 걸릴 것을 대비해 defer 처리
-                
-                # 총 시간 데이터 조회
-                tracked_channels = await self.get_expanded_tracked_channels()
-                all_data, start_date, end_date = await self.data_manager.get_all_users_times(period, base_datetime, tracked_channels)
+            else:
+                base_datetime = datetime.now(self.tz)
 
-                role_member_ids = {member.id for member in role.members}
-                filtered = [(uid, sum(times.values())) for uid, times in all_data.items() if uid in role_member_ids]
-                ranked = sorted(filtered, key=lambda x: x[1], reverse=True)
+            if page < 1:
+                await interaction.response.send_message("페이지 번호는 1 이상이어야 합니다.", ephemeral=True)
+                return
 
-                if not ranked:
-                    return await interaction.followup.send(f"{role.name} 역할의 기록이 없습니다.", ephemeral=True)
+            await interaction.response.defer()  # 시간이 오래 걸릴 것을 대비해 defer 처리
 
-                items_per_page = 10
-                start_index = (page - 1) * items_per_page
-                end_index = start_index + items_per_page
-                total_pages = (len(ranked) + items_per_page - 1) // items_per_page
+            # 총 시간 데이터 조회
+            tracked_channels = await self.get_expanded_tracked_channels()
+            all_data, start_date, end_date = await self.data_manager.get_all_users_times(period, base_datetime, tracked_channels)
 
-                if page > total_pages:
-                    return await interaction.followup.send(f"요청한 페이지는 존재하지 않습니다. (1-{total_pages})", ephemeral=True)
+            role_member_ids = {member.id for member in role.members}
+            filtered = [(uid, sum(times.values())) for uid, times in all_data.items() if uid in role_member_ids]
+            ranked = sorted(filtered, key=lambda x: x[1], reverse=True)
 
-                start_str = start_date.strftime("%Y-%m-%d") if start_date else "-"
-                end_str = (end_date - timedelta(days=1)).strftime("%Y-%m-%d") if end_date else "-"
-                    
-                # 임베드 생성
-                embed = discord.Embed(
-                    title=f"{role.name} 역할 음성 사용 시간 순위",
-                    description=f"{period}({start_str} ~ {end_str}) 기준의 순위를 조회합니다.",
-                    colour=role.colour
-                )
-                embed.set_footer(text=f"페이지: {page}/{total_pages} • 반영까지 최대 1분이 소요될 수 있습니다.")
-                embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
+            if not ranked:
+                return await interaction.followup.send(f"{role.name} 역할의 기록이 없습니다.", ephemeral=True)
 
-                # 현재 페이지의 순위 표시
-                for i, (uid, seconds) in enumerate(ranked[start_index:end_index], start=start_index + 1):
-                    member = interaction.guild.get_member(uid)
-                    name = member.display_name if member else f"알 수 없음 ({uid})"
-                    embed.add_field(
-                        name=f"{i}위 - {name}",
-                        value=self.format_duration(seconds),
-                        inline=False
-                    )
-                    
-                # 호출자의 순위가 현재 페이지에 포함되어 있지 않은 경우 하단에 추가 표시
-                caller_id = interaction.user.id
-                if caller_id not in [uid for uid, _ in ranked[start_index:end_index]]:
-                    for i, (uid, seconds) in enumerate(ranked, start=1):
-                        if uid == caller_id:
-                            member = interaction.guild.get_member(uid)
-                            name = member.display_name if member else f"알 수 없음 ({uid})"
-                            embed.add_field(
-                                name="───────── ౨ৎ ─────────",
-                                value=f"{i}위 - {interaction.user.mention}\n{self.format_duration(seconds)}",
-                                inline=False
-                            )
-                            break
+            items_per_page = 10
+            total_pages = (len(ranked) + items_per_page - 1) // items_per_page
 
-                await interaction.followup.send(embed=embed)
+            if page > total_pages:
+                return await interaction.followup.send(f"요청한 페이지는 존재하지 않습니다. (1-{total_pages})", ephemeral=True)
 
-            except Exception as e:
-                await self.log(f"역할 순위 확인 중 오류 발생: {e} [길드: {interaction.guild.name if interaction.guild else 'N/A'}, 채널: {interaction.channel.name if interaction.channel else 'DM'}({interaction.channel_id})]")
-                await interaction.response.send_message("역할 순위 조회 중 오류가 발생했습니다.", ephemeral=True)
+            start_str = start_date.strftime("%Y-%m-%d") if start_date else "-"
+            end_str = (end_date - timedelta(days=1)).strftime("%Y-%m-%d") if end_date else "-"
+            window_label = f"{role.name} • {period} ({start_str} ~ {end_str})"
+            footer_note = "반영까지 최대 1분이 소요될 수 있습니다."
+
+            def resolve_name(uid: int) -> str:
+                member = interaction.guild.get_member(uid)
+                return member.display_name if member else f"알 수 없음 ({uid})"
+
+            view = RankingView(
+                owner_id=interaction.user.id,
+                ranked=ranked,
+                formatter=self.format_duration,
+                name_resolver=resolve_name,
+                title=f"{role.name} 역할 음성 사용 시간 순위",
+                window_label=window_label,
+                page=page,
+                footer_note=footer_note,
+                colour=role.colour,
+                emoji_prefix="<:BM_k_003:1399387520135069770>､ ",
+            )
+
+            message = await interaction.followup.send(embed=view.render_page(), view=view)
+            view.message = message
+
+        except Exception as e:
+            await self.log(f"역할 순위 확인 중 오류 발생: {e} [길드: {interaction.guild.name if interaction.guild else 'N/A'}, 채널: {interaction.channel.name if interaction.channel else 'DM'}({interaction.channel_id})]")
+            await interaction.response.send_message("역할 순위 조회 중 오류가 발생했습니다.", ephemeral=True)
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(VoiceCommands(bot))

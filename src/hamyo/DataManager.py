@@ -209,6 +209,35 @@ class DataManager:
 
         return result, start_date, end_date
 
+    async def get_user_rank(
+        self,
+        user_id: int,
+        period: str,
+        base_date: datetime,
+        channel_filter: Optional[List[int]] = None,
+    ) -> Tuple[Optional[int], int, int, Optional[datetime], Optional[datetime]]:
+        """
+        Returns (rank, total_users, user_total_seconds, start_date, end_date)
+        rank is 1-based; None if user has no data in the window.
+        """
+        all_data, start_date, end_date = await self.get_all_users_times(period, base_date, channel_filter)
+        if not all_data:
+            return None, 0, 0, start_date, end_date
+
+        user_totals = [(uid, sum(times.values())) for uid, times in all_data.items()]
+        ranked = sorted(user_totals, key=lambda x: x[1], reverse=True)
+
+        total_users = len(ranked)
+        user_total = 0
+        rank = None
+        for idx, (uid, seconds) in enumerate(ranked, start=1):
+            if uid == user_id:
+                rank = idx
+                user_total = seconds
+                break
+
+        return rank, total_users, user_total, start_date, end_date
+
     
     async def get_period_range(self, period: str, base_datetime: datetime) -> Tuple[Optional[datetime], Optional[datetime]]:
         await self.ensure_initialized()
