@@ -71,7 +71,7 @@ class TimeSummaryView(discord.ui.View):
 
         display_label = extract_name(self.user.display_name)
         title = f"<:BM_k_003:1399387520135069770>､ {display_label}님의 음성 기록"
-        date_range_pretty = self.date_range.replace(" ~ ", " 🠒 ")
+        date_range_pretty = self.date_range.replace(" ~ ", " ➜ ")
         desc_lines = [
             f"-# {self.period}､ {date_range_pretty}",
             f"총합: {self.format_duration(self.total_seconds)}",
