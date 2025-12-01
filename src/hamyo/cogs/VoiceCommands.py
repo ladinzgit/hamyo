@@ -102,7 +102,7 @@ class TimeSummaryView(discord.ui.View):
             summary_text = "\n".join(summary_lines) if summary_lines else "표시할 카테고리가 없습니다."
             summary_text += "\n\n세부 기록을 확인할 카테고리를 아래에서 선택하라묘 .ᐟ"
             embed.add_field(
-                name="카테고리별 요약 일람",
+                name="카테고리별 음성 기록",
                 value=summary_text,
                 inline=False,
             )
@@ -113,8 +113,8 @@ class TimeSummaryView(discord.ui.View):
 
     def render_category_block(self, cat: dict) -> str:
         lines = []
-        for cname, sec, pos in sorted(cat["channels"], key=lambda x: x[2]):
-            lines.append(f"{cname}\n<a:BM_moon_001:1378716907624202421>{self.format_duration(sec)}")
+        for channel_mention, sec, pos in sorted(cat["channels"], key=lambda x: x[2]):
+            lines.append(f"{channel_mention}\n<a:BM_moon_001:1378716907624202421>{self.format_duration(sec)}")
 
         if cat.get("deleted_total", 0) > 0:
             lines.append(f"삭제된 채널\n<a:BM_moon_001:1378716907624202421>{self.format_duration(cat['deleted_total'])}")
@@ -394,7 +394,7 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
                 if channel_name == "삭제된 채널":
                     category_details[category_id]["deleted_total"] += seconds
                 else:
-                    category_details[category_id]["channels"].append((channel_name, seconds, channel_position))
+                    category_details[category_id]["channels"].append((channel.mention, seconds, channel_position))
 
                 category_details[category_id]["total"] += seconds
 
