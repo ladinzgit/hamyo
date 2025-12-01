@@ -71,7 +71,7 @@ class TimeSummaryView(discord.ui.View):
 
         display_label = extract_name(self.user.display_name)
         title = f"<:BM_k_003:1399387520135069770>､ {display_label}님의 음성 기록"
-        date_range_pretty = self.date_range.replace(" ~ ", " ➜ ")
+        date_range_pretty = self.date_range.replace(" ~ ", " → ")
         desc_lines = [
             f"-# {self.period}､ {date_range_pretty}",
             f"총합: {self.format_duration(self.total_seconds)}",
@@ -98,7 +98,7 @@ class TimeSummaryView(discord.ui.View):
         else:
             summary_lines = []
             for _, cat in self.categories:
-                summary_lines.append(f"<a:BM_moon_001:1378716907624202421>{cat['name']}: {self.format_duration(cat['total'])}")
+                summary_lines.append(f"{cat['name']}\n<a:BM_moon_001:1378716907624202421>{self.format_duration(cat['total'])}")
             summary_text = "\n".join(summary_lines) if summary_lines else "표시할 카테고리가 없습니다."
             summary_text += "\n\n세부 기록을 확인할 카테고리를 아래에서 선택하라묘 .ᐟ"
             embed.add_field(
@@ -114,10 +114,10 @@ class TimeSummaryView(discord.ui.View):
     def render_category_block(self, cat: dict) -> str:
         lines = []
         for cname, sec, pos in sorted(cat["channels"], key=lambda x: x[2]):
-            lines.append(f"<a:BM_moon_001:1378716907624202421>{cname}: {self.format_duration(sec)}")
+            lines.append(f"{cname}\n<a:BM_moon_001:1378716907624202421>{self.format_duration(sec)}")
 
         if cat.get("deleted_total", 0) > 0:
-            lines.append(f"<a:BM_moon_001:1378716907624202421>삭제된 채널: {self.format_duration(cat['deleted_total'])}")
+            lines.append(f"삭제된 채널\n<a:BM_moon_001:1378716907624202421>{self.format_duration(cat['deleted_total'])}")
 
         if lines:
             lines.append("")
