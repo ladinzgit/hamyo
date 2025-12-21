@@ -51,6 +51,11 @@ class VoiceConfig(commands.Cog):
             inline=False
         ),
         embed.add_field(
+            name=f"*{command_name} ID제거 (채널ID)", 
+            value="삭제된 채널/카테고리를 ID로 직접 제거합니다. (ID 여러 개 지정 가능)", 
+            inline=False
+        ),
+        embed.add_field(
             name=f"*{command_name} 채널초기화", 
             value="현재 등록되어 있는 모든 채널/카테고리를 제거합니다.", 
             inline=False
@@ -64,9 +69,18 @@ class VoiceConfig(commands.Cog):
         channel_mentions = []
         
         for channel_id in await self.data_manager.get_tracked_channels("voice"):
-            channel = await self.bot.fetch_channel(channel_id)
+            channel = self.bot.get_channel(channel_id)
+            if channel is None:
+                try:
+                    channel = await self.bot.fetch_channel(channel_id)
+                except Exception:
+                    channel = None
+            
             if channel:
                 channel_mentions.append(channel.mention)
+            else:
+                # 삭제된 카테고리/채널 처리
+                channel_mentions.append(f"삭제된 카테고리(ID: {channel_id})")
 
         if not channel_mentions:
             channel_mentions.append("None")
@@ -108,6 +122,34 @@ class VoiceConfig(commands.Cog):
             await ctx.send(f"다음 채널/카테고리를 보이스 추적에서 제거했습니다:\n{', '.join(removed)}")
         else:
             await ctx.send("제거할 유효한 채널을 찾지 못했습니다.")
+
+    @voice.command(name="ID제거")
+    @only_in_guild()
+    @commands.has_permissions(administrator=True)
+    async def unregister_channel_by_id(self, ctx, *channel_ids: int):
+        """삭제된 카테고리/채널을 ID로 직접 제거합니다."""
+        removed = []
+        not_found = []
+        tracked_channels = await self.data_manager.get_tracked_channels("voice")
+        
+        for cid in channel_ids:
+            if cid in tracked_channels:
+                await self.data_manager.unregister_tracked_channel(cid, "voice")
+                removed.append(str(cid))
+                await self.log(f"{ctx.author}({ctx.author.id})님에 의해 ID {cid} 채널/카테고리 추적을 중지하였습니다. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
+            else:
+                not_found.append(str(cid))
+
+        msg_parts = []
+        if removed:
+            msg_parts.append(f"다음 ID의 채널/카테고리를 보이스 추적에서 제거했습니다: {', '.join(removed)}")
+        if not_found:
+            msg_parts.append(f"다음 ID는 등록되어 있지 않습니다: {', '.join(not_found)}")
+        
+        if msg_parts:
+            await ctx.send("\n".join(msg_parts))
+        else:
+            await ctx.send("제거할 ID를 입력해주세요.")
 
     @voice.command(name="완전초기화")
     @only_in_guild()

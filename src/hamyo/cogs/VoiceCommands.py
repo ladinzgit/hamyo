@@ -292,26 +292,46 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
         # 1. 카테고리ID와 음성채널ID 분리
         category_ids = set()
         voice_channel_ids = set()
+        deleted_category_ids = set()  # 삭제된 카테고리 ID 저장
+        
         for cid in tracked_ids:
-            ch = await self.bot.fetch_channel(cid)
+            ch = self.bot.get_channel(cid)
+            if ch is None:
+                try:
+                    ch = await self.bot.fetch_channel(cid)
+                except Exception:
+                    ch = None
+            
             if isinstance(ch, discord.CategoryChannel):
                 category_ids.add(cid)
-            elif isinstance(ch, discord.VoiceChannel):
+            elif isinstance(ch, (discord.VoiceChannel, discord.StageChannel)):
                 voice_channel_ids.add(cid)
+            else:
+                # 삭제되었거나 접근 불가 → 삭제된 카테고리로 간주
+                deleted_category_ids.add(cid)
 
         # 2. 카테고리ID로 등록된 경우, 해당 카테고리의 모든 하위 음성채널 포함
         for cat_id in category_ids:
-            cat = await self.bot.fetch_channel(cat_id)
+            cat = self.bot.get_channel(cat_id)
+            if cat is None:
+                try:
+                    cat = await self.bot.fetch_channel(cat_id)
+                except Exception:
+                    continue
             if isinstance(cat, discord.CategoryChannel):
                 for vc in cat.voice_channels:
                     expanded_ids.add(vc.id)
+                # Stage 채널도 포함
+                for sc in getattr(cat, "stage_channels", []):
+                    expanded_ids.add(sc.id)
 
         # 3. 음성채널ID로 등록된 경우, 해당 음성채널만 포함
         expanded_ids.update(voice_channel_ids)
 
-        # 4. 삭제된 채널 중, category_id가 등록된 카테고리ID에 포함된 것만 추가 (DataManager 메소드 사용)
-        if category_ids:
-            deleted_channel_ids = await self.data_manager.get_deleted_channels_by_categories(list(category_ids))
+        # 4. 삭제된 채널 중, category_id가 등록된 카테고리ID에 포함된 것만 추가 (삭제된 카테고리 포함)
+        all_category_ids = category_ids | deleted_category_ids
+        if all_category_ids:
+            deleted_channel_ids = await self.data_manager.get_deleted_channels_by_categories(list(all_category_ids))
             expanded_ids.update(deleted_channel_ids)
 
         return list(expanded_ids)
@@ -362,6 +382,9 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
 
             category_details = {}
 
+            # 삭제된 카테고리를 하나로 합치기 위한 특별 키
+            DELETED_CATEGORY_KEY = "__DELETED_CATEGORY__"
+            
             for channel_id, seconds in times.items():
                 channel = self.bot.get_channel(channel_id)
 
@@ -372,13 +395,25 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
                     category_position = category.position if category else float('inf')
                     channel_name = channel.name
                     channel_position = channel.position
+                    is_deleted_category = False
                 else:
                     # 삭제된 채널 처리
                     original_category_id = await self.data_manager.get_deleted_channel_category(channel_id)
                     category = self.bot.get_channel(original_category_id) if original_category_id else None
-                    category_id = original_category_id
-                    category_name = category.name if category else "삭제된 카테고리"
-                    category_position = category.position if category else float('inf')
+                    
+                    if category:
+                        # 카테고리는 존재하지만 채널이 삭제된 경우
+                        category_id = original_category_id
+                        category_name = category.name
+                        category_position = category.position
+                        is_deleted_category = False
+                    else:
+                        # 카테고리도 삭제된 경우 → 모두 "삭제된 카테고리"로 합침
+                        category_id = DELETED_CATEGORY_KEY
+                        category_name = "삭제된 카테고리"
+                        category_position = float('inf')
+                        is_deleted_category = True
+                    
                     channel_name = "삭제된 채널"
                     channel_position = float('inf')
 
