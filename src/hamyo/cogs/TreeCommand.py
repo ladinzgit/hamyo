@@ -161,11 +161,16 @@ class TreeCommand(commands.Cog):
         success = await self.data_manager.add_snowflake(user_id, amount, target_mission, periodicity)
         
         if success:
-            target_channel = channel
+            # Determine target channel: Priority to Configured Notification Channel
+            noti_channel_id = cfg.get("channels", {}).get("notification_channel")
+            target_channel = None
+            
+            if noti_channel_id:
+                 target_channel = self.bot.get_channel(noti_channel_id)
+            
+            # Fallback to passed channel (e.g. context) if notification channel not set
             if not target_channel:
-                noti_channel_id = cfg.get("channels", {}).get("notification_channel")
-                if noti_channel_id:
-                     target_channel = self.bot.get_channel(noti_channel_id)
+                 target_channel = channel
             
             if target_channel:
                 korean_name = self._get_korean_mission_name(target_mission)
