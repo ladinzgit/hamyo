@@ -75,7 +75,7 @@ class TreeCommand(commands.Cog):
 
 
     @commands.Cog.listener()
-    async def on_mission_completion(self, user_id: int, mission_name: str, channel: discord.TextChannel = None, auth_user: discord.Member = None):
+    async def on_mission_completion(self, user_id: int, mission_name: str, channel: discord.TextChannel = None, auth_user: discord.Member = None, reply_to: discord.Message = None):
         if not self._is_valid_period():
             return
         
@@ -99,6 +99,10 @@ class TreeCommand(commands.Cog):
         target_mission = mapping.get(mission_name, mission_name)
         
         if target_mission not in missions:
+            # Debug log to Discord
+            logger = self.bot.get_cog('Logger')
+            if logger:
+                await logger.log(f"DEBUG: {target_mission} not in missions config")
             return 
             
         amount = missions[target_mission]
@@ -117,6 +121,10 @@ class TreeCommand(commands.Cog):
              already_completed = await self.data_manager.check_mission_completion(user_id, target_mission, periodicity)
         
         if already_completed:
+            # Debug log to Discord
+            logger = self.bot.get_cog('Logger')
+            if logger:
+                await logger.log(f"DEBUG: {target_mission} already completed for {user_id}")
             return 
             
         success = await self.data_manager.add_snowflake(user_id, amount, target_mission, periodicity)
@@ -126,7 +134,9 @@ class TreeCommand(commands.Cog):
             noti_channel_id = cfg.get("channels", {}).get("notification_channel")
             target_channel = None
             
-            if noti_channel_id:
+            if reply_to:
+                target_channel = reply_to.channel
+            elif noti_channel_id:
                  target_channel = self.bot.get_channel(noti_channel_id)
             
             # Fallback to passed channel (e.g. context) if notification channel not set
@@ -162,7 +172,10 @@ class TreeCommand(commands.Cog):
                 embed.set_footer(text=footer_text)
                 
                 try:
-                    await target_channel.send(content=member_mention, embed=embed)
+                    if reply_to:
+                        await reply_to.reply(content=member_mention, embed=embed)
+                    else:
+                        await target_channel.send(content=member_mention, embed=embed)
                 except Exception as e:
                     print(f"Failed to send notification: {e}")
 
@@ -242,7 +255,7 @@ class TreeCommand(commands.Cog):
             return
             
         # 수동 인증 실행 with auth_user
-        await self.on_mission_completion(member.id, mission_name, ctx.channel, auth_user=ctx.author)
+        await self.on_mission_completion(member.id, mission_name, ctx.channel, auth_user=ctx.author, reply_to=ctx.message)
         await ctx.message.add_reaction("✅")
 
     @commands.Cog.listener()
