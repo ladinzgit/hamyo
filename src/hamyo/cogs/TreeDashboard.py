@@ -56,18 +56,18 @@ class TreeDashboard(commands.Cog):
         msg_header = "# <a:BM_m_001:1399387800373301319> 비몽트리 상태창 <a:BM_m_002:1399387809772470342>"
         
         level_str = f"> 🎄 : 비몽트리 {current_level}단계"
-        next_str = f"> -# ．╰୧：다음 단계까지 {max(0, next_exp - total_snowflakes) if next_exp > 0 else 0} 경험치"
+        next_str = f"> -# ．╰୧：다음 단계까지 {max(0, next_exp - total_snowflakes) if next_exp > 0 else 0} 눈송이"
         if next_exp == 0:
              next_str = "> -# ．╰୧：최고 단계 도달!"
 
-        rank_header = "> <a:BM_evt_002:1449016646680449055>  : 비몽트리 경험치 기여도 순위\n> "
+        rank_header = "> <a:BM_evt_002:1449016646680449055>  : 비몽트리 눈송이 기여도 순위\n> "
         rank_lines = []
         for i, rank in enumerate(rankings):
-            rank_lines.append(f"> -# ╰୧：<@{rank['user_id']}>  : {rank['total_gathered']} 경험치")
+            rank_lines.append(f"> -# ╰୧：<@{rank['user_id']}>  : {rank['total_gathered']} 눈송이")
         
         # Fill empty ranks
         while len(rank_lines) < 4:
-            rank_lines.append("> -# ╰୧：-  : 0 경험치")
+            rank_lines.append("> -# ╰୧：-  : 0 눈송이")
             
         full_content = f"{msg_header}\n\n\n{level_str}\n{next_str}\n\n{rank_header}\n" + "\n".join(rank_lines)
 
