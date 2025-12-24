@@ -99,10 +99,6 @@ class TreeCommand(commands.Cog):
         target_mission = mapping.get(mission_name, mission_name)
         
         if target_mission not in missions:
-            # Debug log to Discord
-            logger = self.bot.get_cog('Logger')
-            if logger:
-                await logger.log(f"DEBUG: {target_mission} not in missions config")
             return 
             
         amount = missions[target_mission]

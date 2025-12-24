@@ -41,13 +41,6 @@ class TreeDataManager:
         self._db = await aiosqlite.connect(self.db_path)
         
         # 유저 눈송이 테이블
-        # amount: 현재 보유량 (사용 가능) -> instructions don't explicitly say they can be SPENT, but "경험치" implies accumulation. 
-        # But "눈송이 줍기" gives snowflakes. 
-        # Instruction says "각 유저별 경험치(단위는 눈송이로 통일)". 
-        # Usually total accumulated determines rank/tree growth.
-        # "누군가로 인해 눈송이 양이 변했을 경우 그때 트리를 업데이트"
-        # "amount" = current holding? "total_received" = accumulated?
-        # Let's keep total_exp for ranking/tree growth.
         await self._db.execute("""
             CREATE TABLE IF NOT EXISTS user_snowflakes (
                 user_id INTEGER PRIMARY KEY,
@@ -119,12 +112,6 @@ class TreeDataManager:
             
     async def remove_snowflake(self, user_id: int, amount: int) -> bool:
         await self.ensure_initialized()
-        """눈송이 차감 (보유량만 차감, 총 획득량은 유지될 수도 있지만 보통 회수는 total도 까는게 맞나? 
-           Instruction doesn't specify 'spending'. Assuming admin removal reduces both or just amount?
-           LevelDataManager reduces total_exp. Let's reduce both for now to be safe, or just amount?
-           Instruction says '경험치 추가/제거'.
-           Let's reduce both.
-        """
         try:
             await self._db.execute("""
                 UPDATE user_snowflakes 
@@ -218,28 +205,28 @@ class TreeDataManager:
             
             # Calculate Level
             # 0단계 : 0
-            # 1단계 : 500
-            # 2단계 : 1000
-            # 3단계 : 1700
-            # 4단계 : 2500
+            # 1단계 : 700
+            # 2단계 : 1500
+            # 3단계 : 2500
+            # 4단계 : 4000
             level = 0
-            next_level_exp = 500
+            next_level_exp = 700
             
-            if total_snowflakes >= 2500:
+            if total_snowflakes >= 4000:
                 level = 4
                 next_level_exp = 0 # Max level
-            elif total_snowflakes >= 1700:
+            elif total_snowflakes >= 2500:
                 level = 3
-                next_level_exp = 2500
-            elif total_snowflakes >= 1000:
+                next_level_exp = 4000
+            elif total_snowflakes >= 1500:
                 level = 2
-                next_level_exp = 1700
-            elif total_snowflakes >= 500:
+                next_level_exp = 2500
+            elif total_snowflakes >= 700:
                 level = 1
-                next_level_exp = 1000
+                next_level_exp = 1500
             else:
                 level = 0
-                next_level_exp = 500
+                next_level_exp = 700
                 
             return {
                 'total_snowflakes': total_snowflakes,
