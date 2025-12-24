@@ -224,10 +224,13 @@ class VoiceTracker(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel):
-        if isinstance(channel, (discord.VoiceChannel, discord.StageChannel)) and channel.category:
-            await self.data_manager.register_deleted_channel(channel.id, channel.category.id)
+        if isinstance(channel, (discord.VoiceChannel, discord.StageChannel)) and channel.category_id:
+            await self.data_manager.register_deleted_channel(channel.id, channel.category_id)
+            
+            category_name = channel.category.name if channel.category else f"UnknownCategory({channel.category_id})"
+            
             await self.log(
-                f"추적된 카테고리 {channel.category.name}의 음성/스테이지 채널 {channel.name}({channel.id})이 삭제되었습니다. [길드: {channel.guild.name}({channel.guild.id})] [시스템]"
+                f"추적된 카테고리 {category_name}의 음성/스테이지 채널 {channel.name}({channel.id})이 삭제되었습니다. [길드: {channel.guild.name}({channel.guild.id})] [시스템]"
             )
             # 추적 채널 캐시 무효화
             self.invalidate_tracked_voice_cache()

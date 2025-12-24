@@ -64,7 +64,7 @@ class TreeCommand(commands.Cog):
     def _get_korean_mission_name(self, mission_name: str) -> str:
         mapping = {
             'attendance': '출석체크',
-            'voice_1h': '자유 또는 허브키우기 음성방에서 1시간 활동하기',
+            'voice_1h': '음성방 1시간 활동',
             'game_play': '게임모집글 통해 게임하기',
             'recommend': '추천',
             'invite': '지인초대',
@@ -99,10 +99,6 @@ class TreeCommand(commands.Cog):
         target_mission = mapping.get(mission_name, mission_name)
         
         if target_mission not in missions:
-            # Debug log to Discord
-            logger = self.bot.get_cog('Logger')
-            if logger:
-                await logger.log(f"DEBUG: {target_mission} not in missions config")
             return 
             
         amount = missions[target_mission]
@@ -121,10 +117,6 @@ class TreeCommand(commands.Cog):
              already_completed = await self.data_manager.check_mission_completion(user_id, target_mission, periodicity)
         
         if already_completed:
-            # Debug log to Discord
-            logger = self.bot.get_cog('Logger')
-            if logger:
-                await logger.log(f"DEBUG: {target_mission} already completed for {user_id}")
             return 
             
         success = await self.data_manager.add_snowflake(user_id, amount, target_mission, periodicity)
