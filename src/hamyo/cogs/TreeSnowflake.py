@@ -59,7 +59,7 @@ class SnowflakeView(discord.ui.View):
         # 멘션 메시지
         success_msg = f"""
 . ᘏ▸◂ᘏ        ╭◜◝     ◜◝     ◜◝     ◜◝     ◜◝╮
-꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱   .oO :BM_evt_002: {self.reward} 눈송이를 쌓았다묘! ᝰꪑ
+꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱   .oO <a:BM_evt_002:1449016646680449055> {self.reward} 눈송이를 쌓았다묘! ᝰꪑ
 ( つ🎉O        ╰◟◞     ◟◞     ◟◞     ◟◞     ◟◞╯
 """
         await interaction.response.send_message(f"{interaction.user.mention} {success_msg}", ephemeral=False)
@@ -240,8 +240,8 @@ class TreeSnowflake(commands.Cog):
 
         msg_content = """
 . ᘏ▸◂ᘏ        ╭◜◝     ◜◝     ◜◝     ◜◝     ◜◝╮
-꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱   .oO :BM_evt_002: 220 눈송이 받을 다도! ᝰꪑ
-( つ❄️O        ╰◟◞     ◟◞     ◟◞     ◟◞     ◟◞╯ 
+꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱   .oO <a:BM_evt_002:1449016646680449055> 220 눈송이 받을 다도! ᝰꪑ
+( つ<a:BM_evt_002:1449016646680449055>O        ╰◟◞     ◟◞     ◟◞     ◟◞     ◟◞╯ 
 """
         view = SnowflakeView(self.bot, channel, msg_content)
         message = await channel.send(msg_content, view=view)
