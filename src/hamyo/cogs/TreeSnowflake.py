@@ -241,7 +241,7 @@ class TreeSnowflake(commands.Cog):
         msg_content = """
 . ᘏ▸◂ᘏ        ╭◜◝     ◜◝     ◜◝     ◜◝     ◜◝╮
 ꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱   .oO <a:BM_evt_002:1449016646680449055> 220 눈송이 받을 다도! ᝰꪑ
-( つ<a:BM_evt_002:1449016646680449055>O        ╰◟◞     ◟◞     ◟◞     ◟◞     ◟◞╯ 
+( つ<a:BM_evt_001:1449016605169156166>O        ╰◟◞     ◟◞     ◟◞     ◟◞     ◟◞╯ 
 """
         view = SnowflakeView(self.bot, channel, msg_content)
         message = await channel.send(msg_content, view=view)

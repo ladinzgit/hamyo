@@ -154,8 +154,8 @@ class TreeCommand(commands.Cog):
 
                 description_art = f"""
 . ᘏ▸◂ᘏ        ╭◜◝     ◜◝     ◜◝     ◜◝     ◜◝╮
-꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱   .oO <:BM_evt_002:1326463567838547968> {member_mention} 님 **({korean_name})** 미션 완료다묘 *!*
-( つ❄️O        ╰◟◞     ◟◞     ◟◞     ◟◞     ◟◞╯
+꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱   .oO <a:BM_evt_002:1449016646680449055> {member_mention} 님 **({korean_name})** 미션 완료다묘 *!*
+( つ<a:BM_evt_001:1449016605169156166>O        ╰◟◞     ◟◞     ◟◞     ◟◞     ◟◞╯
 """
                 embed = discord.Embed(
                     title="<a:BM_evt_001:1449016605169156166>､ 눈송이 지급",
@@ -221,8 +221,8 @@ class TreeCommand(commands.Cog):
         # 커스텀 ASCII 아트 임베드 생성 (One-line format)
         description_art = f"""
 . ᘏ▸◂ᘏ        ╭◜◝     ◜◝     ◜◝     ◜◝     ◜◝╮
-꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱   .oO <:BM_evt_002:1326463567838547968> {ctx.author.mention} 님은 **눈송이 {amount}개** 가지고 있다묘 *!* **{rank}등**이다묘 *!!*
-( つ❄️O        ╰◟◞     ◟◞     ◟◞     ◟◞     ◟◞╯ 
+꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱   .oO <a:BM_evt_002:1449016646680449055> {ctx.author.mention} 님은 **눈송이 {amount}개** 가지고 있다묘 *!* **{rank}등**이다묘 *!!*
+( つ<a:BM_evt_001:1449016605169156166>O        ╰◟◞     ◟◞     ◟◞     ◟◞     ◟◞╯ 
         """
         
         embed = discord.Embed(

@@ -60,7 +60,7 @@ class TreeDashboard(commands.Cog):
         if next_exp == 0:
              next_str = "> -# ．╰୧：최고 단계 도달!"
 
-        rank_header = "> ❄️  : 비몽트리 경험치 기여도 순위\n> "
+        rank_header = "> <a:BM_evt_002:1449016646680449055>  : 비몽트리 경험치 기여도 순위\n> "
         rank_lines = []
         for i, rank in enumerate(rankings):
             rank_lines.append(f"> -# ╰୧：<@{rank['user_id']}>  : {rank['total_gathered']} 경험치")
@@ -154,8 +154,8 @@ class TreeDashboard(commands.Cog):
                             # 레벨업 알림 (ASCII Art Plain Text)
                             level_up_msg = f"""
 . ᘏ▸◂ᘏ        ╭◜◝     ◜◝     ◜◝     ◜◝     ◜◝╮
-꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱   .oO <:BM_evt_002:1326463567838547968> **비몽트리가 {current_level}단계로 성장했다묘 *!!* **
-( つ❄️O        ╰◟◞     ◟◞     ◟◞     ◟◞     ◟◞╯
+꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱   .oO <a:BM_evt_002:1449016646680449055> **비몽트리가 {current_level}단계로 성장했다묘 *!!* **
+( つ<a:BM_evt_001:1449016605169156166>O        ╰◟◞     ◟◞     ◟◞     ◟◞     ◟◞╯
 """
                             await sf_channel.send(level_up_msg)
 
