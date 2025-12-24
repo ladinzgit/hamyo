@@ -99,6 +99,7 @@ class TreeCommand(commands.Cog):
         target_mission = mapping.get(mission_name, mission_name)
         
         if target_mission not in missions:
+            print(f"DEBUG: {target_mission} not in missions config")
             return 
             
         amount = missions[target_mission]
@@ -117,6 +118,7 @@ class TreeCommand(commands.Cog):
              already_completed = await self.data_manager.check_mission_completion(user_id, target_mission, periodicity)
         
         if already_completed:
+            print(f"DEBUG: {target_mission} already completed for {user_id}")
             return 
             
         success = await self.data_manager.add_snowflake(user_id, amount, target_mission, periodicity)
