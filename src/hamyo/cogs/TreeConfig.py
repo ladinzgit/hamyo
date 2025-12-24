@@ -39,7 +39,55 @@ def _ensure_config():
 def _load_config():
     _ensure_config()
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+        try:
+            cfg = json.load(f)
+        except json.JSONDecodeError:
+            return {}
+            
+    # Migration/Default Check
+    changed = False
+    
+    default_structure = {
+        "guilds": {},
+        "missions": {},
+        "roles": {"auth_roles": []},
+        "channels": {
+            "notification_channel": None,
+            "snowflake_channel": None,
+            "game_auth_channel": None,
+            "command_channel": None,
+            "dashboard_channel": None
+        },
+        "game_auth_roles": [],
+        "period": {"start_date": None, "end_date": None},
+        "daily_schedule": {}
+    }
+    
+    for key, value in default_structure.items():
+        if key not in cfg:
+            cfg[key] = value
+            changed = True
+            
+    # Check nested 'channels'
+    if "channels" in cfg:
+        for k, v in default_structure["channels"].items():
+            if k not in cfg["channels"]:
+                cfg["channels"][k] = v
+                changed = True
+                
+    # Check nested 'period'
+    if "period" in cfg:
+         if "start_date" not in cfg["period"]:
+             cfg["period"]["start_date"] = None
+             changed = True
+         if "end_date" not in cfg["period"]:
+             cfg["period"]["end_date"] = None
+             changed = True
+            
+    if changed:
+        _save_config(cfg)
+        
+    return cfg
 
 def _save_config(data):
     os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
