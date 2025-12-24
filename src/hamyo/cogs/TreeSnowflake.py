@@ -27,7 +27,7 @@ class SnowflakeButton(discord.ui.Button):
 
 class SnowflakeView(discord.ui.View):
     def __init__(self, bot, channel, message_content):
-        super().__init__(timeout=60) # 1분 제한
+        super().__init__(timeout=None) # 무제한 (다음 이벤트나 마감까지)
         self.bot = bot
         self.channel = channel
         self.message_content = message_content
