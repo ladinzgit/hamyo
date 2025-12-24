@@ -94,6 +94,21 @@ def _save_config(data):
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
+def is_admin_or_auth_role():
+    async def predicate(ctx):
+        if ctx.author.guild_permissions.administrator:
+            return True
+        
+        cfg = _load_config()
+        auth_roles = cfg.get("roles", {}).get("auth_roles", [])
+        
+        for role in ctx.author.roles:
+            if role.id in auth_roles:
+                return True
+        return False
+    return commands.check(predicate)
+
+
 class TreeConfig(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -101,22 +116,10 @@ class TreeConfig(commands.Cog):
     async def cog_load(self):
         print(f"✅ {self.__class__.__name__} loaded successfully!")
 
-    def is_admin_or_auth_role():
-        async def predicate(ctx):
-            if ctx.author.guild_permissions.administrator:
-                return True
-            
-            cfg = _load_config()
-            auth_roles = cfg.get("roles", {}).get("auth_roles", [])
-            
-            for role in ctx.author.roles:
-                if role.id in auth_roles:
-                    return True
-            return False
-        return commands.check(predicate)
+
 
     @commands.group(name='눈송이설정', invoke_without_command=True)
-    @commands.has_permissions(administrator=True) 
+    @is_admin_or_auth_role() 
     @only_in_guild()
     async def tree_config_group(self, ctx):
         """눈송이 시스템 설정 명령어 그룹"""
@@ -187,7 +190,7 @@ class TreeConfig(commands.Cog):
         await ctx.send(embed=embed)
 
     @tree_config_group.command(name='미션추가')
-    @commands.has_permissions(administrator=True)
+    @is_admin_or_auth_role()
     async def add_mission(self, ctx, name: str, amount: int):
         """미션 추가: *눈송이설정 미션추가 (이름) (량)"""
         cfg = _load_config()
@@ -196,7 +199,7 @@ class TreeConfig(commands.Cog):
         await ctx.send(f"✅ 미션 **{name}** ({amount} 눈송이)가 추가/수정되었습니다.")
 
     @tree_config_group.command(name='미션제거')
-    @commands.has_permissions(administrator=True)
+    @is_admin_or_auth_role()
     async def remove_mission(self, ctx, name: str):
         """미션 제거: *눈송이설정 미션제거 (이름)"""
         cfg = _load_config()
@@ -225,7 +228,7 @@ class TreeConfig(commands.Cog):
         await ctx.send(embed=embed)
 
     @tree_config_group.command(name='역할지정')
-    @commands.has_permissions(administrator=True)
+    @is_admin_or_auth_role()
     async def set_auth_role(self, ctx, role: discord.Role):
         """인증 가능 역할 지정: *눈송이설정 역할지정 (역할)"""
         cfg = _load_config()
@@ -240,7 +243,7 @@ class TreeConfig(commands.Cog):
             await ctx.send(f"ℹ️ {role.mention} 역할은 이미 인증 가능 역할입니다.")
 
     @tree_config_group.command(name='알림채널지정')
-    @commands.has_permissions(administrator=True)
+    @is_admin_or_auth_role()
     async def set_noti_channel(self, ctx, channel: discord.TextChannel):
         """알림 채널 지정: *눈송이설정 알림채널지정 (채널)"""
         cfg = _load_config()
@@ -251,7 +254,7 @@ class TreeConfig(commands.Cog):
         await ctx.send(f"✅ 알림 채널이 {channel.mention}으로 설정되었습니다.")
 
     @tree_config_group.command(name='눈송이채널지정')
-    @commands.has_permissions(administrator=True)
+    @is_admin_or_auth_role()
     async def set_snowflake_channel(self, ctx, channel: discord.TextChannel):
         """눈송이 줍기 채널 지정: *눈송이설정 눈송이채널지정 (채널)"""
         cfg = _load_config()
@@ -262,7 +265,7 @@ class TreeConfig(commands.Cog):
         await ctx.send(f"✅ 눈송이 줍기 채널이 {channel.mention}으로 설정되었습니다.")
 
     @tree_config_group.command(name='명령어채널')
-    @commands.has_permissions(administrator=True)
+    @is_admin_or_auth_role()
     async def set_command_channel(self, ctx, channel: discord.TextChannel):
         """명령어 사용 가능 채널 설정: *눈송이설정 명령어채널 (채널)"""
         cfg = _load_config()
@@ -273,7 +276,7 @@ class TreeConfig(commands.Cog):
         await ctx.send(f"✅ 명령어 사용 채널이 {channel.mention}으로 설정되었습니다.")
 
     @tree_config_group.command(name='상태채널지정')
-    @commands.has_permissions(administrator=True)
+    @is_admin_or_auth_role()
     async def set_dashboard_channel(self, ctx, channel: discord.TextChannel):
         """상태(대시보드) 채널 지정: *눈송이설정 상태채널지정 (채널)"""
         cfg = _load_config()
@@ -284,12 +287,12 @@ class TreeConfig(commands.Cog):
         await ctx.send(f"✅ 비몽트리 상태(대시보드) 채널이 {channel.mention}으로 설정되었습니다.")
 
     @tree_config_group.group(name='게임인증', invoke_without_command=True)
-    @commands.has_permissions(administrator=True)
+    @is_admin_or_auth_role()
     async def game_auth_group(self, ctx):
         await ctx.send("사용법: `*눈송이설정 게임인증 채널 (채널)` 또는 `*눈송이설정 게임인증 역할 (역할)`")
 
     @game_auth_group.command(name='채널')
-    @commands.has_permissions(administrator=True)
+    @is_admin_or_auth_role()
     async def set_game_auth_channel(self, ctx, channel: discord.TextChannel):
         cfg = _load_config()
         if "channels" not in cfg:
@@ -299,7 +302,7 @@ class TreeConfig(commands.Cog):
         await ctx.send(f"✅ 게임 인증 채널이 {channel.mention}으로 설정되었습니다.")
 
     @game_auth_group.command(name='역할')
-    @commands.has_permissions(administrator=True)
+    @is_admin_or_auth_role()
     async def set_game_auth_role(self, ctx, role: discord.Role):
         cfg = _load_config()
         if "game_auth_roles" not in cfg:
@@ -313,7 +316,7 @@ class TreeConfig(commands.Cog):
             await ctx.send("ℹ️ 이미 추가된 역할입니다.")
 
     @tree_config_group.command(name='기간설정')
-    @commands.has_permissions(administrator=True)
+    @is_admin_or_auth_role()
     async def set_period(self, ctx, start_date: str, end_date: str):
         """기간 설정: *눈송이설정 기간설정 (시작일) (종료일)"""
         cfg = _load_config()
@@ -323,7 +326,7 @@ class TreeConfig(commands.Cog):
         await ctx.send(f"✅ 기간이 **{start_date} ~ {end_date}**로 설정되었습니다.")
 
     @tree_config_group.command(name='스케줄초기화')
-    @commands.has_permissions(administrator=True)
+    @is_admin_or_auth_role()
     async def reset_schedule(self, ctx):
         """강제 스케줄 재설정: *눈송이설정 스케줄초기화"""
         cfg = _load_config()
@@ -335,7 +338,7 @@ class TreeConfig(commands.Cog):
         await ctx.send("✅ 오늘 눈송이 스케줄이 초기화되었습니다. 잠시 후 자동으로 재설정됩니다.")
 
     @tree_config_group.command(name='완전초기화')
-    @commands.has_permissions(administrator=True)
+    @is_admin_or_auth_role()
     async def reset_all_data(self, ctx):
         """데이터베이스 완전 초기화: *눈송이설정 완전초기화"""
         embed = discord.Embed(

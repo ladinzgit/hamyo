@@ -107,9 +107,6 @@ class LevelChecker(commands.Cog):
                 result['role_updated'] = False
                 result['new_role'] = None
 
-                result['role_updated'] = False
-                result['new_role'] = None
-
         # 다른 Cog로 이벤트 전파 (TreeCommand 등에서 수신)
         if result.get('quest_completed'):
              quest_channel = self.bot.get_channel(self.QUEST_COMPLETION_CHANNEL_ID)
@@ -759,7 +756,49 @@ class LevelChecker(commands.Cog):
         except Exception as e:
             await self.log(f"추천 퀘스트 처리 중 오류: {e}")
             result['messages'].append("추천 퀘스트 처리 중 오류가 발생했습니다.")
-        return result
+        
+        # Always trigger event for Snowflake (regardless of weekly reward)
+        result['quest_completed'].append('recommend')
+        return await self._finalize_quest_result(user_id, result)
+
+    async def process_up_quest(self, user_id: int, count: int = 1) -> Dict[str, Any]:
+        """
+        '업' 인증 시 호출: 눈송이 지급용 이벤트 발생
+        Economy.py에서 '업' 인증마다 호출됨. (무제한)
+        """
+        result = {
+            'success': True, # EXP 로직이 없어도 성공으로 처리하여 이벤트 발송
+            'exp_gained': 0,
+            'messages': [],
+            'quest_completed': []
+        }
+        # Trigger event for Snowflake
+        # loop count times to support multiple completions at once? 
+        # Actually Event system usually handles one by one or TreeCommand needs to handle amount.
+        # TreeCommand handles one event -> one validation. 
+        # To support bulk, we might need to emit multiple events or change TreeCommand.
+        # Given current TreeCommand structure, firing multiple events is safer/easier.
+        for _ in range(count):
+             result['quest_completed'].append('up')
+             
+        return await self._finalize_quest_result(user_id, result)
+
+    async def process_invite_quest(self, user_id: int, count: int = 1) -> Dict[str, Any]:
+        """
+        '지인초대' 인증 시 호출: 눈송이 지급용 이벤트 발생
+        Economy.py에서 '지인초대' 인증마다 호출됨. (무제한)
+        """
+        result = {
+            'success': True,
+            'exp_gained': 0,
+            'messages': [],
+            'quest_completed': []
+        }
+        # Trigger event for Snowflake
+        for _ in range(count):
+             result['quest_completed'].append('invite')
+             
+        return await self._finalize_quest_result(user_id, result)
 
     async def is_valid_quest(self, quest_type: str) -> bool:
         # quest_exp의 모든 카테고리에서 퀘스트명 확인

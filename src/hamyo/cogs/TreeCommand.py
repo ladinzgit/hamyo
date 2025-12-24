@@ -68,54 +68,12 @@ class TreeCommand(commands.Cog):
             'game_play': '게임모집글 통해 게임하기',
             'recommend': '추천',
             'invite': '지인초대',
-            'ranking': '랭크'
+            'ranking': '랭크',
+            'up': '업'
         }
         return mapping.get(mission_name, mission_name)
 
-    @commands.Cog.listener()
-    async def on_mission_completion(self, user_id: int, mission_name: str, channel: discord.TextChannel = None):
-        if not self._is_valid_period():
-            return
-        
-        if channel and channel.guild.id not in GUILD_ID:
-            return
-        
-        cfg = _load_config()
-        missions = cfg.get("missions", {})
-        
-        mapping = {
-            'daily_attendance': 'attendance',
-            'attendance': 'attendance',
-            'weekly_recommend_3': 'recommend',
-            'recommend': 'recommend',
-            'invite': 'invite',
-            'voice_1h': 'voice_1h',
-            'game_play': 'game_play',
-            'ranking': 'ranking'
-        }
-        
-        target_mission = mapping.get(mission_name, mission_name)
-        
-        if target_mission not in missions:
-            return 
-            
-        amount = missions[target_mission]
-        
-        one_time_list = ['review', 'song', 'event_recom', 'snowman', 'diary', 'beverage']
-        
-        if target_mission in one_time_list:
-            periodicity = 'one_time'
-        elif target_mission in ['recommend', 'invite']: 
-            periodicity = 'weekly'
-        else:
-            periodicity = 'daily' 
-        
-        already_completed = await self.data_manager.check_mission_completion(user_id, target_mission, periodicity)
-        if already_completed:
-            return 
-            
-        success = await self.data_manager.add_snowflake(user_id, amount, target_mission, periodicity)
-        
+
     @commands.Cog.listener()
     async def on_mission_completion(self, user_id: int, mission_name: str, channel: discord.TextChannel = None, auth_user: discord.Member = None):
         if not self._is_valid_period():
@@ -149,12 +107,15 @@ class TreeCommand(commands.Cog):
         
         if target_mission in one_time_list:
             periodicity = 'one_time'
-        elif target_mission in ['recommend', 'invite']: 
-            periodicity = 'weekly'
         else:
             periodicity = 'daily' 
         
-        already_completed = await self.data_manager.check_mission_completion(user_id, target_mission, periodicity)
+        # 'recommend', 'up', 'invite' are allowed multiple times per day
+        if target_mission in ['recommend', 'up', 'invite']:
+             already_completed = False
+        else:
+             already_completed = await self.data_manager.check_mission_completion(user_id, target_mission, periodicity)
+        
         if already_completed:
             return 
             
