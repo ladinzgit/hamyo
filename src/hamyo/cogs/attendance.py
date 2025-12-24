@@ -7,7 +7,7 @@ from balance_data_manager import balance_manager  # 추가
 
 DB_PATH = 'data/attendance.db'
 KST = pytz.timezone("Asia/Seoul")
-GUILD_ID = [1378632284068122685, 1396829213100605580]
+GUILD_ID = [1378632284068122685, 1396829213100605580, 1439281906502865091]
 
 def only_in_guild():
     async def predicate(ctx):

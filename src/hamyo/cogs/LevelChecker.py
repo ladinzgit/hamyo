@@ -107,6 +107,15 @@ class LevelChecker(commands.Cog):
                 result['role_updated'] = False
                 result['new_role'] = None
 
+                result['role_updated'] = False
+                result['new_role'] = None
+
+        # 다른 Cog로 이벤트 전파 (TreeCommand 등에서 수신)
+        if result.get('quest_completed'):
+             quest_channel = self.bot.get_channel(self.QUEST_COMPLETION_CHANNEL_ID)
+             for quest_name in result['quest_completed']:
+                 self.bot.dispatch('mission_completion', user_id, quest_name, quest_channel)
+
         return result
     
     async def send_quest_completion_message(self, user_id: int, result: Dict[str, Any]):

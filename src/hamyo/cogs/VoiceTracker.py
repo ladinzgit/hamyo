@@ -19,6 +19,8 @@ class VoiceTracker(commands.Cog):
         # --- 추가: 음성 퀘스트 지급 여부 메모리 관리 ---
         self.voice_quest_daily_given = set()  # (user_id, date)
         self.voice_quest_weekly_given = {}    # user_id: set([5, 10, 20])  # 시간 단위
+        self.voice_1h_tracker = set() # user_id set for today
+        self.current_date_str = datetime.now(KST).strftime("%Y-%m-%d")
         self._tracked_voice_cache = None
         self._tracked_voice_cache_at = 0  # epoch seconds
 
@@ -131,6 +133,16 @@ class VoiceTracker(commands.Cog):
                 if daily_secs >= 30 * 60:
                     # 일일 30분 달성 → 중복 여부는 LevelChecker가 내부적으로 판단
                     await level_checker.process_voice_30min(uid)
+
+                # 일일 1시간 달성
+                now_str = now.strftime("%Y-%m-%d")
+                if self.current_date_str != now_str:
+                    self.voice_1h_tracker.clear()
+                    self.current_date_str = now_str
+                    
+                if daily_secs >= 60 * 60 and uid not in self.voice_1h_tracker:
+                    self.voice_1h_tracker.add(uid)
+                    self.bot.dispatch('mission_completion', uid, 'voice_1h', None)
 
                 # === 주간 누적 초 ===
                 week_map, _, _ = await self.data_manager.get_user_times(
