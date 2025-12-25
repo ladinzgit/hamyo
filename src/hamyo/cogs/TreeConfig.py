@@ -68,6 +68,22 @@ def _load_config():
             cfg[key] = value
             changed = True
             
+    # Check default missions
+    default_missions = {
+        "up": 10,
+        "recommend": 30,
+        "invite": 100,
+        "daily_attendance": 50,
+        "attendance": 50,
+        "voice_1h": 100,
+        "game_play": 50,
+        "ranking": 0
+    }
+    for m, amount in default_missions.items():
+        if m not in cfg["missions"]:
+            cfg["missions"][m] = amount
+            changed = True
+            
     # Check nested 'channels'
     if "channels" in cfg:
         for k, v in default_structure["channels"].items():

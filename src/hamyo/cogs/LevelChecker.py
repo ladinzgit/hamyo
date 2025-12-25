@@ -758,7 +758,8 @@ class LevelChecker(commands.Cog):
             result['messages'].append("추천 퀘스트 처리 중 오류가 발생했습니다.")
         
         # Always trigger event for Snowflake (regardless of weekly reward)
-        result['quest_completed'].append('recommend')
+        for _ in range(count):
+            result['quest_completed'].append('recommend')
         return await self._finalize_quest_result(user_id, result)
 
     async def process_up_quest(self, user_id: int, count: int = 1) -> Dict[str, Any]:

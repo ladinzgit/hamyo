@@ -98,10 +98,20 @@ class TreeCommand(commands.Cog):
         
         target_mission = mapping.get(mission_name, mission_name)
         
+        # Default Fallback for critical missions
+        defaults = {
+            'up': 10,
+            'invite': 100,
+            'recommend': 30
+        }
+        
         if target_mission not in missions:
-            return 
-            
-        amount = missions[target_mission]
+            if target_mission in defaults:
+                amount = defaults[target_mission]
+            else:
+                return 
+        else:
+            amount = missions[target_mission]
         
         one_time_list = ['review', 'song', 'event_recom', 'snowman', 'diary', 'beverage']
         
