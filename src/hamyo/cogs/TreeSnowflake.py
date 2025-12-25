@@ -32,8 +32,8 @@ class SnowflakeView(discord.ui.View):
         self.channel = channel
         self.message_content = message_content
         self.winners = []
-        self.max_winners = 6
-        self.reward = 220
+        self.max_winners = 5
+        self.reward = 150
         self.data_manager = TreeDataManager()
         
         button = SnowflakeButton(self)
@@ -240,7 +240,7 @@ class TreeSnowflake(commands.Cog):
 
         msg_content = """
 . ᘏ▸◂ᘏ        ╭◜◝     ◜◝     ◜◝     ◜◝     ◜◝╮
-꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱   .oO <a:BM_evt_002:1449016646680449055> 220 눈송이 받을 다도! ᝰꪑ
+꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱   .oO <a:BM_evt_002:1449016646680449055> 150 눈송이 받을 다도! ᝰꪑ
 ( つ<a:BM_evt_001:1449016605169156166>O        ╰◟◞     ◟◞     ◟◞     ◟◞     ◟◞╯ 
 """
         view = SnowflakeView(self.bot, channel, msg_content)
