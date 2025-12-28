@@ -210,17 +210,14 @@ class TreeDataManager:
             # 3단계 : 2500
             # 4단계 : 4000
             # 5단계 : 10000
-            # 6단계 : 20000
-            # 7단계 : 30000
+            # 6단계 : 20000 (Max)
+            
             level = 0
             next_level_exp = 700
             
-            if total_snowflakes >= 30000:
-                level = 7
-                next_level_exp = 0 # Max level
-            elif total_snowflakes >= 20000:
+            if total_snowflakes >= 20000:
                 level = 6
-                next_level_exp = 30000
+                next_level_exp = 0 # Max level
             elif total_snowflakes >= 10000:
                 level = 5
                 next_level_exp = 20000
@@ -248,6 +245,29 @@ class TreeDataManager:
         except Exception as e:
             self.logger.error(f"Error getting tree status: {e}")
             return {'total_snowflakes': 0, 'level': 0, 'next_level_exp': 500}
+
+    async def get_all_rankings(self) -> List[Dict[str, Any]]:
+        await self.ensure_initialized()
+        """모든 유저 눈송이 조회 (전체 기록)"""
+        try:
+            cursor = await self._db.execute("""
+                SELECT user_id, total_gathered
+                FROM user_snowflakes 
+                WHERE total_gathered > 0
+                ORDER BY total_gathered DESC 
+            """)
+            results = await cursor.fetchall()
+            
+            rankings = []
+            for row in results:
+                rankings.append({
+                    'user_id': row[0],
+                    'total_gathered': row[1]
+                })
+            return rankings
+        except Exception as e:
+            self.logger.error(f"Error getting all rankings: {e}")
+            return []
 
     async def get_rankings(self, limit: int = 20) -> List[Dict[str, Any]]:
         await self.ensure_initialized()

@@ -81,6 +81,12 @@ class TreeCommand(commands.Cog):
         
         if channel and channel.guild.id not in GUILD_ID:
             return
+            
+        # Check Max Level Stop
+        status = await self.data_manager.get_tree_status()
+        if status['level'] >= 6:
+            # Prevent mission completion
+            return
         
         cfg = _load_config()
         missions = cfg.get("missions", {})
@@ -253,6 +259,11 @@ class TreeCommand(commands.Cog):
 
         if not self._is_auth_user(ctx.author):
             await ctx.send("❌ 권한이 없습니다.")
+            return
+
+        status = await self.data_manager.get_tree_status()
+        if status['level'] >= 6:
+            await ctx.send("🚫 비몽트리가 완전히 성장하여 더 이상 눈송이를 지급할 수 없습니다.")
             return
 
         cfg = _load_config()

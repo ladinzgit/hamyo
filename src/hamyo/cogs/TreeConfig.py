@@ -384,5 +384,38 @@ class TreeConfig(commands.Cog):
         else:
             await ctx.send("❌ 데이터베이스 초기화 중 오류가 발생했습니다.")
 
+    @tree_config_group.command(name='전체기록열람')
+    @is_admin_or_auth_role()
+    async def view_all_records(self, ctx):
+        """전체 유저 눈송이 기록 열람: *눈송이설정 전체기록열람"""
+        from TreeDataManager import TreeDataManager
+        data_manager = TreeDataManager()
+        rankings = await data_manager.get_all_rankings()
+        
+        if not rankings:
+            await ctx.send("📝 기록된 유저 정보가 없습니다.")
+            return
+
+        header = "📄 **전체 유저 눈송이 현황**\n\n"
+        messages = []
+        current_msg = header
+        
+        for i, rank in enumerate(rankings):
+            line = f"{i+1}. <@{rank['user_id']}> ({rank['user_id']}): {rank['total_gathered']} 눈송이\n"
+            
+            if len(current_msg) + len(line) > 1900:
+                messages.append(current_msg)
+                current_msg = line
+            else:
+                current_msg += line
+        
+        if current_msg:
+            messages.append(current_msg)
+            
+        for msg in messages:
+            # 멘션 방지
+            allowed = discord.AllowedMentions(users=False, roles=False, everyone=False)
+            await ctx.send(msg, allowed_mentions=allowed)
+
 async def setup(bot):
     await bot.add_cog(TreeConfig(bot))
