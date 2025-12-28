@@ -211,12 +211,16 @@ class TreeDataManager:
             # 4단계 : 4000
             # 5단계 : 10000
             # 6단계 : 20000
+            # 7단계 : 30000
             level = 0
             next_level_exp = 700
             
-            if total_snowflakes >= 20000:
-                level = 6
+            if total_snowflakes >= 30000:
+                level = 7
                 next_level_exp = 0 # Max level
+            elif total_snowflakes >= 20000:
+                level = 6
+                next_level_exp = 30000
             elif total_snowflakes >= 10000:
                 level = 5
                 next_level_exp = 20000
