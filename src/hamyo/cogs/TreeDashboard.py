@@ -46,7 +46,7 @@ class TreeDashboard(commands.Cog):
             return
 
         status = await self.data_manager.get_tree_status()
-        rankings = await self.data_manager.get_rankings(limit=4)
+        rankings = await self.data_manager.get_rankings(limit=7)
         
         current_level = status['level']
         total_snowflakes = status['total_snowflakes']
@@ -66,7 +66,7 @@ class TreeDashboard(commands.Cog):
             rank_lines.append(f"> -# ╰୧：<@{rank['user_id']}>  : {rank['total_gathered']} 눈송이")
         
         # Fill empty ranks
-        while len(rank_lines) < 4:
+        while len(rank_lines) < 7:
             rank_lines.append("> -# ╰୧：-  : 0 눈송이")
             
         full_content = f"{msg_header}\n\n\n{level_str}\n{next_str}\n\n{rank_header}\n" + "\n".join(rank_lines)
