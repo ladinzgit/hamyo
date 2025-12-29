@@ -209,10 +209,7 @@ class TreeSnowflake(commands.Cog):
             # Check if time match (within 1 min margin)
              diff = (now - st).total_seconds()
              if 0 <= diff < 60:
-                 # Check Max Level Stop
-                 status = await self.data_manager.get_tree_status()
-                 if status['level'] < 6:
-                     await self.trigger_event()
+                 await self.trigger_event()
                  to_remove.append(st)
              elif diff >= 60:
                  # Passed without trigger (bot was off?)
