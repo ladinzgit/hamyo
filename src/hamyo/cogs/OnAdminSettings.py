@@ -1,6 +1,12 @@
 import discord
 from discord.ext import commands
 from balance_data_manager import balance_manager
+# from Item_db import item_manager
+# from typing import Optional
+# from datetime import datetime
+# import pytz
+
+KST = pytz.timezone("Asia/Seoul")
 
 GUILD_ID = [1396829213100605580, 1378632284068122685]
 
@@ -232,8 +238,8 @@ class OnAdminSettings(commands.Cog):
 ╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
 
 사용 가능한 명령어:
-`*온설정 수수료 설정 <최소금액> <수수료>` : 새로운 수수료 구간 추가
-`*온설정 수수료 삭제 <최소금액>` : 수수료 구간 삭제
+*온설정 수수료 설정 <최소금액> <수수료> : 새로운 수수료 구간 추가
+*온설정 수수료 삭제 <최소금액> : 수수료 구간 삭제
 """,
             colour=discord.Colour.from_rgb(151, 214, 181)
         )
@@ -298,8 +304,8 @@ class OnAdminSettings(commands.Cog):
 ╰◟◞  ͜   ◟◞  ͜  ◟◞  ͜  ◟◞╯
 
 사용 가능한 명령어:
-`*온설정 제한설정 송금 <횟수>` : 일일 송금 횟수 제한 설정
-`*온설정 제한설정 수취 <횟수>` : 일일 수취 횟수 제한 설정
+*온설정 제한설정 송금 <횟수> : 일일 송금 횟수 제한 설정
+*온설정 제한설정 수취 <횟수> : 일일 수취 횟수 제한 설정
 
 현재 설정:
 • 일일 송금 제한: {send_limit}회
@@ -339,6 +345,168 @@ class OnAdminSettings(commands.Cog):
         await ctx.send(f"일일 수취 제한이 {limit}회로 설정되었습니다.")
         await self.log(f"{ctx.author}({ctx.author.id})이 일일 수취 제한 설정: {limit}회")
 
+
+    # @settings.group(name="상점", invoke_without_command=True)
+    # @only_in_guild()
+    # @commands.has_permissions(administrator=True)
+    # async def shop_settings(self, ctx: commands.Context):
+    #     """상점 관리 명령어 그룹"""
+    #     embed = discord.Embed(
+    #         title="🛒 온설정 - 상점 관리",
+    #         description="상점의 카테고리와 아이템을 관리합니다.",
+    #         colour=discord.Colour.from_rgb(100, 160, 240)
+    #     )
+    #     embed.add_field(
+    #         name="카테고리 관리",
+    #         value="`*온설정 상점 카테고리추가 <이름> [설명]`\n"
+    #               "`*온설정 상점 카테고리제거 <이름>` (하위 아이템도 모두 삭제됩니다!)",
+    #         inline=False
+    #     )
+    #     embed.add_field(
+    #         name="아이템 관리",
+    #         value="`*온설정 상점 아이템추가 <카테고리명> <역할> <이름> <가격> [재고] [부모아이템명]`\n"
+    #               "`*온설정 상점 아이템제거 <이름>`\n"
+    #               "`*온설정 상점 판매기간 <아이템이름> <시작일> <종료일>`\n"
+    #               "`*온설정 상점 목록`",
+    #         inline=False
+    #     )
+    #     embed.set_footer(text="[재고]는 -1 입력 시 무제한입니다.\n"
+    #                           "[부모아이템명]은 '상위 역할' 구매 조건을 설정할 때 사용합니다.\n"
+    #                           "[시작일/종료일] 형식: 'YYYY-MM-DD' 또는 'YYYY-MM-DD HH:MM'")
+    #     await ctx.reply(embed=embed)
+
+    # @shop_settings.command(name="카테고리추가")
+    # @commands.has_permissions(administrator=True)
+    # async def add_category(self, ctx: commands.Context, name: str, *, description: Optional[str] = None):
+    #     try:
+    #         await item_manager.add_category(name, description)
+    #         await ctx.reply(f"✅ 카테고리 '{name}'을(를) 추가했습니다.")
+    #         await self.log(f"{ctx.author} 상점 카테고리 추가: {name}")
+    #     except Exception as e:
+    #         await ctx.reply(f"❌ 오류: {e}")
+
+    # @shop_settings.command(name="카테고리제거")
+    # @commands.has_permissions(administrator=True)
+    # async def remove_category(self, ctx: commands.Context, *, name: str):
+    #     success = await item_manager.remove_category(name)
+    #     if success:
+    #         await ctx.reply(f"✅ 카테고리 '{name}' 및 하위 아이템을 모두 삭제했습니다.")
+    #         await self.log(f"{ctx.author} 상점 카테고리 삭제: {name}")
+    #     else:
+    #         await ctx.reply(f"❌ 카테고리 '{name}'을(를) 찾을 수 없습니다.")
+
+    # @shop_settings.command(name="아이템추가")
+    # @commands.has_permissions(administrator=True)
+    # async def add_item(self, ctx: commands.Context, category_name: str, role: discord.Role, name: str,
+    #                    price: int, stock: int = -1, parent_item_name: Optional[str] = None):
+    #     try:
+    #         await item_manager.add_item(
+    #             category_name=category_name,
+    #             name=name,
+    #             role_id=role.id,
+    #             price=price,
+    #             stock=stock,
+    #             parent_item_name=parent_item_name
+    #         )
+    #         await ctx.reply(f"✅ 아이템 '{name}'을(를) '{category_name}' 카테고리에 추가했습니다. (가격: {price}, 재고: {stock})")
+    #         await self.log(f"{ctx.author} 상점 아이템 추가: {name}")
+    #     except Exception as e:
+    #         await ctx.reply(f"❌ 오류: {e}")
+
+    # @shop_settings.command(name="아이템제거")
+    # @commands.has_permissions(administrator=True)
+    # async def remove_item(self, ctx: commands.Context, *, name: str):
+    #     success = await item_manager.remove_item(name)
+    #     if success:
+    #         await ctx.reply(f"✅ 아이템 '{name}'을(를) 삭제했습니다.")
+    #         await self.log(f"{ctx.author} 상점 아이템 삭제: {name}")
+    #     else:
+    #         await ctx.reply(f"❌ 아이템 '{name}'을(를) 찾을 수 없습니다.")
+
+    # @shop_settings.command(name="판매기간")
+    # @commands.has_permissions(administrator=True)
+    # async def set_item_availability(self, ctx: commands.Context, item_name: str, 
+    #                                 start_date: str = "NULL", end_date: str = "NULL"):
+    #     """
+    #     아이템의 판매 기간을 설정합니다. (YYYY-MM-DD 또는 YYYY-MM-DD HH:MM)
+    #     "NULL" 입력 시 제한이 해제됩니다.
+    #     """
+    #     item = await item_manager.get_item_by_name(item_name)
+    #     if not item:
+    #         await ctx.reply(f"❌ 아이템 '{item_name}'을(를) 찾을 수 없습니다.")
+    #         return
+
+    #     # 간단한 날짜 유효성 검사 (엄격하진 않음)
+    #     def parse_date(date_str: str):
+    #         if date_str.upper() == "NULL":
+    #             return None
+    #         try:
+    #             # YYYY-MM-DD HH:MM
+    #             datetime.now(KST).strptime(date_str, "%Y-%m-%d %H:%M")
+    #             return date_str
+    #         except ValueError:
+    #             try:
+    #                 # YYYY-MM-DD
+    #                 datetime.now(KST).strptime(date_str, "%Y-%m-%d")
+    #                 return f"{date_str} 00:00:00" # 자정 기준으로 설정
+    #             except ValueError:
+    #                 raise ValueError("날짜 형식이 올바르지 않습니다. (YYYY-MM-DD 또는 YYYY-MM-DD HH:MM)")
+
+    #     try:
+    #         parsed_start = parse_date(start_date)
+    #         parsed_end = parse_date(end_date)
+            
+    #         await item_manager._db.execute(
+    #             "UPDATE shop_items SET available_after = ?, available_until = ? WHERE item_id = ?",
+    #             (parsed_start, parsed_end, item['item_id'])
+    #         )
+    #         await item_manager._db.commit()
+            
+    #         await ctx.reply(f"✅ 아이템 '{item_name}'의 판매 기간을 설정했습니다.\n"
+    #                         f"시작: `{parsed_start or '제한 없음'}`\n"
+    #                         f"종료: `{parsed_end or '제한 없음'}`")
+    #         await self.log(f"{ctx.author} 상점 아이템 판매 기간 설정: {item_name}")
+
+    #     except Exception as e:
+    #         await ctx.reply(f"❌ 오류: {e}")
+
+    # @shop_settings.command(name="목록")
+    # @commands.has_permissions(administrator=True)
+    # async def list_shop_items(self, ctx: commands.Context):
+    #     categories = await item_manager.list_all_categories()
+    #     items = await item_manager.list_all_items()
+        
+    #     embed = discord.Embed(
+    #         title="🛒 상점 전체 목록 (관리자용)",
+    #         description="현재 DB에 등록된 모든 카테고리와 아이템입니다.",
+    #         colour=discord.Colour.from_rgb(100, 160, 240)
+    #     )
+        
+    #     if not categories:
+    #         embed.description = "등록된 카테고리가 없습니다."
+    #         await ctx.reply(embed=embed)
+    #         return
+            
+    #     category_map = {cat['category_id']: cat['name'] for cat in categories}
+    #     item_map = {cat_id: [] for cat_id in category_map.keys()}
+        
+    #     for item in items:
+    #         item_map[item['category_id']].append(item)
+            
+    #     for cat_id, cat_name in category_map.items():
+    #         field_value = ""
+    #         if not item_map[cat_id]:
+    #             field_value = "이 카테고리에 등록된 아이템이 없습니다."
+    #         else:
+    #             for item in item_map[cat_id]:
+    #                 role = ctx.guild.get_role(item['role_id'])
+    #                 role_mention = f"@{role.name}" if role else f"(ID:{item['role_id']})"
+    #                 stock_str = f"({item['stock']}개)" if item['stock'] != -1 else "(무제한)"
+    #                 field_value += f"• **{item['name']}** [{item['price']}원] {stock_str} -> {role_mention}\n"
+                    
+    #         embed.add_field(name=f"카테고리: {cat_name}", value=field_value, inline=False)
+            
+    #     await ctx.reply(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(OnAdminSettings(bot))
