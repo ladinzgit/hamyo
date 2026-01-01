@@ -288,19 +288,36 @@ class BirthdayInterface(commands.Cog):
         message_content = await self.create_birthday_message(guild)
         
         try:
-            # 기존 메시지 삭제
+            message = None      # 메시지 객체
+            resend = False      # 새롭게 전송 여부
+            
+            # 기존 메시지가 있는 경우 수정
             if config.get("message_id"):
                 try:
-                    old_message = await channel.fetch_message(config["message_id"])
-                    await old_message.delete()
+                    message = await channel.fetch_message(config["message_id"])
+                    await message.edit(content=message_content)
                 except discord.NotFound:
-                    pass
+                    # 메시지가 삭제된 경우, 새로 전송
+                    resend = True
                 except Exception as e:
-                    await self.log(f"기존 메시지 삭제 실패: {e} [길드: {guild.name}({guild.id})]")
+                    # 그 외 오류 (권한 문제 등), 로그 남기고 새로 전송
+                    await self.log(f"메시지 수정 실패 ({e}), 새로 전송 [길드: {guild.name}({guild.id})]")
+                    resend = True
+            else:
+                resend = True
             
-            # 새 메시지 생성
-            message = await channel.send(message_content)
-            self.set_channel_config(guild.id, channel.id, message.id)
+            # 메시지를 새로 보내야 하는 경우 (신규, 수정실패, 삭제)
+            if resend:
+                # 기존 메시지 ID가 있다면 삭제 시도
+                if config.get("message_id"):
+                    try:
+                        old_msg = await channel.fetch_message(config["message_id"])
+                        await old_msg.delete()
+                    except:
+                        pass
+
+                message = await channel.send(message_content)
+                self.set_channel_config(guild.id, channel.id, message.id)
             
             # 로그 메시지 생성
             log_msg = f"생일 메시지 갱신 완료 [길드: {guild.name}({guild.id}), 채널: {channel.name}({channel.id})]"
