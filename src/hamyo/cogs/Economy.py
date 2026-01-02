@@ -427,16 +427,11 @@ class Economy(commands.Cog):
 
         # --- 추천 인증 시 LevelChecker에 주간 퀘스트 트리거 ---
         # --- 추천/업/지인초대 인증 시 LevelChecker에 퀘스트 트리거 ---
-        if condition in ["추천", "업", "지인초대"]:
+        if condition == "추천":
             level_checker = self.bot.get_cog('LevelChecker')
             if level_checker:
                 try:
-                    if condition == "추천":
-                        await level_checker.process_recommend_quest(member.id, count)
-                    elif condition == "업":
-                        await level_checker.process_up_quest(member.id, count)
-                    elif condition == "지인초대":
-                        await level_checker.process_invite_quest(member.id, count)
+                    await level_checker.process_recommend_quest(member.id, count)
                 except Exception as e:
                     print(f"LevelChecker {condition} 퀘스트 처리 오류: {e}")
 

@@ -142,7 +142,7 @@ class VoiceTracker(commands.Cog):
                     
                 if daily_secs >= 60 * 60 and uid not in self.voice_1h_tracker:
                     self.voice_1h_tracker.add(uid)
-                    self.bot.dispatch('mission_completion', uid, 'voice_1h', None)
+                    # self.bot.dispatch('mission_completion', uid, 'voice_1h', None)
 
                 # === 주간 누적 초 ===
                 week_map, _, _ = await self.data_manager.get_user_times(
