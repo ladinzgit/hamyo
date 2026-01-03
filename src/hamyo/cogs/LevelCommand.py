@@ -67,7 +67,7 @@ class LevelCommands(commands.Cog):
             'dado': {'name': '다도', 'threshold': 400, 'emoji': '🍃'},
             'daho': {'name': '다호', 'threshold': 1800, 'emoji': '🌸'},
             'dakyung': {'name': '다경', 'threshold': 6000, 'emoji': '🌟'},
-            'dahyang': {'name': '다향', 'threshold': 12000, 'emoji': '💫'}  #추가
+            'dahyang': {'name': '다향', 'threshold': 12000, 'emoji': '💫'}  # 추가
         }
         
         self.role_order = ['hub', 'dado', 'daho', 'dakyung', 'dahyang']

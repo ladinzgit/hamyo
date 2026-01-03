@@ -53,24 +53,27 @@ class LevelChecker(commands.Cog):
             'hub': 0,
             'dado': 400,
             'daho': 1800,
-            'dakyung': 6000
+            'dakyung': 6000,
+            'dahyang': 12000
         }
         
         # 역할 순서
-        self.role_order = ['hub', 'dado', 'daho', 'dakyung']
+        self.role_order = ['hub', 'dado', 'daho', 'dakyung', 'dahyang']
         
         self.ROLE_IDS = {
             'hub': 1396829213172174890,
             'dado': 1396829213172174888,
             'daho': 1398926065111662703,
-            'dakyung': 1396829213172174891
+            'dakyung': 1396829213172174891,
+            'dahyang': 1396829213172174892
         }
         
         self.ROLE_DISPLAY = {
             'hub': '허브',
             'dado': '다도',
             'daho': '다호',
-            'dakyung': '다경'
+            'dakyung': '다경',
+            'dahyang': '다향'
         }
     
     async def cog_load(self):
@@ -232,6 +235,17 @@ class LevelChecker(commands.Cog):
                     "│\n"
                     " ╰ ⊱ ─ · ─ · ─ · ─ ·  ─ · ─ · ─ · ─ · ─ · ─ · ─"
                 ),
+                "dahyang": (
+                    ".   ◜◝--◜◝\n"
+                    "꒰   ˶ ´  ତ ` ˶꒱\n"
+                    "✦ ╮ {mention} 님, 다향으로 승급했어요 !\n"
+                    "│\n"
+                    "│ ⠀몽경의 경지를 넘어, 온 세상에 그 향기가 닿는 자가 되었어요 ˎˊ˗ \n"
+                    "│ ⠀맑은 차향이 구름을 타고 만물에 스며들듯\n"
+                    "│    모든 경계를 아우르는 고요하고 깊은 울림의 경지입니다 <:BM_k_004:1399387524010606644>\n"
+                    "│\n"
+                    " ╰ ⊱ ─ · ─ · ─ · ─ ·  ─ · ─ · ─ · ─ · ─ · ─ · ─"
+                ),
             }
 
             template = templates.get(new_role_key)
@@ -257,7 +271,8 @@ class LevelChecker(commands.Cog):
             'hub': discord.Color.green(),
             'dado': discord.Color.from_rgb(144, 238, 144),  # 연한 초록
             'daho': discord.Color.from_rgb(255, 182, 193),  # 연한 분홍
-            'dakyung': discord.Color.from_rgb(255, 215, 0)  # 금색
+            'dakyung': discord.Color.from_rgb(255, 215, 0),  # 금색
+            'dahyang': discord.Color.from_rgb(80, 105, 215)
         }
         
         try:
