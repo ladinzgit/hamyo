@@ -24,7 +24,9 @@ class LevelChecker(commands.Cog):
                 'attendance': 10,
                 'diary': 5,
                 'voice_30min': 15,
-                'bbibbi': 5
+                'bbibbi': 5,
+                'call': 3,
+                'friend': 3
             },
             'weekly': {
                 'recommend_3': 50,
@@ -455,14 +457,23 @@ class LevelChecker(commands.Cog):
             return
 
         # --- 삐삐 퀘스트 감지 ---
-        BBIBBI_CHANNEL_ID = 1396829223267598346
-        BBIBBI_ROLE_ID = 1396829213163520021
-        
-        if message.channel.id == BBIBBI_CHANNEL_ID and any(role.id == BBIBBI_ROLE_ID for role in message.role_mentions):
+        CALL_CHANNEL_ID = 1453179899568324700
+        CALL_ROLE_ID = 1452283108979118196
+        FRIEND_CHANNEL_ID = 1453179765237223676
+        FRIEND_ROLE_ID = 1396829213163520021
+
+        if message.channel.id == CALL_CHANNEL_ID and any(role.id == CALL_ROLE_ID for role in message.role_mentions):
             user_id = message.author.id
-            result = await self.process_bbibbi(user_id)
+            result = await self.process_call(user_id)
             if result.get('success'):
-                await message.add_reaction('📢')
+                await message.add_reaction('<:BM_r_008:1445392406332575804>')
+                return
+
+        if message.channel.id == FRIEND_CHANNEL_ID and any(role.id == FRIEND_ROLE_ID for role in message.role_mentions):
+            user_id = message.author.id
+            result = await self.process_friend(user_id)
+            if result.get('success'):
+                await message.add_reaction('<:BM_r_008:1445392406332575804>')
                 return
         
         # --- 다방일지 퀘스트 감지 ---
@@ -506,8 +517,8 @@ class LevelChecker(commands.Cog):
             except Exception as e:
                 await self.log(f"게시판 퀘스트 처리 중 오류 발생: {e}")
 
-    async def process_bbibbi(self, user_id: int) -> Dict[str, Any]:
-        """삐삐(특정 역할 멘션) 일일 퀘스트 처리"""
+    async def process_call(self, user_id: int) -> Dict[str, Any]:
+        """전화하자 일일 퀘스트 처리"""
         result = {
             'success': False,
             'exp_gained': 0,
@@ -519,21 +530,51 @@ class LevelChecker(commands.Cog):
             today_count = await self.data_manager.get_quest_count(
                 user_id,
                 quest_type='daily',
-                quest_subtype='bbibbi',
+                quest_subtype='call',
                 timeframe='day'
             )
             if today_count > 0:
                 return result  # 이미 지급됨
 
-            exp = self.quest_exp['daily']['bbibbi']
-            await self.data_manager.add_exp(user_id, exp, 'daily', 'bbibbi')
+            exp = self.quest_exp['daily']['call']
+            await self.data_manager.add_exp(user_id, exp, 'daily', 'call')
             result['success'] = True
             result['exp_gained'] = exp
-            result['quest_completed'].append('daily_bbibbi')
-            result['messages'].append(f"📢 삐삐 퀘스트 완료! **+{exp} 다공**")
+            result['quest_completed'].append('daily_call')
+            result['messages'].append(f"📢 전화하자 퀘스트 완료! **+{exp} 다공**")
         except Exception as e:
-            await self.log(f"삐삐 퀘스트 처리 중 오류: {e}")
-            result['messages'].append("삐삐 퀘스트 처리 중 오류가 발생했습니다.")
+            await self.log(f"전화하자 퀘스트 처리 중 오류: {e}")
+            result['messages'].append("전화하자 퀘스트 처리 중 오류가 발생했습니다.")
+        return await self._finalize_quest_result(user_id, result)
+
+    async def process_friend(self, user_id: int) -> Dict[str, Any]:
+        """친구하자 일일 퀘스트 처리"""
+        result = {
+            'success': False,
+            'exp_gained': 0,
+            'messages': [],
+            'quest_completed': []
+        }
+        try:
+            # get_quest_count로 오늘 이미 지급했는지 확인
+            today_count = await self.data_manager.get_quest_count(
+                user_id,
+                quest_type='daily',
+                quest_subtype='friend',
+                timeframe='day'
+            )
+            if today_count > 0:
+                return result  # 이미 지급됨
+
+            exp = self.quest_exp['daily']['friend']
+            await self.data_manager.add_exp(user_id, exp, 'daily', 'friend')
+            result['success'] = True
+            result['exp_gained'] = exp
+            result['quest_completed'].append('daily_friend')
+            result['messages'].append(f"📢 친구하자 퀘스트 완료! **+{exp} 다공**")
+        except Exception as e:
+            await self.log(f"친구하자 퀘스트 처리 중 오류: {e}")
+            result['messages'].append("친구하자 퀘스트 처리 중 오류가 발생했습니다.")
         return await self._finalize_quest_result(user_id, result)
 
     async def process_diary(self, user_id: int) -> Dict[str, Any]:

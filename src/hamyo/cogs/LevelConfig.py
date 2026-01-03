@@ -35,7 +35,8 @@ class LevelConfig(commands.Cog):
             'hub': {'name': '허브', 'threshold': 0, 'emoji': '🌱'},
             'dado': {'name': '다도', 'threshold': 400, 'emoji': '🍃'},
             'daho': {'name': '다호', 'threshold': 1800, 'emoji': '🌸'},
-            'dakyung': {'name': '다경', 'threshold': 6000, 'emoji': '🌟'}
+            'dakyung': {'name': '다경', 'threshold': 6000, 'emoji': '🌟'},
+            'dahyang': {'name': '다향', 'threshold': 12000, 'emoji': '💫'}
         }
     
     async def cog_load(self):
@@ -561,8 +562,10 @@ class LevelConfig(commands.Cog):
         # 일일 퀘스트
         daily_quests = []
         for quest, exp in quest_exp['daily'].items():
-            if quest == "bbibbi":
-                daily_quests.append(f"`{quest}` ({exp} 다공) - 다방삐삐(지정 채널에서 역할 멘션)")
+            if quest == "call":
+                daily_quests.append(f"`{quest}` ({exp} 다공) - 통화하자(지정 채널에서 역할 멘션)")
+            elif quest == "friend":
+                daily_quests.append(f"`{quest}` ({exp} 다공) - 친구하자(지정 채널에서 역할 멘션)")
             else:
                 daily_quests.append(f"`{quest}` ({exp} 다공)")
         embed.add_field(
@@ -623,7 +626,8 @@ class LevelConfig(commands.Cog):
             'attendance': '매일 서버에 출석하는 퀘스트',
             'diary': '다방일지 채널에 일기를 작성하는 퀘스트',
             'voice_30min': '음성방에서 30분 이상 활동하는 퀘스트',
-            'bbibbi': '특정 채널에서 역할을 멘션하는 삐삐 퀘스트',
+            'call': '특정 채널에서 역할을 멘션하는 통화하자 퀘스트',
+            'friend': '특정 채널에서 역할을 멘션하는 친구하자 퀘스트',
             'recommend_3': '서버를 외부 사이트에 3회 추천하는 퀘스트',
             'shop_purchase': '비몽상점에서 상품을 구매하는 퀘스트',
             'board_participate': '비몽게시판에 참여하는 퀘스트',
@@ -663,7 +667,9 @@ class LevelConfig(commands.Cog):
                 special_conditions.append(f"주간 음성방 {hours}시간 달성 필요")
             elif quest_type == 'voice_30min':
                 special_conditions.append("하루 1회, 30분 이상 음성방 활동 필요")
-        elif quest_type == 'bbibbi':
+        elif quest_type == 'call':
+            special_conditions.append("지정된 채널에서 지정된 역할 멘션 필요")
+        elif quest_type == 'friend':
             special_conditions.append("지정된 채널에서 지정된 역할 멘션 필요")
         elif quest_category == 'weekly' and quest_type not in ['attendance_4', 'attendance_7', 'diary_4', 'diary_7']:
             special_conditions.append("주 1회 완료 가능")

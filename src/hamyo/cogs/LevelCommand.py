@@ -17,7 +17,8 @@ ROLE_IDS = {
         'hub': 1396829213172174890,
         'dado': 1396829213172174888,
         'daho': 1398926065111662703,
-        'dakyung': 1396829213172174891
+        'dakyung': 1396829213172174891,
+        'dahyang': 1396829213172174892
         }
     
 def _load_levelcfg():
@@ -65,10 +66,11 @@ class LevelCommands(commands.Cog):
             'hub': {'name': '허브', 'threshold': 0, 'emoji': '🌱'},
             'dado': {'name': '다도', 'threshold': 400, 'emoji': '🍃'},
             'daho': {'name': '다호', 'threshold': 1800, 'emoji': '🌸'},
-            'dakyung': {'name': '다경', 'threshold': 6000, 'emoji': '🌟'}
+            'dakyung': {'name': '다경', 'threshold': 6000, 'emoji': '🌟'},
+            'dahyang': {'name': '다향', 'threshold': 12000, 'emoji': '💫'}  #추가
         }
         
-        self.role_order = ['hub', 'dado', 'daho', 'dakyung']
+        self.role_order = ['hub', 'dado', 'daho', 'dakyung', 'dahyang']
     
     async def cog_load(self):
         """Cog 로드 시 데이터베이스 초기화"""
@@ -113,9 +115,9 @@ class LevelCommands(commands.Cog):
             current_role_key = user_data.get("current_role", "hub") if user_data else "hub"
 
             # 2) 역할(경지) 임계값/진행률 계산 (LevelChecker.role_thresholds 기반)
-            role_thresholds = getattr(level_checker, "role_thresholds", {"hub": 0, "dado": 400, "daho": 1800, "dakyung": 6000})
-            role_order = getattr(level_checker, "role_order", ["hub", "dado", "daho", "dakyung"])
-            role_display = getattr(level_checker, "ROLE_DISPLAY", {"hub": "허브", "dado": "다도", "daho": "다호", "dakyung": "다경"})
+            role_thresholds = getattr(level_checker, "role_thresholds", {"hub": 0, "dado": 400, "daho": 1800, "dakyung": 6000, "dahyang": 12000})
+            role_order = getattr(level_checker, "role_order", ["hub", "dado", "daho", "dakyung", "dahyang"])
+            role_display = getattr(level_checker, "ROLE_DISPLAY", {"hub": "허브", "dado": "다도", "daho": "다호", "dakyung": "다경", "dahyang": "다향"})
 
             role_obj = ctx.guild.get_role(ROLE_IDS[current_role_key])
             current_role_mention = role_obj.mention if role_obj else role_display.get(current_role_key, current_role_key)
@@ -160,7 +162,8 @@ class LevelCommands(commands.Cog):
 
             att_daily = await _safe_get_quest(user_id, 'daily', 'attendance', 'day') or 0
             diary_daily = await _safe_get_quest(user_id, 'daily', 'diary', 'day') or 0
-            bb_daily = await _safe_get_quest(user_id, 'daily', 'bbibbi', 'day') or 0
+            call_daily = await _safe_get_quest(user_id, 'daily', 'call', 'day') or 0
+            friend_daily = await _safe_get_quest(user_id, 'daily', 'friend', 'day') or 0
             
             # 추적 채널 목록 확보 (캐시가 있으면 사용, 없으면 유틸 함수로 확장)
             try:
@@ -262,7 +265,8 @@ class LevelCommands(commands.Cog):
                 value=(
                     f"> 출석체크 : {ox(att_daily >= 1)} \n"
                     f"> 다방일지 : {ox(diary_daily >= 1)} \n"
-                    f"> 다방삐삐 : {ox(bb_daily >= 1)}\n"
+                    f"> 통화하자 : {ox(call_daily >= 1)}\n"
+                    f"> 친구하자 : {ox(friend_daily >= 1)}\n"
                     f"> 음성활동 : {voice_min_daily}분 / 30분 ({ox(voice_min_daily >= 30)})"
                 ),
                 inline=False
