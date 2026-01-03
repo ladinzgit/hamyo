@@ -6,7 +6,7 @@ from balance_data_manager import balance_manager
 # from datetime import datetime
 # import pytz
 
-KST = pytz.timezone("Asia/Seoul")
+# KST = pytz.timezone("Asia/Seoul")
 
 GUILD_ID = [1396829213100605580, 1378632284068122685]
 
