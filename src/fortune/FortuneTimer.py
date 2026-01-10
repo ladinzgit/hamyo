@@ -2,8 +2,8 @@ import discord
 from discord.ext import commands, tasks
 from datetime import datetime, timedelta
 
-import fortune_db
-from .BirthdayInterface import GUILD_ID, KST
+from src.core import fortune_db
+from src.birthday.BirthdayInterface import GUILD_ID, KST
 
 
 class FortuneTimer(commands.Cog):
@@ -11,15 +11,23 @@ class FortuneTimer(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.midnight_task.start()
         self.mention_task.start()
 
     def cog_unload(self):
-        self.midnight_task.cancel()
         self.mention_task.cancel()
+    
+    @commands.Cog.listener()
+    async def on_ready(self):
+        pass
 
     async def cog_load(self):
         print(f"🐾{self.__class__.__name__} loaded successfully!")
+        # 스케줄러 cog 가져오기
+        scheduler = self.bot.get_cog("Scheduler")
+        if scheduler:
+            scheduler.schedule_daily(self.midnight_task, 0, 0)
+        else:
+            print("⚠️ Scheduler cog not found! FortuneTimer task validation failed.")
 
     async def log(self, message: str):
         """Logger cog에 로그 전달"""
@@ -30,11 +38,8 @@ class FortuneTimer(commands.Cog):
         except Exception as e:
             print(f"🐾{self.__class__.__name__} 로그 전송 오류 발생: {e}")
 
-    @tasks.loop(hours=24)
     async def midnight_task(self):
         """자정마다 count 차감 및 역할 동기화"""
-        await self.bot.wait_until_ready()
-
         try:
             result = fortune_db.decrement_all_targets()
             updated, removed = result.get("updated", []), result.get("removed", [])
@@ -55,15 +60,6 @@ class FortuneTimer(commands.Cog):
                     await self._sync_roles_for_guild(guild)
         except Exception as e:
             await self.log(f"운세 대상 차감 중 오류 발생: {e}")
-
-    @midnight_task.before_loop
-    async def before_midnight_task(self):
-        """다음 자정(KST)까지 대기"""
-        await self.bot.wait_until_ready()
-        now = datetime.now(KST)
-        next_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-        await self.log(f"운세 자정 타이머 대기 시작 (다음 실행: {next_midnight.strftime('%Y-%m-%d %H:%M:%S')})")
-        await discord.utils.sleep_until(next_midnight)
 
     async def _sync_roles_for_guild(self, guild: discord.Guild):
         """count가 남아있는 대상에게 역할 부여, 0 이하/비대상은 회수"""

@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from LevelDataManager import LevelDataManager
+from src.core.LevelDataManager import LevelDataManager
 from typing import Optional, Dict, Any, List
 import json, os
 import logging

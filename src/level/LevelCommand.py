@@ -1,13 +1,13 @@
 import discord
 from discord.ext import commands
-from LevelDataManager import LevelDataManager
-from DataManager import DataManager
+from src.core.LevelDataManager import LevelDataManager
+from src.core.DataManager import DataManager
 from typing import Optional, Dict, Any, List
 import logging
 from datetime import datetime, timedelta
 import json, os
 import pytz
-from voice_utils import get_expanded_tracked_channels as expand_tracked 
+from src.core.voice_utils import get_expanded_tracked_channels as expand_tracked 
 import time
 
 CONFIG_PATH = "config/level_config.json"
@@ -170,7 +170,7 @@ class LevelCommands(commands.Cog):
                 tracked_channel_ids = set(await self._get_tracked_voice_ids_cached())
             except AttributeError:
                 # 캐시 헬퍼가 없는 경우 폴백
-                from voice_utils import get_expanded_tracked_channels as expand_tracked
+                from src.core.voice_utils import get_expanded_tracked_channels as expand_tracked
                 tracked_channel_ids = set(await expand_tracked(self.bot, self.data_manager, "voice"))
                 
             if not tracked_channel_ids:

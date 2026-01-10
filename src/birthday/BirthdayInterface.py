@@ -5,7 +5,8 @@
 
 import discord
 from discord.ext import commands, tasks
-import birthday_db
+from src.core import birthday_db
+from src.core import fortune_db
 from datetime import datetime, timedelta
 import json
 from pathlib import Path
@@ -47,11 +48,14 @@ class BirthdayInterface(commands.Cog):
     
     def __init__(self, bot):
         self.bot = bot
-        self.midnight_update.start()
     
+    @commands.Cog.listener()
+    async def on_ready(self):
+        pass
+
     def cog_unload(self):
         """Cog 언로드 시 태스크 종료"""
-        self.midnight_update.cancel()
+        pass
     
     async def cog_load(self):
         """Cog 로드 시 실행"""
@@ -60,6 +64,13 @@ class BirthdayInterface(commands.Cog):
             save_config({})
             print(f"✅ Birthday Interface config initialized at {CONFIG_PATH}")
         print(f"✅ {self.__class__.__name__} loaded successfully!")
+
+        # 스케줄러 cog 가져오기
+        scheduler = self.bot.get_cog("Scheduler")
+        if scheduler:
+            scheduler.schedule_daily(self.midnight_update, 0, 0)
+        else:
+            print("⚠️ Scheduler cog not found! BirthdayInterface task validation failed.")
     
     async def log(self, message):
         """Logger cog를 통해 로그 메시지 전송"""
@@ -332,28 +343,13 @@ class BirthdayInterface(commands.Cog):
         except Exception as e:
             await self.log(f"생일 메시지 갱신 실패: {e} [길드: {guild.name}({guild.id})]")
     
-    @tasks.loop(hours=24)
     async def midnight_update(self):
         """매일 자정에 모든 길드의 생일 메시지 업데이트"""
-        await self.bot.wait_until_ready()
-        
+        # 스케줄러에 의해 호출됨
         for guild_id in GUILD_ID:
             guild = self.bot.get_guild(guild_id)
             if guild:
                 await self.update_birthday_message(guild)
-    
-    @midnight_update.before_loop
-    async def before_midnight_update(self):
-        """자정까지 대기"""
-        await self.bot.wait_until_ready()
-        
-        # 다음 자정까지 대기 (KST 기준)
-        now = datetime.now(KST)
-        next_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-        wait_seconds = (next_midnight - now).total_seconds()
-        
-        await self.log(f"생일 자동 업데이트 시작 예정 (KST): {next_midnight.strftime('%Y-%m-%d %H:%M:%S')} ({wait_seconds:.0f}초 후)")
-        await discord.utils.sleep_until(next_midnight)
     
     @commands.group(name="생일설정", invoke_without_command=True)
     @only_in_guild()

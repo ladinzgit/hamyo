@@ -3,7 +3,7 @@ from discord.ext import commands
 import aiosqlite
 from datetime import datetime, timedelta
 import pytz
-from balance_data_manager import balance_manager  # 추가
+from src.core.balance_data_manager import balance_manager  # 추가
 
 DB_PATH = 'data/attendance.db'
 KST = pytz.timezone("Asia/Seoul")

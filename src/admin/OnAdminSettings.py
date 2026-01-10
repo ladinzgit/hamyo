@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from balance_data_manager import balance_manager
+from src.core.balance_data_manager import balance_manager
 # from Item_db import item_manager
 # from typing import Optional
 # from datetime import datetime

@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 from datetime import datetime, timedelta
-from DataManager import DataManager
+from src.core.DataManager import DataManager
 import pytz
 from typing import List
 

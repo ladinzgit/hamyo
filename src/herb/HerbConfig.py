@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from DataManager import DataManager
+from src.core.DataManager import DataManager
 
 GUILD_ID = [1396829213100605580, 1378632284068122685]
 

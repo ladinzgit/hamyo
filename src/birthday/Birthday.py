@@ -6,7 +6,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import birthday_db
+from src.core import birthday_db
 from datetime import datetime
 import calendar
 

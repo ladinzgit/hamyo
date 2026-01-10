@@ -1,7 +1,7 @@
 # voice_utils.py
 import discord
 from typing import List, Set
-from DataManager import DataManager
+from .DataManager import DataManager
 
 async def get_expanded_tracked_channels(
     bot: discord.Client,
