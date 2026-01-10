@@ -336,11 +336,53 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
 
         return list(expanded_ids)
 
+    def parse_date(self, date_str: str) -> Optional[datetime]:
+        """
+        다양한 날짜 형식을 파싱하여 datetime 객체로 반환합니다.
+        지원 형식: YYYY-MM-DD, YYYYMMDD, MM-DD, MMDD
+        (연도가 생략된 경우 현재 연도 기준)
+        """
+        now = datetime.now(self.tz)
+        current_year = now.year
+        
+        # 1. YYYY-MM-DD
+        try:
+            dt = datetime.strptime(date_str, "%Y-%m-%d")
+            return dt.replace(tzinfo=self.tz)
+        except ValueError:
+            pass
+
+        # 2. YYYYMMDD
+        try:
+            dt = datetime.strptime(date_str, "%Y%m%d")
+            return dt.replace(tzinfo=self.tz)
+        except ValueError:
+            pass
+
+        # 3. MM-DD (현재 연도 적용)
+        try:
+            # 윤년 처리를 위해 연도를 붙여서 파싱 시도
+            test_str = f"{current_year}-{date_str}"
+            dt = datetime.strptime(test_str, "%Y-%m-%d")
+            return dt.replace(tzinfo=self.tz)
+        except ValueError:
+            pass
+
+        # 4. MMDD (현재 연도 적용)
+        try:
+            test_str = f"{current_year}{date_str}"
+            dt = datetime.strptime(test_str, "%Y%m%d")
+            return dt.replace(tzinfo=self.tz)
+        except ValueError:
+            pass
+
+        return None
+
     @app_commands.command(name="확인", description="개인 누적 시간을 확인합니다.")
     @app_commands.describe(
         user="확인할 사용자를 선택합니다. (미입력 시 현재 사용자)",
         period="확인할 기간을 선택합니다. (일간/주간/월간/누적, 미입력 시 오늘)",
-        base_date="기준일을 지정합니다. (YYYY-MM-DD 형식, 미입력 시 현재 날짜)"
+        base_date="기준일을 지정합니다. (YYYY-MM-DD, MMDD 등, 미입력 시 현재 날짜)"
     )
     @app_commands.choices(period=[
         app_commands.Choice(name="일간", value="일간"),
@@ -358,11 +400,9 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
             user = user or interaction.user
 
             if base_date:
-                try:
-                    base_datetime = datetime.strptime(base_date, "%Y-%m-%d")
-                    base_datetime = base_datetime.replace(tzinfo=self.tz)
-                except ValueError:
-                    await interaction.response.send_message("날짜 형식이 올바르지 않습니다. YYYY-MM-DD 형식으로 입력해주세요.", ephemeral=True)
+                base_datetime = self.parse_date(base_date)
+                if not base_datetime:
+                    await interaction.response.send_message("날짜 형식이 올바르지 않습니다. YYYY-MM-DD, MMDD 등 형식으로 입력해주세요.", ephemeral=True)
                     return
             else:
                 base_datetime = datetime.now(self.tz)
@@ -467,7 +507,7 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
     @app_commands.describe(
         period="확인할 기간을 선택합니다. (일간/주간/월간/누적, 기본값: 일간)",
         page="확인할 페이지를 선택합니다. (기본값: 1)",
-        base_date="기준일을 지정합니다. (YYYY-MM-DD 형식, 미입력시 현재 날짜)"
+        base_date="기준일을 지정합니다. (YYYY-MM-DD, MMDD 등, 미입력시 현재 날짜)"
     )
     @app_commands.choices(period=[
         app_commands.Choice(name="일간", value="일간"),
@@ -485,11 +525,9 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
         try:
             # 기준일 파싱
             if base_date:
-                try:
-                    base_datetime = datetime.strptime(base_date, "%Y-%m-%d")
-                    base_datetime = base_datetime.replace(tzinfo=self.tz)
-                except ValueError:
-                    await interaction.response.send_message("날짜 형식이 올바르지 않습니다. YYYY-MM-DD 형식으로 입력해주세요.", ephemeral=True)
+                base_datetime = self.parse_date(base_date)
+                if not base_datetime:
+                    await interaction.response.send_message("날짜 형식이 올바르지 않습니다. YYYY-MM-DD, MMDD 등 형식으로 입력해주세요.", ephemeral=True)
                     return
             else:
                 base_datetime = datetime.now(self.tz)
@@ -552,7 +590,7 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
         role="순위를 조회할 디스코드 역할",
         period="확인할 기간을 선택합니다. (일간/주간/월간/누적, 기본값: 일간)",
         page="확인할 페이지를 선택합니다. (기본값: 1)",
-        base_date="기준일을 지정합니다. (YYYY-MM-DD 형식, 미입력시 현재 날짜)"
+        base_date="기준일을 지정합니다. (YYYY-MM-DD, MMDD 등, 미입력시 현재 날짜)"
     )
     @app_commands.choices(period=[
         app_commands.Choice(name="일간", value="일간"),
@@ -570,11 +608,9 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
         try:
             # 기준일 파싱
             if base_date:
-                try:
-                    base_datetime = datetime.strptime(base_date, "%Y-%m-%d")
-                    base_datetime = base_datetime.replace(tzinfo=self.tz)
-                except ValueError:
-                    await interaction.response.send_message("날짜 형식이 올바르지 않습니다. YYYY-MM-DD 형식으로 입력해주세요.", ephemeral=True)
+                base_datetime = self.parse_date(base_date)
+                if not base_datetime:
+                    await interaction.response.send_message("날짜 형식이 올바르지 않습니다. YYYY-MM-DD, MMDD 등 형식으로 입력해주세요.", ephemeral=True)
                     return
             else:
                 base_datetime = datetime.now(self.tz)
