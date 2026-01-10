@@ -7,7 +7,7 @@ import logging
 from datetime import datetime, timedelta
 import json, os
 import pytz
-from src.core.voice_utils import get_expanded_tracked_channels as expand_tracked 
+from src.core.voice_utils import get_filtered_tracked_channels 
 import time
 
 CONFIG_PATH = "config/level_config.json"
@@ -89,7 +89,7 @@ class LevelCommands(commands.Cog):
         now_ts = time.time()
         if self._tracked_voice_cache and (now_ts - self._tracked_voice_cache_at) < ttl:
             return self._tracked_voice_cache
-        ids = set(await expand_tracked(self.bot, self.voice_data_manager, "voice"))
+        ids = set(await get_filtered_tracked_channels(self.bot, self.voice_data_manager, "voice"))
         self._tracked_voice_cache = ids
         self._tracked_voice_cache_at = now_ts
         return ids
@@ -170,8 +170,8 @@ class LevelCommands(commands.Cog):
                 tracked_channel_ids = set(await self._get_tracked_voice_ids_cached())
             except AttributeError:
                 # 캐시 헬퍼가 없는 경우 폴백
-                from src.core.voice_utils import get_expanded_tracked_channels as expand_tracked
-                tracked_channel_ids = set(await expand_tracked(self.bot, self.data_manager, "voice"))
+                from src.core.voice_utils import get_filtered_tracked_channels
+                tracked_channel_ids = set(await get_filtered_tracked_channels(self.bot, self.data_manager, "voice"))
                 
             if not tracked_channel_ids:
                 return
