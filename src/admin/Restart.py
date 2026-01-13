@@ -1,3 +1,6 @@
+"""
+봇의 재시작, 종료, 상태 확인을 위한 관리자 전용 모듈입니다.
+"""
 import discord
 from discord.ext import commands
 import sys
@@ -26,7 +29,7 @@ class Admin(commands.Cog):
     @commands.is_owner()
     async def restart(self, ctx):
         try:
-            await self.log(f"Bot restart initiated by owner. [길드: {ctx.guild.name if ctx.guild else 'DM'}({ctx.guild.id if ctx.guild else 'N/A'}), 채널: {ctx.channel.name if hasattr(ctx.channel, 'name') else 'DM'}({ctx.channel.id})]")
+            await self.log(f"관리자에 의해 봇 재시작이 시작되었습니다. [길드: {ctx.guild.name if ctx.guild else 'DM'}({ctx.guild.id if ctx.guild else 'N/A'}), 채널: {ctx.channel.name if hasattr(ctx.channel, 'name') else 'DM'}({ctx.channel.id})]")
             
             restart_message = await ctx.send("봇을 재시작하는 중입니다...")
             
@@ -46,7 +49,7 @@ class Admin(commands.Cog):
             
         except Exception as e:
             error_message = f"재시작 중 오류가 발생했습니다: {str(e)}"
-            await self.log(f"Restart error: {str(e)} [길드: {ctx.guild.name if ctx.guild else 'DM'}, 채널: {ctx.channel.name if hasattr(ctx.channel, 'name') else 'DM'}({ctx.channel.id})]")
+            await self.log(f"재시작 오류: {str(e)} [길드: {ctx.guild.name if ctx.guild else 'DM'}, 채널: {ctx.channel.name if hasattr(ctx.channel, 'name') else 'DM'}({ctx.channel.id})]")
             await ctx.send(error_message)
             
     @commands.command(name='종료', aliases=['shutdown', 'stop'])
@@ -54,7 +57,7 @@ class Admin(commands.Cog):
     async def shutdown(self, ctx):
         """봇을 안전하게 종료합니다."""
         try:
-            await self.log(f"Bot shutdown initiated by owner. [길드: {ctx.guild.name if ctx.guild else 'DM'}({ctx.guild.id if ctx.guild else 'N/A'}), 채널: {ctx.channel.name if hasattr(ctx.channel, 'name') else 'DM'}({ctx.channel.id})]")
+            await self.log(f"관리자에 의해 봇 종료가 시작되었습니다. [길드: {ctx.guild.name if ctx.guild else 'DM'}({ctx.guild.id if ctx.guild else 'N/A'}), 채널: {ctx.channel.name if hasattr(ctx.channel, 'name') else 'DM'}({ctx.channel.id})]")
             
             shutdown_message = await ctx.send("봇을 종료하는 중입니다...")
             
@@ -72,7 +75,7 @@ class Admin(commands.Cog):
             
         except Exception as e:
             error_message = f"종료 중 오류가 발생했습니다: {str(e)}"
-            await self.log(f"Shutdown error: {str(e)} [길드: {ctx.guild.name if ctx.guild else 'DM'}, 채널: {ctx.channel.name if hasattr(ctx.channel, 'name') else 'DM'}({ctx.channel.id})]")
+            await self.log(f"종료 오류: {str(e)} [길드: {ctx.guild.name if ctx.guild else 'DM'}, 채널: {ctx.channel.name if hasattr(ctx.channel, 'name') else 'DM'}({ctx.channel.id})]")
             await ctx.send(error_message)
 
     @commands.command(name='상태', aliases=['status'])
@@ -115,17 +118,17 @@ class Admin(commands.Cog):
                 )
             
             await ctx.send(embed=embed)
-            await self.log(f"Status check performed. [길드: {ctx.guild.name if ctx.guild else 'DM'}({ctx.guild.id if ctx.guild else 'N/A'}), 채널: {ctx.channel.name if hasattr(ctx.channel, 'name') else 'DM'}({ctx.channel.id})]")
+            await self.log(f"상태 확인이 수행되었습니다. [길드: {ctx.guild.name if ctx.guild else 'DM'}({ctx.guild.id if ctx.guild else 'N/A'}), 채널: {ctx.channel.name if hasattr(ctx.channel, 'name') else 'DM'}({ctx.channel.id})]")
                 
         except Exception as e:
             error_message = f"상태 확인 중 오류가 발생했습니다: {str(e)}"
-            await self.log(f"Status check error: {str(e)} [길드: {ctx.guild.name if ctx.guild else 'DM'}, 채널: {ctx.channel.name if hasattr(ctx.channel, 'name') else 'DM'}({ctx.channel.id})]")
+            await self.log(f"상태 확인 오류: {str(e)} [길드: {ctx.guild.name if ctx.guild else 'DM'}, 채널: {ctx.channel.name if hasattr(ctx.channel, 'name') else 'DM'}({ctx.channel.id})]")
             await ctx.send(error_message)
 
-    # Cog error handler
+
     async def cog_command_error(self, ctx, error):
-        print(f"An error occurred in the {self.__class__.__name__} cog: {error}")
-        await self.log(f"An error occurred in the {self.__class__.__name__} cog: {error} [길드: {ctx.guild.name if ctx.guild else 'DM'}, 채널: {ctx.channel.name if hasattr(ctx.channel, 'name') else 'DM'}({ctx.channel.id})]")
+        print(f"{self.__class__.__name__} cog에서 오류 발생: {error}")
+        await self.log(f"{self.__class__.__name__} cog에서 오류 발생: {error} [길드: {ctx.guild.name if ctx.guild else 'DM'}, 채널: {ctx.channel.name if hasattr(ctx.channel, 'name') else 'DM'}({ctx.channel.id})]")
 
 async def setup(bot):
     await bot.add_cog(Admin(bot))

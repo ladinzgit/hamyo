@@ -1,3 +1,8 @@
+"""
+사용자의 음성 채널 활동을 추적하고 기록하는 모듈입니다.
+음성 채널 입장/퇴장 시간을 기록하고, DataManager를 통해 DB에 저장합니다.
+또한 음성 퀘스트(30분, 5/10/20시간) 달성 여부를 확인하고 처리합니다.
+"""
 import discord
 from discord.ext import commands, tasks
 from datetime import datetime
@@ -19,10 +24,10 @@ class VoiceTracker(commands.Cog):
         # --- 추가: 음성 퀘스트 지급 여부 메모리 관리 ---
         self.voice_quest_daily_given = set()  # (user_id, date)
         self.voice_quest_weekly_given = {}    # user_id: set([5, 10, 20])  # 시간 단위
-        self.voice_1h_tracker = set() # user_id set for today
+        self.voice_1h_tracker = set() # 오늘 달성한 유저 ID 집합
         self.current_date_str = datetime.now(KST).strftime("%Y-%m-%d")
         self._tracked_voice_cache = None
-        self._tracked_voice_cache_at = 0  # epoch seconds
+        self._tracked_voice_cache_at = 0  # epoch 초
 
     async def cog_load(self):
         print(f"✅ {self.__class__.__name__} loaded successfully!")
@@ -142,7 +147,7 @@ class VoiceTracker(commands.Cog):
                     
                 if daily_secs >= 60 * 60 and uid not in self.voice_1h_tracker:
                     self.voice_1h_tracker.add(uid)
-                    # self.bot.dispatch('mission_completion', uid, 'voice_1h', None)
+
 
                 # === 주간 누적 초 ===
                 week_map, _, _ = await self.data_manager.get_user_times(

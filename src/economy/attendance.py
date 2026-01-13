@@ -197,7 +197,7 @@ class AttendanceCog(commands.Cog):
         for i, (user_id, count) in enumerate(page_rows, start=start_index + 1):
             try:
                 user = await self.bot.fetch_user(user_id)
-                # username = user.mention
+
                 username = user.display_name if hasattr(user, "display_name") else user.name
             except Exception:
                 username = f"Unknown({user_id})"

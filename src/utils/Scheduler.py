@@ -59,12 +59,12 @@ class Scheduler(commands.Cog):
         try:
             func = task["callback"]
             name = task["name"]
-            # await self.log(f"⏰ 스케줄러: {name} 실행 시작")
+
             if asyncio.iscoroutinefunction(func):
                 await func()
             else:
                 func()
-            # await self.log(f"✅ 스케줄러: {name} 실행 완료")
+
         except Exception as e:
             await self.log(f"❌ 스케줄러: {task.get('name')} 실행 중 오류 발생: {e}")
             print(f"Scheduler error in {task.get('name')}: {e}")

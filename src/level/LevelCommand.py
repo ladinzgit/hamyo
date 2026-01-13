@@ -12,6 +12,8 @@ import time
 
 CONFIG_PATH = "config/level_config.json"
 KST = pytz.timezone("Asia/Seoul")
+import re
+
 GUILD_ID = [1378632284068122685, 1396829213100605580, 1439281906502865091]
 ROLE_IDS = {
         'hub': 1396829213172174890,
@@ -20,6 +22,10 @@ ROLE_IDS = {
         'dakyung': 1396829213172174891,
         'dahyang': 1396829213172174892
         }
+    
+def extract_name(text: str) -> str:
+    match = re.search(r"([가-힣A-Za-z0-9_]+)$", text or "")
+    return match.group(1) if match else text
     
 def _load_levelcfg():
     if not os.path.exists(CONFIG_PATH):
@@ -229,7 +235,7 @@ class LevelCommands(commands.Cog):
 
             # 8) 임베드 구성
             embed = discord.Embed(
-                title=f"🌙 、{member.display_name} 님의 수행⠀",
+                title=f"🌙 、{extract_name(member.display_name)} 님의 수행⠀",
                 color=await level_checker._get_role_color(current_role_key, ctx.guild) if hasattr(level_checker, "_get_role_color") else discord.Color.blue()
             )
 

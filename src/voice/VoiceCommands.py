@@ -1,3 +1,7 @@
+"""
+음성 채널 관련 명령어를 관리하는 모듈입니다.
+사용자의 음성 채널 사용 시간을 조회하고, 순위를 확인할 수 있는 기능을 제공합니다.
+"""
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
@@ -61,7 +65,7 @@ class TimeSummaryView(discord.ui.View):
             self.add_item(self.category_select)
 
     def render_content(self) -> str:
-        # deprecated, kept for backwards compatibility with any lingering calls
+        # deprecated, 하위 호환성을 위해 유지
         return ""
 
     def render_embed(self) -> discord.Embed:

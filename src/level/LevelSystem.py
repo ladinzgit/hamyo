@@ -69,15 +69,7 @@ class LevelSystem(commands.Cog):
             role_key = await self._check_role_upgrade(user_id)  # 키 반환
             if role_key:
                 display = self._get_role_display_name(role_key)
-                # Note: result dict modification here won't affect the caller unless passed by ref and used afterwards, 
-                # but for event handling, we primarily care about the side effects here.
-                # result['role_updated'] = True 
-                # result['new_role'] = display
-                # result['messages'].append(f"🎉 축하합니다! **{display}** 역할로 승급했습니다!") 
-                # The caller (LevelChecker) typically constructs the result before dispatching.
-                # However, if we want to log or do more things, we can.
-                # For the strict purpose of "handling post-processing", sending the upgrade message is key.
-                
+
                 # 승급 메시지를 메인채팅에 전송 (키로 호출)
                 await self.send_role_upgrade_message(user_id, role_key)
 

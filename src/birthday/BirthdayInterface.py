@@ -263,19 +263,6 @@ class BirthdayInterface(commands.Cog):
         else:
             message_parts.append("> 이번 달 생일이 없다묘...\n")
         
-        # 마지막 생일
-        # message_parts.append("\n\n<a:slg13:1378567371324653618> 가장 최근 생일이었다묘 .ᐟ")
-        # if last_birthdays:
-        #     lb = last_birthdays[0]
-        #     message_parts.append(f"-# <:BM_inv:1384475516152582144> **{lb['month']}월 {lb['day']}일**")
-        #     for b in last_birthdays:
-        #         member = guild.get_member(int(b["user_id"]))
-        #         if member:
-        #             message_parts.append(f"-# <a:BM_gliter_005:1377697008344891572> {member.mention} <a:BM_gliter_005:1377697008344891572>")
-        #     message_parts.append("\n")
-        # else:
-        #     message_parts.append("-# 최근 생일이 없었다묘...\n")
-
         # 푸터
         message_parts.append("\n-# <a:BM_m_001:1399387800373301319> 매일 자정에 자동으로 업데이트 된다묘 .ᐟ.ᐟ <a:BM_m_002:1399387809772470342>")
         

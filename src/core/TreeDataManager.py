@@ -183,9 +183,8 @@ class TreeDataManager:
                 return result is not None
             
             else:
-                # Default to checking if any exist? Or False?
-                # Instruction 52: "다회성이라면 해당 날짜에만... 일회성이라면 모든 기록..."
-                # There are only these two types mentioned for specific logic.
+                # 지시사항 52: "다회성이라면 해당 날짜에만... 일회성이라면 모든 기록..."
+                # 이 두 가지 유형에 대해서만 특정 로직이 언급됨.
                 return False
 
         except Exception as e:
@@ -196,14 +195,14 @@ class TreeDataManager:
         await self.ensure_initialized()
         """트리 상태(전체 눈송이 합계) 조회"""
         try:
-            # Using total_gathered to calculate tree growth
+            # total_gathered를 사용하여 나무 성장 계산
             cursor = await self._db.execute("""
                 SELECT SUM(total_gathered) FROM user_snowflakes
             """)
             result = await cursor.fetchone()
             total_snowflakes = result[0] if result[0] else 0
             
-            # Calculate Level
+            # 레벨 계산
             # 0단계 : 0
             # 1단계 : 700
             # 2단계 : 1500
@@ -316,7 +315,7 @@ class TreeDataManager:
         try:
             await self._db.execute("DELETE FROM user_snowflakes")
             await self._db.execute("DELETE FROM quest_logs")
-            await self._db.execute("DELETE FROM sqlite_sequence WHERE name='quest_logs'") # Reset autoincrement
+            await self._db.execute("DELETE FROM sqlite_sequence WHERE name='quest_logs'") # autoincrement 초기화
             await self._db.commit()
             self.logger.info("Database reset complete.")
             return True

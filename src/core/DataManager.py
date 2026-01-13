@@ -22,22 +22,22 @@ class DataManager:
         return cls._instance
         
     def __init__(self, db_path: str = db_path):
-        # Only set the db_path if this is a new instance
+        # 새로운 인스턴스인 경우에만 db_path 설정
         if not hasattr(self, 'db_path'):
             self.db_path = db_path
             self._db = None
 
     async def ensure_initialized(self):
-        """Ensures the database is initialized before executing operations."""
+        """작업을 실행하기 전에 데이터베이스가 초기화되었는지 확인합니다."""
         if not DataManager._initialized:
             async with self._init_lock:
-                # Check again in case another task initialized while we were waiting
+                # 대기하는 동안 다른 태스크가 초기화했을 경우를 대비해 재확인
                 if not DataManager._initialized:
                     await self.initialize()
                     DataManager._initialized = True
 
     async def initialize(self):
-        """Initialize the database connection and create tables if they don't exist."""
+        """데이터베이스 연결을 초기화하고 테이블이 없으면 생성합니다."""
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         
         if self._db is None:
@@ -217,8 +217,8 @@ class DataManager:
         channel_filter: Optional[List[int]] = None,
     ) -> Tuple[Optional[int], int, int, Optional[datetime], Optional[datetime]]:
         """
-        Returns (rank, total_users, user_total_seconds, start_date, end_date)
-        rank is 1-based; None if user has no data in the window.
+        다음 값을 반환합니다: (순위, 전체 유저 수, 유저 총 시간, 시작일, 종료일)
+        순위는 1부터 시작하며, 해당 기간에 데이터가 없으면 None을 반환합니다.
         """
         all_data, start_date, end_date = await self.get_all_users_times(period, base_date, channel_filter)
         if not all_data:

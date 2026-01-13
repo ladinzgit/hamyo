@@ -93,7 +93,7 @@ class Economy(commands.Cog):
     @only_in_guild()
     @in_allowed_channel()
     async def check_balance(self, ctx, member: discord.Member = None):
-        """Check the current balance of a user."""
+        """유저의 현재 잔액을 확인합니다."""
         member = member or ctx.author
         balance = await balance_manager.get_balance(str(member.id))
         unit = await self.get_currency_unit()
@@ -118,7 +118,7 @@ class Economy(commands.Cog):
     @only_in_guild()
     @in_allowed_channel()
     async def transfer_money(self, ctx, member: discord.Member, amount: int):
-        """Transfer a specific amount of coins to another user."""
+        """다른 유저에게 특정 금액을 송금합니다."""
         unit = await self.get_currency_unit()
         if member.bot:
             embed = discord.Embed(
@@ -199,7 +199,7 @@ class Economy(commands.Cog):
         try:
             fee = await balance_manager.get_fee_for_amount(amount)
         except Exception:
-            #fee = 1000 if amount >= 50000 else 500
+
             embed = discord.Embed(
                 title=f"{unit}、온 송금 실패 ₍ᐢ..ᐢ₎",
                 description=f"""
@@ -402,7 +402,7 @@ class Economy(commands.Cog):
     @only_in_guild()
     @has_auth_role()
     async def give_coins(self, ctx, member: discord.Member, amount: int, count: int = 1):
-        """Give a specific amount of coins to a user, multiplied by count."""
+        """특정 유저에게 온을 지급합니다 (횟수 적용 가능)."""
         if amount <= 0 or count <= 0:
             await ctx.reply("금액과 횟수는 0보다 커야 합니다.")
             return
@@ -437,7 +437,7 @@ class Economy(commands.Cog):
     @only_in_guild()
     @has_auth_role()
     async def certify(self, ctx, member: discord.Member, condition: str, count: int = 1):
-        """Certify a user for meeting a condition and reward them, multiplied by count."""
+        """유저의 인증 조건을 처리하고 보상을 지급합니다 (횟수 적용 가능)."""
         if count <= 0:
             await ctx.reply("횟수는 0보다 커야 합니다.")
             return
@@ -481,7 +481,7 @@ class Economy(commands.Cog):
     @only_in_guild()
     @has_auth_role()
     async def take_coins(self, ctx, member: discord.Member, amount: int):
-        """Take a specific amount of coins from a user."""
+        """특정 유저에게서 온을 회수합니다."""
         if amount <= 0:
             await ctx.reply("금액은 0보다 커야 합니다.")
             return
@@ -521,7 +521,7 @@ class Economy(commands.Cog):
     @only_in_guild()
     @has_auth_role()
     async def bulk_give_channel(self, ctx, amount: int, channel: discord.TextChannel = None):
-        """Give coins to all users who have chatted in the specified channel."""
+        """지정된 채널에서 채팅한 모든 유저에게 온을 지급합니다."""
         if amount <= 0:
             await ctx.reply("금액은 0보다 커야 합니다.")
             return
