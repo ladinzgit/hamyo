@@ -227,9 +227,8 @@ class FortuneConfig(commands.Cog):
             await ctx.reply("운세 안내 채널을 비워두었다묘!")
             await self.log(f"{ctx.author}({ctx.author.id})가 운세 안내 채널을 해제함 [길드: {ctx.guild.name}({ctx.guild.id})]")
 
-    @fortune_setup.command(name="사용초기화")
-    @only_in_guild()
-    @commands.has_permissions(administrator=True)
+    @fortune_settings.command(name="사용초기화")
+    @is_guild_admin()
     async def reset_daily_limit(self, ctx, member: discord.Member = None):
         """
         운세 명령어 하루 1회 제한을 초기화합니다.
