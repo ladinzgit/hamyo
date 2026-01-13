@@ -354,5 +354,41 @@ class BalanceDataManager:
                     pass
         return 3, 5
 
+    async def swap_user_balance_data(self, old_user_id: str, new_user_id: str) -> bool:
+        """
+        특정 유저(old_user_id)의 자산 데이터를 다른 유저(new_user_id)로 통합합니다.
+        자산은 합산되며, 송금 내역도 모두 이관됩니다.
+        """
+        await self.ensure_initialized()
+        try:
+            async with self._db.execute("BEGIN TRANSACTION"):
+                # 1. 잔액 합산
+                # old_user 잔액 조회
+                async with self._db.execute("SELECT balance FROM balances WHERE user_id = ?", (old_user_id,)) as cursor:
+                    row = await cursor.fetchone()
+                
+                if row:
+                    old_balance = row[0]
+                    # new_user에게 더하기
+                    await self._db.execute("""
+                        INSERT INTO balances (user_id, balance) VALUES (?, ?)
+                        ON CONFLICT(user_id) 
+                        DO UPDATE SET balance = balance + excluded.balance
+                    """, (new_user_id, old_balance))
+                    
+                    # old_user 잔액 삭제
+                    await self._db.execute("DELETE FROM balances WHERE user_id = ?", (old_user_id,))
+
+                # 2. 송금 내역 변경 (단순 ID 업데이트)
+                await self._db.execute("UPDATE transfers SET sender_id = ? WHERE sender_id = ?", (new_user_id, old_user_id))
+                await self._db.execute("UPDATE transfers SET receiver_id = ? WHERE receiver_id = ?", (new_user_id, old_user_id))
+
+            await self._db.commit()
+            return True
+        except Exception as e:
+            print(f"지갑 데이터 스왑 중 오류: {e}")
+            await self._db.rollback()
+            return False
+
 # 싱글턴 인스턴스
 balance_manager = BalanceDataManager()

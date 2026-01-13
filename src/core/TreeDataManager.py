@@ -322,3 +322,38 @@ class TreeDataManager:
         except Exception as e:
             self.logger.error(f"Error resetting database: {e}")
             return False
+
+    async def swap_user_tree_data(self, old_user_id: int, new_user_id: int) -> bool:
+        """
+        특정 유저(old_user_id)의 트리(눈송이) 데이터를 다른 유저(new_user_id)로 통합합니다.
+        눈송이 보유량과 총 획득량은 합산됩니다.
+        """
+        await self.ensure_initialized()
+        try:
+            # 1. 눈송이 합산
+            cursor = await self._db.execute("SELECT amount, total_gathered FROM user_snowflakes WHERE user_id = ?", (old_user_id,))
+            row = await cursor.fetchone()
+            
+            if row:
+                amount, total = row
+                await self._db.execute("""
+                    INSERT INTO user_snowflakes (user_id, amount, total_gathered) 
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(user_id)
+                    DO UPDATE SET 
+                        amount = amount + excluded.amount,
+                        total_gathered = total_gathered + excluded.total_gathered
+                """, (new_user_id, amount, total))
+                
+                # old_user record 삭제
+                await self._db.execute("DELETE FROM user_snowflakes WHERE user_id = ?", (old_user_id,))
+            
+            # 2. 퀘스트 로그 이동
+            await self._db.execute("UPDATE quest_logs SET user_id = ? WHERE user_id = ?", (new_user_id, old_user_id))
+            
+            await self._db.commit()
+            self.logger.info(f"Merged tree data from {old_user_id} to {new_user_id}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error swapping tree data: {e}")
+            return False

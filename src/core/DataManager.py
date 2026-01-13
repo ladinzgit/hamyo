@@ -415,3 +415,32 @@ class DataManager:
     async def get_user_voice_seconds_weekly(self, user_id: int, base_date: Optional[datetime] = None) -> int:
         """이번 주 동안 유저가 음성 채널에서 활동한 총 시간을 초 단위로 반환합니다."""
         return await self.get_user_voice_seconds(user_id, '주간', base_date or datetime.now(KST))
+
+    async def swap_user_voice_data(self, old_user_id: int, new_user_id: int) -> bool:
+        """
+        특정 유저(old_user_id)의 음성 기록을 다른 유저(new_user_id)로 통합합니다.
+        날짜/채널이 겹치면 시간을 합산합니다.
+        """
+        await self.ensure_initialized()
+        try:
+            # 1. old_user의 데이터를 가져옴
+            async with self._db.execute("SELECT date, channel_id, seconds FROM voice_times WHERE user_id = ?", (old_user_id,)) as cursor:
+                rows = await cursor.fetchall()
+            
+            # 2. 각 기록을 new_user에게 병합
+            for date, channel_id, seconds in rows:
+                await self._db.execute("""
+                    INSERT INTO voice_times (date, user_id, channel_id, seconds)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(date, user_id, channel_id)
+                    DO UPDATE SET seconds = seconds + excluded.seconds
+                """, (date, new_user_id, channel_id, seconds))
+
+            # 3. old_user 데이터 삭제
+            await self._db.execute("DELETE FROM voice_times WHERE user_id = ?", (old_user_id,))
+            
+            await self._db.commit()
+            return True
+        except Exception as e:
+            print(f"Error swapping voice data: {e}")
+            return False

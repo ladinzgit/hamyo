@@ -333,3 +333,31 @@ async def get_birthdays_by_date(month: int, day: int) -> list:
                 }
                 for row in rows
             ]
+
+
+async def swap_user_birthday_data(old_user_id: str, new_user_id: str) -> bool:
+    """
+    생일 데이터에서 old_user_id의 정보를 new_user_id로 통합합니다.
+    본계정(new_user_id)에 생일 정보가 이미 있다면 부계정 정보는 무시(삭제)됩니다.
+    없다면 부계정 정보를 본계정으로 이동합니다.
+    """
+    try:
+        async with aiosqlite.connect(DB_PATH) as db:
+            # 1. 본계정 존재 여부 확인
+            async with db.execute("SELECT 1 FROM birthdays WHERE user_id = ?", (new_user_id,)) as cursor:
+                main_exists = await cursor.fetchone()
+            
+            if main_exists:
+                # 본계정이 이미 있으면 부계정 데이터는 그냥 삭제 (본계정 유지)
+                await db.execute("DELETE FROM birthdays WHERE user_id = ?", (old_user_id,))
+                await db.execute("DELETE FROM user_edit_count WHERE user_id = ?", (old_user_id,))
+            else:
+                # 본계정이 없으면 부계정 -> 본계정 이동
+                await db.execute("UPDATE birthdays SET user_id = ? WHERE user_id = ?", (new_user_id, old_user_id))
+                await db.execute("UPDATE user_edit_count SET user_id = ? WHERE user_id = ?", (new_user_id, old_user_id))
+            
+            await db.commit()
+        return True
+    except Exception as e:
+        print(f"❌ 생일 데이터 스왑 오류: {e}")
+        return False

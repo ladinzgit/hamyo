@@ -541,3 +541,64 @@ class LevelDataManager:
             self.logger.error(f"Error getting all certified ranks: {e}")
             return {}
 
+    async def swap_user_level_data(self, old_user_id: int, new_user_id: int) -> bool:
+        """
+        특정 유저(old_user_id)의 레벨 데이터를 다른 유저(new_user_id)로 통합합니다.
+        경험치는 합산되며, 중복되는 일회성 퀘스트/인증 등은 본계정 데이터를 유지합니다.
+        """
+        await self.ensure_initialized()
+        try:
+            # 1. 경험치(Total Exp) 합산
+            # old_user의 경험치를 조회
+            cursor = await self._db.execute("SELECT total_exp FROM user_exp WHERE user_id = ?", (old_user_id,))
+            old_data = await cursor.fetchone()
+            
+            if old_data:
+                old_exp = old_data[0]
+                # new_user에게 더하기 (없으면 생성)
+                await self._db.execute("""
+                    INSERT INTO user_exp (user_id, total_exp) VALUES (?, ?)
+                    ON CONFLICT(user_id) 
+                    DO UPDATE SET total_exp = total_exp + excluded.total_exp
+                """, (new_user_id, old_exp))
+                
+                # old_user 경험치 데이터 삭제
+                await self._db.execute("DELETE FROM user_exp WHERE user_id = ?", (old_user_id,))
+
+            # 2. 퀘스트 로그 이동 (로그는 중복되지 않으므로 ID 변경만 수행)
+            await self._db.execute("UPDATE quest_logs SET user_id = ? WHERE user_id = ?", (new_user_id, old_user_id))
+            
+            # 3. 일회성 퀘스트 (이미 한건 무시)
+            # old_user가 깬 것들을 가져옴
+            async with self._db.execute("SELECT quest_type FROM one_time_quests WHERE user_id = ?", (old_user_id,)) as cursor:
+                rows = await cursor.fetchall()
+            
+            for (q_type,) in rows:
+                # new_user 이름으로 삽입 시도 (이미 있으면 무시 - IGNORE)
+                await self._db.execute("""
+                    INSERT OR IGNORE INTO one_time_quests (user_id, quest_type)
+                    VALUES (?, ?)
+                """, (new_user_id, q_type))
+            
+            # old_user 일회성 퀘스트 데이터 삭제
+            await self._db.execute("DELETE FROM one_time_quests WHERE user_id = ?", (old_user_id,))
+
+            # 4. 랭크 인증 이동 (본계정에 없으면 이동, 있으면 본계정 유지)
+            async with self._db.execute("SELECT rank_type, certified_level FROM rank_certifications WHERE user_id = ?", (old_user_id,)) as cursor:
+                rows = await cursor.fetchall()
+            
+            for r_type, c_level in rows:
+                await self._db.execute("""
+                    INSERT OR IGNORE INTO rank_certifications (user_id, rank_type, certified_level)
+                    VALUES (?, ?, ?)
+                """, (new_user_id, r_type, c_level))
+
+            await self._db.execute("DELETE FROM rank_certifications WHERE user_id = ?", (old_user_id,))
+
+            await self._db.commit()
+            self.logger.info(f"Merged level data from {old_user_id} to {new_user_id}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error swapping level data: {e}")
+            return False
+

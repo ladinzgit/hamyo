@@ -270,3 +270,64 @@ def decrement_all_targets() -> Dict[str, List[Dict]]:
 
     _save_config(config)
     return {"updated": updated, "removed": removed}
+
+
+def swap_user_fortune_data(old_user_id: int, new_user_id: int) -> bool:
+    """
+    운세 데이터에서 old_user_id의 정보를 new_user_id로 통합합니다.
+    new_user_id가 이미 대상이라면 count를 합치고, 아니라면 old_user_id를 new_user_id로 바꿉니다.
+    """
+    try:
+        config = _load_config()
+        changed = False
+        
+        for key, guild_conf in config.items():
+            targets = guild_conf.get("targets", [])
+            new_targets = []
+            
+            # 1. Main(new_id)과 Sub(old_id) 찾기
+            main_target = None
+            sub_target = None
+            
+            for t in targets:
+                uid = int(t.get("user_id", 0))
+                if uid == int(new_user_id):
+                    main_target = t
+                elif uid == int(old_user_id):
+                    sub_target = t
+            
+            # 둘 다 없으면 패스
+            if not main_target and not sub_target:
+                continue
+
+            # 2. 로직 적용
+            # Main이 있으면: Main.count += Sub.count (Sub는 제거)
+            # Main이 없으면: Sub.id -> Main.id (Sub 유지 -> 변경)
+            
+            # 일단 기존 리스트에서 둘 다 제외한 리스트를 만듦
+            others = [t for t in targets if int(t.get("user_id", 0)) not in (int(new_user_id), int(old_user_id))]
+            
+            if main_target:
+                # 합치기
+                if sub_target:
+                    main_target["count"] = int(main_target.get("count", 0)) + int(sub_target.get("count", 0))
+                    # last_used_date는? Main 우선 (이미 썼으면 쓴 걸로)
+                others.append(main_target)
+                changed = True
+            elif sub_target:
+                # Sub 이름을 Main으로 변경
+                sub_target["user_id"] = int(new_user_id)
+                others.append(sub_target)
+                changed = True
+                
+            guild_conf["targets"] = others
+            config[key] = guild_conf
+        
+        if changed:
+            _save_config(config)
+            return True
+        return False
+        
+    except Exception as e:
+        print(f"Error swapping fortune data: {e}")
+        return False
