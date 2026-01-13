@@ -2,7 +2,8 @@ import discord
 from discord.ext import commands
 
 from src.core import fortune_db
-from src.birthday.BirthdayInterface import only_in_guild
+from src.core.admin_utils import only_in_guild, is_guild_admin
+
 
 
 class FortuneConfig(commands.Cog):

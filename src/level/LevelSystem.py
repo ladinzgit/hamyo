@@ -311,8 +311,11 @@ class LevelSystem(commands.Cog):
         """
         길드 역할 실제 부여/제거.
         규칙:
-          - hub→dado 진입: hub 제거, dado 지급
-          - daho/dakyung 진입: 중복 지급(기존 역할 유지)
+          1. hub -> dado: hub 역할 제거 (기존 dado 역할 추가)
+          2. dado -> daho: dado 역할 유지, daho 역할 추가
+          3. daho -> dakyung: daho 역할 제거, dakyung 역할 추가
+          4. dakyung -> dahyang: dakyung 역할 제거, dahyang 역할 추가
+          - 이후 추가될 시, 3, 4번과 동일하게 작동(이전 역할 제거)
         """
         try:
             guild = await self._get_home_guild()
@@ -332,18 +335,7 @@ class LevelSystem(commands.Cog):
                 await self.log(f"역할 갱신 실패: 서버에 존재하지 않는 역할 ID {target_role_id} ({new_role_key})")
                 return False
 
-            # hub → dado 특수 규칙
-            if previous_role_key == 'hub' and new_role_key == 'dado':
-                hub_role_id = self.ROLE_IDS.get('hub')
-                if hub_role_id:
-                    hub_role = guild.get_role(hub_role_id)
-                    if hub_role and hub_role in member.roles:
-                        try:
-                            await member.remove_roles(hub_role, reason="승급: hub→dado")
-                        except Exception as e:
-                            await self.log(f"hub 제거 실패: {e}")
-
-            # 새 역할 부여(중복 허용)
+            # 1. 새 역할 부여 (항상)
             if target_role not in member.roles:
                 try:
                     await member.add_roles(target_role, reason=f"승급: {new_role_key}")
@@ -351,11 +343,28 @@ class LevelSystem(commands.Cog):
                     await self.log(f"역할 부여 실패({new_role_key}): {e}")
                     return False
 
+            # 2. 이전 역할 제거 판별
+            # 기본 원칙: 이전 역할 제거
+            # 예외: dado -> daho 갈 때는 dado 유지
+            should_remove_previous = True
+            
+            if previous_role_key == 'dado' and new_role_key == 'daho':
+                should_remove_previous = False
+            
+            if should_remove_previous and previous_role_key and previous_role_key in self.ROLE_IDS:
+                prev_role_id = self.ROLE_IDS.get(previous_role_key)
+                prev_role = guild.get_role(prev_role_id)
+                
+                if prev_role and prev_role in member.roles:
+                    try:
+                        await member.remove_roles(prev_role, reason=f"승급: {new_role_key} (이전 역할 {previous_role_key} 제거)")
+                    except Exception as e:
+                        await self.log(f"이전 역할({previous_role_key}) 제거 실패: {e}")
+
             return True
 
         except Exception as e:
             await self.log(f"_apply_role_update 오류: {e}")
             return False
-
 async def setup(bot):
     await bot.add_cog(LevelSystem(bot))

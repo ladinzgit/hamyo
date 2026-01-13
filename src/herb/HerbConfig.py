@@ -29,7 +29,7 @@ class HerbConfig(commands.Cog):
         return ctx.author.id in self.owner_ids
     
     @commands.group(name="허브", invoke_without_command=True)
-    @has_admin_role()
+    @is_guild_admin()
     async def voice(self, ctx):      
         command_name = ctx.invoked_with
         
@@ -77,7 +77,7 @@ class HerbConfig(commands.Cog):
         await self.log(f"관리자 {ctx.author}({ctx.author.id})님께서 명령어 사용 방법을 조회하였습니다.")
 
     @voice.command(name="채널등록")
-    @has_admin_role()
+    @is_guild_admin()
     async def register_channel(self, ctx, *channels: discord.abc.GuildChannel):
         added = []
         for ch in channels:
@@ -92,7 +92,7 @@ class HerbConfig(commands.Cog):
             await ctx.reply("등록할 유효한 음성 채널이나 카테고리를 찾지 못했습니다.")
 
     @voice.command(name="채널제거")
-    @has_admin_role()
+    @is_guild_admin()
     async def unregister_channel(self, ctx, *channels: discord.abc.GuildChannel):
         removed = []
         for ch in channels:
@@ -107,14 +107,14 @@ class HerbConfig(commands.Cog):
             await ctx.send("제거할 유효한 채널을 찾지 못했습니다.")
 
     @voice.command(name="완전초기화")
-    @has_admin_role()
+    @is_guild_admin()
     async def reset_all(self, ctx):
         await self.data_manager.reset_data()
         await ctx.send("모든 사용자 기록 및 삭제 채널 정보가 초기화되었습니다.")
         await self.log(f"{ctx.author}({ctx.author.id})님에 의해 모든 사용자 기록 및 삭제 채널 정보가 초기화되었습니다.")
         
     @voice.command(name="채널초기화")
-    @has_admin_role()
+    @is_guild_admin()
     async def reset_all_channel(self, ctx):
         await self.data_manager.reset_tracked_channels("aginari")
         await ctx.send("모든 채널 기록이 초기화되었습니다.")

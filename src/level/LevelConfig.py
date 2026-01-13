@@ -59,6 +59,7 @@ class LevelConfig(commands.Cog):
     # 경험치 관리 명령어들
     # ===========================================
     
+    @commands.group(name='exp', invoke_without_command=True)
     @is_guild_admin()
     async def exp_group(self, ctx):
         """경험치 관리 명령어 그룹"""
