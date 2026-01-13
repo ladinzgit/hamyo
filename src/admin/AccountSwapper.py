@@ -5,7 +5,6 @@ from src.core.admin_utils import is_guild_admin
 from src.core.DataManager import DataManager
 from src.core.LevelDataManager import LevelDataManager
 from src.core.balance_data_manager import balance_manager as BalanceDataManager
-from src.core.TreeDataManager import TreeDataManager
 from src.core.fortune_db import swap_user_fortune_data
 from src.core.birthday_db import swap_user_birthday_data
 
@@ -14,7 +13,6 @@ class AccountSwapper(commands.Cog):
         self.bot = bot
         self.voice_db = DataManager()
         self.level_db = LevelDataManager()
-        self.tree_db = TreeDataManager()
 
     @commands.command(name="본부계변경")
     @is_guild_admin()
@@ -30,7 +28,7 @@ class AccountSwapper(commands.Cog):
             f"**본계정**: {main_account.mention} (ID: {main_account.id})\n"
             f"**부계정**: {sub_account.mention} (ID: {sub_account.id})\n\n"
             f"**부계정**의 데이터를 **본계정**으로 통합하시겠습니까?\n"
-            f"- **자산/경험치/눈송이/음성시간**: 본계정 데이터에 **합산**됩니다.\n"
+            f"- **자산/경험치/음성시간**: 본계정 데이터에 **합산**됩니다.\n"
             f"- **기본 정보(생일 등)**: 본계정 데이터가 있는 경우 **유지**됩니다.\n"
             f"- **부계정의 데이터**는 통합 후 **삭제/초기화**됩니다.\n\n"
             f"진행하려면 `확인`을 입력하세요."
@@ -73,25 +71,19 @@ class AccountSwapper(commands.Cog):
         else:
             results.append("⚠️ 자산 데이터 교체 실패 또는 데이터 없음")
 
-        # 4. 트리/눈송이 (Tree)
-        if await self.tree_db.swap_user_tree_data(sub_id, main_id):
-            results.append("✅ 트리/눈송이 데이터 교체 완료")
-        else:
-            results.append("⚠️ 트리/눈송이 데이터 교체 실패 또는 데이터 없음")
-
-        # 5. 운세 (Fortune) - 동기 함수이므로 await 없음 (파일 I/O)
+        # 4. 운세 (Fortune) - 동기 함수이므로 await 없음 (파일 I/O)
         if swap_user_fortune_data(sub_id, main_id):
             results.append("✅ 운세 데이터 교체 완료")
         else:
             results.append("⚠️ 운세 데이터 교체 실패 또는 데이터 없음")
             
-        # 6. 생일 (Birthday)
+        # 5. 생일 (Birthday)
         if await swap_user_birthday_data(sub_id_str, main_id_str):
             results.append("✅ 생일 데이터 교체 완료")
         else:
             results.append("⚠️ 생일 데이터 교체 실패 또는 데이터 없음")
 
-        # 7. 이벤트 디스패치 (다른 cog들을 위해)
+        # 6. 이벤트 디스패치 (다른 cog들을 위해)
         self.bot.dispatch('user_id_swap', sub_id, main_id)
         results.append("✅ 추가 모듈 동기화 이벤트 발생 완료")
 
