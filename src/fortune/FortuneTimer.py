@@ -3,7 +3,8 @@ from discord.ext import commands, tasks
 from datetime import datetime, timedelta
 
 from src.core import fortune_db
-from src.birthday.BirthdayInterface import GUILD_ID, KST
+from src.core.admin_utils import GUILD_IDS
+from src.birthday.BirthdayInterface import KST
 
 
 class FortuneTimer(commands.Cog):
@@ -54,7 +55,7 @@ class FortuneTimer(commands.Cog):
                 await self.log(f"운세 대상 count 일괄 차감 완료 ({summary})")
 
             # 역할 부여/회수 동기화
-            for guild_id in GUILD_ID:
+            for guild_id in GUILD_IDS:
                 guild = self.bot.get_guild(guild_id)
                 if guild:
                     await self._sync_roles_for_guild(guild)
@@ -110,7 +111,7 @@ class FortuneTimer(commands.Cog):
         now = datetime.now(KST)
         today_str = now.strftime("%Y-%m-%d")
 
-        for guild_id in GUILD_ID:
+        for guild_id in GUILD_IDS:
             guild = self.bot.get_guild(guild_id)
             if not guild:
                 continue

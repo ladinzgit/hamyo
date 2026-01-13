@@ -1,6 +1,9 @@
+
 import discord
 from discord.ext import commands
 from src.core.LevelDataManager import LevelDataManager
+from datetime import time, timezone, timedelta
+from src.core.admin_utils import GUILD_IDS, only_in_guild, is_guild_admin
 from typing import Optional, Dict, Any, List
 import json, os
 import logging
@@ -56,8 +59,7 @@ class LevelConfig(commands.Cog):
     # 경험치 관리 명령어들
     # ===========================================
     
-    @commands.group(name='exp', invoke_without_command=True)
-    @commands.has_permissions(administrator=True)
+    @is_guild_admin()
     async def exp_group(self, ctx):
         """경험치 관리 명령어 그룹"""
         embed = discord.Embed(

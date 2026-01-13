@@ -10,15 +10,8 @@ from src.core import birthday_db
 from datetime import datetime
 import calendar
 
-GUILD_ID = [1396829213100605580, 1378632284068122685]
+from src.core.admin_utils import GUILD_IDS, only_in_guild
 
-
-def only_in_guild():
-    async def predicate(ctx):
-        if ctx.guild and ctx.guild.id in GUILD_ID:
-            return True
-        return False
-    return commands.check(predicate)
 
 
 class BirthdayModal(discord.ui.Modal, title="🎂 생일 등록하기"):

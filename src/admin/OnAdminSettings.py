@@ -1,3 +1,4 @@
+
 """
 관리자 설정을 위한 명령어 모듈입니다.
 인증, 수수료, 일일 제한, 화폐 단위, 온(경제) 채널 등 다양한 서버 설정을 관리합니다.
@@ -5,16 +6,8 @@
 import discord
 from discord.ext import commands
 from src.core.balance_data_manager import balance_manager
+from src.core.admin_utils import GUILD_IDS, only_in_guild, is_guild_admin
 
-
-GUILD_ID = [1396829213100605580, 1378632284068122685]
-
-def only_in_guild():
-    async def predicate(ctx):
-        if ctx.guild and ctx.guild.id in GUILD_ID:
-            return True
-        return False  # 메시지 없이 무반응
-    return commands.check(predicate)
 
 class OnAdminSettings(commands.Cog):
     def __init__(self, bot):
@@ -32,15 +25,10 @@ class OnAdminSettings(commands.Cog):
         except Exception as e:
             print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
 
-    @commands.group(name="온설정", invoke_without_command=True)
-    @only_in_guild()
-    @commands.has_permissions(administrator=True)
+    @commands.group(name="설정", invoke_without_command=True)
+    @is_guild_admin()
     async def settings(self, ctx):
         """관리자 설정 명령어 그룹"""
-        if not ctx.author.guild_permissions.administrator:
-            await ctx.send("관리자 권한이 필요합니다.")
-            return
-
         embed = discord.Embed(
             title="온 설정(관리자) 명령어 도움말",
             description="아래는 사용 가능한 관리자 설정 명령어입니다.",

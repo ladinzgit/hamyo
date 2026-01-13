@@ -11,18 +11,10 @@ from datetime import datetime, timedelta
 import json
 from pathlib import Path
 import pytz
+from src.core.admin_utils import GUILD_IDS, only_in_guild, is_guild_admin
 
-GUILD_ID = [1396829213100605580, 1378632284068122685]
 CONFIG_PATH = Path("config/birthday_config.json")
 KST = pytz.timezone("Asia/Seoul")
-
-
-def only_in_guild():
-    async def predicate(ctx):
-        if ctx.guild and ctx.guild.id in GUILD_ID:
-            return True
-        return False
-    return commands.check(predicate)
 
 
 def load_config() -> dict:

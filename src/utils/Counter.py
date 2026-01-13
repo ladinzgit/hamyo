@@ -12,14 +12,11 @@ from discord.ext import commands, tasks
 # - 데이터 저장도 한 파일(count_channels.json)만 사용
 # =============================
 
-TARGET_GUILD_IDS: List[int] = [1396829213100605580, 1378632284068122685]
+from src.core.admin_utils import GUILD_IDS, only_in_guild, is_guild_admin
 
-def only_in_guild():
-    async def predicate(ctx):
-        if ctx.guild and ctx.guild.id in TARGET_GUILD_IDS:
-            return True
-        return False  # 메시지 없이 무반응
-    return commands.check(predicate)
+# TARGET_GUILD_IDS is used in other places like store.all_items/register_app_commands so we can map it to GUILD_IDS
+TARGET_GUILD_IDS = GUILD_IDS
+
 
 STORAGE_FILE = "data/count_channels.json"
 

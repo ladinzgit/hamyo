@@ -7,7 +7,8 @@ from openai import AsyncOpenAI
 
 from src.core import birthday_db
 from src.core import fortune_db
-from src.birthday.BirthdayInterface import KST, only_in_guild
+from src.core.admin_utils import only_in_guild
+from src.birthday.BirthdayInterface import KST
 
 from dotenv import load_dotenv
 load_dotenv()

@@ -64,9 +64,8 @@ class FortuneConfig(commands.Cog):
                 await self.log(f"{member}({member.id}) 운세 역할 회수 실패: {e}")
 
     @commands.group(name="운세설정", invoke_without_command=True)
-    @only_in_guild()
-    @commands.has_permissions(administrator=True)
-    async def fortune_setup(self, ctx):
+    @is_guild_admin()
+    async def fortune_settings(self, ctx):
         """운세 설정 도움말/현황"""
         config = fortune_db.get_guild_config(ctx.guild.id)
 
@@ -115,9 +114,8 @@ class FortuneConfig(commands.Cog):
         embed.timestamp = ctx.message.created_at
         await ctx.reply(embed=embed)
 
-    @fortune_setup.command(name="시간")
-    @only_in_guild()
-    @commands.has_permissions(administrator=True)
+    @fortune_settings.command(name="시간")
+    @is_guild_admin()
     async def set_send_time(self, ctx, time_text: str):
         """운세 전송 시간을 HH:MM 형식으로 설정"""
         time_text = time_text.strip()
@@ -141,9 +139,8 @@ class FortuneConfig(commands.Cog):
         await ctx.reply(f"KST 기준 **{formatted}**에 운세를 보내도록 기억했다묘!")
         await self.log(f"{ctx.author}({ctx.author.id})가 운세 전송 시간을 {formatted} 으로 설정함 [길드: {ctx.guild.name}({ctx.guild.id})]")
 
-    @fortune_setup.command(name="역할")
-    @only_in_guild()
-    @commands.has_permissions(administrator=True)
+    @fortune_settings.command(name="역할")
+    @is_guild_admin()
     async def set_role(self, ctx, role: discord.Role = None):
         """운세 안내에 사용할 역할을 설정/해제"""
         if role:
@@ -175,9 +172,8 @@ class FortuneConfig(commands.Cog):
                 if prev_role:
                     await self._remove_role_from_all(ctx.guild, prev_role)
 
-    @fortune_setup.command(name="대상추가")
-    @only_in_guild()
-    @commands.has_permissions(administrator=True)
+    @fortune_settings.command(name="대상추가")
+    @is_guild_admin()
     async def add_target(self, ctx, member: discord.Member, count: int):
         """운세 사용 대상을 추가/수정"""
         if count < 1:
@@ -196,9 +192,8 @@ class FortuneConfig(commands.Cog):
         if int(new_count) > 0:
             await self._grant_role(ctx.guild, member)
 
-    @fortune_setup.command(name="대상삭제")
-    @only_in_guild()
-    @commands.has_permissions(administrator=True)
+    @fortune_settings.command(name="대상삭제")
+    @is_guild_admin()
     async def remove_target(self, ctx, member: discord.Member):
         """운세 사용 대상을 제거"""
         removed = fortune_db.remove_target(ctx.guild.id, member.id)
@@ -218,7 +213,6 @@ class FortuneConfig(commands.Cog):
         else:
             await ctx.reply("이미 목록에 없거나 못 찾겠다묘...")
 
-    @fortune_setup.command(name="채널")
     @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def set_channel(self, ctx, channel: discord.TextChannel = None):

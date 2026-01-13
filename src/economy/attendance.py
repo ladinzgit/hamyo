@@ -7,14 +7,8 @@ from src.core.balance_data_manager import balance_manager  # 추가
 
 DB_PATH = 'data/attendance.db'
 KST = pytz.timezone("Asia/Seoul")
-GUILD_ID = [1378632284068122685, 1396829213100605580, 1439281906502865091]
+from src.core.admin_utils import GUILD_IDS, only_in_guild, is_guild_admin
 
-def only_in_guild():
-    async def predicate(ctx):
-        if ctx.guild and ctx.guild.id in GUILD_ID:
-            return True
-        return False  # 메시지 없이 무반응
-    return commands.check(predicate)
 
 async def is_attendance_allowed_channel(channel_id):
     async with aiosqlite.connect(DB_PATH) as db:
@@ -236,8 +230,7 @@ class AttendanceCog(commands.Cog):
 
     # 출석 허용 채널 관리 명령어 (관리자만)
     @commands.group(name="출석채널", invoke_without_command=True)
-    @only_in_guild()
-    @commands.has_permissions(administrator=True)
+    @is_guild_admin()
     async def attendance_channel(self, ctx):
         """출석 명령어 허용 채널 관리"""
         await ctx.send("`추가`, `제거`, `목록` 하위 명령어를 사용하세요.")

@@ -2,14 +2,8 @@ import discord
 from discord.ext import commands
 from src.core.DataManager import DataManager
 
-GUILD_ID = [1396829213100605580, 1305132293899423785]
+from src.core.admin_utils import GUILD_IDS, only_in_guild, is_guild_admin
 
-def only_in_guild():
-    async def predicate(ctx):
-        if ctx.guild and ctx.guild.id in GUILD_ID:
-            return True
-        return False  # 메시지 없이 무반응
-    return commands.check(predicate)
 
 class VoiceConfig(commands.Cog):
     def __init__(self, bot):
@@ -29,8 +23,7 @@ class VoiceConfig(commands.Cog):
             print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
 
     @commands.group(name="보이스", invoke_without_command=True)
-    @only_in_guild()
-    @commands.has_permissions(administrator=True)
+    @is_guild_admin()
     async def voice(self, ctx):  
         command_name = ctx.invoked_with
         

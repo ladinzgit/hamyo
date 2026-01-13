@@ -2,17 +2,11 @@ import discord
 from discord.ext import commands
 from src.core.DataManager import DataManager
 
-GUILD_ID = [1396829213100605580, 1378632284068122685]
+from discord.ext import commands
+import discord
+from src.core.DataManager import DataManager
+from src.core.admin_utils import GUILD_IDS, is_guild_admin
 
-def has_admin_role():
-    async def predicate(ctx):
-        if ctx.guild.id not in GUILD_ID:
-            return False
-        if ctx.author.guild_permissions.administrator:
-            return True
-        await ctx.send("이 명령어를 사용할 권한이 없습니다.")
-        return False
-    return commands.check(predicate)
 
 class HerbConfig(commands.Cog):
     def __init__(self, bot):

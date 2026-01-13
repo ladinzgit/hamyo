@@ -6,14 +6,8 @@ from src.core.DataManager import DataManager
 import pytz
 from typing import List
 
-GUILD_ID = [1396829213100605580, 1378632284068122685]
+from src.core.admin_utils import GUILD_IDS, only_in_guild
 
-def only_in_guild():
-    async def predicate(ctx):
-        if ctx.guild and ctx.guild.id in GUILD_ID:
-            return True
-        return False  # 메시지 없이 무반응
-    return commands.check(predicate)
 
 class HerbCommand(commands.GroupCog, group_name="허브"):
     def __init__(self, bot):

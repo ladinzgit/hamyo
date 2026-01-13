@@ -14,7 +14,7 @@ CONFIG_PATH = "config/level_config.json"
 KST = pytz.timezone("Asia/Seoul")
 import re
 
-GUILD_ID = [1378632284068122685, 1396829213100605580, 1439281906502865091]
+from src.core.admin_utils import GUILD_IDS
 ROLE_IDS = {
         'hub': 1396829213172174890,
         'dado': 1396829213172174888,
@@ -40,7 +40,7 @@ def in_myinfo_allowed_channel():
             if not ctx.guild:
                 return False
             
-            if ctx.guild.id not in GUILD_ID:
+            if ctx.guild.id not in GUILD_IDS:
                 return False
 
             # 관리자 무시
