@@ -157,7 +157,7 @@ class FortuneCommand(commands.Cog):
             waiting_message = await ctx.reply("운세를 불러오는 중이다묘... 잠시만 기다려달라묘!", mention_author=False)
             
             completion = await self.client.chat.completions.create(
-                model="gpt-5.1",
+                model="gpt-5.2",
                 messages=[
                     {
                         "role": "system",
