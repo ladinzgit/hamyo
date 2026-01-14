@@ -7,7 +7,7 @@ from openai import AsyncOpenAI
 
 from src.core import birthday_db
 from src.core import fortune_db
-from src.core.admin_utils import only_in_guild
+from src.core.admin_utils import only_in_guild, is_guild_admin
 from src.birthday.BirthdayInterface import KST
 
 from dotenv import load_dotenv
@@ -98,6 +98,58 @@ class FortuneCommand(commands.Cog):
         else:
             birth_text = f"생년 미기재 {month}월 {day}일생"
 
+        await self._generate_fortune(ctx, birth_text, today)
+        
+        fortune_db.mark_target_used(ctx.guild.id, ctx.author.id, today_str)
+
+        # 운세 역할 회수 (사용 중에는 멘션 대상에서 제외)
+        role_id = config.get("role_id")
+        if role_id:
+            role = ctx.guild.get_role(role_id)
+            if role:
+                try:
+                    await ctx.author.remove_roles(role, reason="운세 사용 완료로 역할 회수")
+                except Exception as e:
+                    await self.log(f"{ctx.author}({ctx.author.id}) 운세 역할 회수 실패: {e}")
+
+        await self.log(
+            f"{ctx.author}({ctx.author.id})가 운세를 조회함 "
+            f"[길드: {ctx.guild.name}({ctx.guild.id}), 남은 일수: {remaining_count}]"
+        )
+
+    @commands.command(name="강제운세")
+    @is_guild_admin()
+    async def force_fortune(self, ctx):
+        """관리자 권한으로 제약 없이 운세를 생성"""
+        self._ensure_client()
+        if not self.api_key:
+            await ctx.reply("ChatGPT API 키가 설정되어 있지 않다묘...")
+            return
+
+        birthday = await birthday_db.get_birthday(str(ctx.author.id))
+        if not birthday:
+            await ctx.reply("강제 운세라도 생일 정보는 있어야 한다묘! <#1396829221741002796>에서 등록해달라묘.")
+            return
+            
+        birth_year = birthday.get("year")
+        month = birthday.get("month")
+        day = birthday.get("day")
+
+        if not month or not day:
+            await ctx.reply("생일 데이터가 이상하다묘...")
+            return
+
+        today = datetime.now(KST)
+        if birth_year:
+            birth_text = f"{birth_year}년 {month}월 {day}일생"
+        else:
+            birth_text = f"생년 미기재 {month}월 {day}일생"
+
+        await self._generate_fortune(ctx, birth_text, today)
+        await self.log(f"{ctx.author}({ctx.author.id})가 관리자 권한으로 강제 운세를 조회함 [길드: {ctx.guild.name}({ctx.guild.id})]")
+
+    async def _generate_fortune(self, ctx, birth_text, today):
+        """공통 운세 생성 로직"""
         today_text = f"{today.year}년 {today.month}월 {today.day}일"
         prompt = f"{birth_text} {today_text} 오늘의 운세를 알려줘"
 
@@ -123,6 +175,9 @@ class FortuneCommand(commands.Cog):
                             "- 중요한 키워드나 문장은 볼드 처리로 강조해줘."
                             "- 한국어 띄어쓰기를 자연스럽게 유지해(문장 끝의 '묘'만 붙여쓰기)"
                             "- 생일, 나이, 날짜(연·월·일)는 절대 언급하지 마. 이건 필수 사항이야."
+                            "- 운세에 맞는 행운의 행동, 장소, 색깔, 음식을 요약 한 줄 아래에 추가해\n"
+                            "- 그 문장의 양식은 **행운의 상징: (행운의 상징)** 으로 시작해서 알려줘. 이때는 문장이 아닌 단어를 사용해.\n"
+                            "- 이때는 볼드 처리를 해줘."
                         ),
                     },
                     {"role": "user", "content": prompt},
@@ -132,8 +187,6 @@ class FortuneCommand(commands.Cog):
                 max_completion_tokens=2000,
             )
             fortune_text = completion.choices[0].message.content.strip()
-            # 후처리: ' 묘' -> '묘', '묘 '는 그대로 두어 문장 구조는 유지
-            # fortune_text = fortune_text.replace(" 묘", "묘")
         except Exception as e:
             if waiting_message:
                 try:
@@ -152,23 +205,6 @@ class FortuneCommand(commands.Cog):
                 await ctx.reply(fortune_text, mention_author=False)
         except Exception:
             await ctx.reply(fortune_text, mention_author=False)
-            
-        fortune_db.mark_target_used(ctx.guild.id, ctx.author.id, today_str)
-
-        # 운세 역할 회수 (사용 중에는 멘션 대상에서 제외)
-        role_id = config.get("role_id")
-        if role_id:
-            role = ctx.guild.get_role(role_id)
-            if role:
-                try:
-                    await ctx.author.remove_roles(role, reason="운세 사용 완료로 역할 회수")
-                except Exception as e:
-                    await self.log(f"{ctx.author}({ctx.author.id}) 운세 역할 회수 실패: {e}")
-
-        await self.log(
-            f"{ctx.author}({ctx.author.id})가 운세를 조회함 "
-            f"[길드: {ctx.guild.name}({ctx.guild.id}), 남은 일수: {remaining_count}]"
-        )
 
 
 async def setup(bot):

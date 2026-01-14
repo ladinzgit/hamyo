@@ -6,6 +6,60 @@ from src.core.admin_utils import only_in_guild, is_guild_admin
 
 
 
+class FortuneGrantView(discord.ui.View):
+    def __init__(self, bot):
+        super().__init__(timeout=None)
+        self.bot = bot
+
+    @discord.ui.button(
+        label="🍀 운세 보러 가기",
+        style=discord.ButtonStyle.green,
+        custom_id="fortune_grant_btn"
+    )
+    async def grant_fortune(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # 1. 메시지 ID 확인
+        message_id = interaction.message.id
+        guild_id = interaction.guild_id
+
+        # 2. DB에서 버튼 정보 조회
+        btn_info = fortune_db.get_button_info(guild_id, message_id)
+        if not btn_info:
+            await interaction.response.send_message("이 버튼은 만료되었거나 유효하지 않다묘...", ephemeral=True)
+            return
+
+        user_id = interaction.user.id
+        
+        # 3. 이미 눌렀는지 확인
+        if fortune_db.is_button_clicked(guild_id, message_id, user_id):
+            await interaction.response.send_message("이미 이 버튼에서 보상을 받았다묘!", ephemeral=True)
+            return
+
+        # 4. 보상 지급 (운세 대상 추가/연장)
+        days = int(btn_info.get("expiration_days", 1))
+        
+        # 기존 정보 조회
+        existing = fortune_db.get_target(guild_id, user_id)
+        base_count = int(existing.get("count", 0)) if existing else 0
+        new_count = base_count + days
+        
+        # DB 업데이트 (대상 추가 + 클릭 기록)
+        fortune_db.upsert_target(guild_id, user_id, new_count)
+        fortune_db.record_button_click(guild_id, message_id, user_id)
+
+        # 역할 부여 필요 시 처리
+        # (Cog의 메서드를 직접 부르기 어려우므로 DB 조회해서 처리)
+        config = fortune_db.get_guild_config(guild_id)
+        role_id = config.get("role_id")
+        if role_id:
+            role = interaction.guild.get_role(role_id)
+            if role and role not in interaction.user.roles:
+                try:
+                    await interaction.user.add_roles(role, reason="운세 버튼 보상 획득")
+                except:
+                    pass  # 권한 부족 등은 패스
+
+        await interaction.response.send_message(f"운세 사용권({days}일)을 획득했다묘! (총 {new_count}일)", ephemeral=True)
+
 class FortuneConfig(commands.Cog):
     """운세 기능 관리자 설정용 Cog"""
 
@@ -13,6 +67,7 @@ class FortuneConfig(commands.Cog):
         self.bot = bot
 
     async def cog_load(self):
+        self.bot.add_view(FortuneGrantView(self.bot))
         print(f"🐾{self.__class__.__name__} loaded successfully!")
 
     async def log(self, message: str):
@@ -248,6 +303,31 @@ class FortuneConfig(commands.Cog):
             else:
                 await ctx.reply("초기화할 운세 대상이 없거나 이미 모두 초기화된 상태다묘.")
             await self.log(f"{ctx.author}({ctx.author.id})가 길드 전체 운세 일일 사용 제한을 초기화함(갱신 {updated}명) [길드: {ctx.guild.name}({ctx.guild.id})]")
+
+    @fortune_settings.command(name="버튼생성")
+    @is_guild_admin()
+    async def create_btn(self, ctx, days: int):
+        """
+        운세 사용권을 얻을 수 있는 버튼을 생성합니다.
+        사용법: *운세설정 버튼생성 [일수]
+        """
+        if days < 1:
+            await ctx.reply("일수는 최소 1일 이상이어야 한다묘!")
+            return
+
+        embed = discord.Embed(
+            description=f"˖♡ ⁺   ᘏ ⑅ ᘏ\n˖° ⁺ (  っ• · • )╮=͟͟͞🍀 행운 받아라!",
+            color=discord.Color.green()
+        )
+        
+        view = FortuneGrantView(self.bot)
+        msg = await ctx.send(embed=embed, view=view)
+        
+        # DB에 버튼 정보 저장
+        fortune_db.create_fortune_button(ctx.guild.id, msg.id, days)
+        
+        # (옵션) 명령어를 친 메시지는 삭제하거나 반응을 남길 수 있음
+        # await ctx.message.add_reaction("✅")
 
 
 async def setup(bot):

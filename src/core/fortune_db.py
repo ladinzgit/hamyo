@@ -18,7 +18,8 @@ DEFAULT_GUILD_CONFIG = {
     "role_id": None,         # int role id
     "channel_id": None,      # int channel id (운세 안내 채널)
     "last_ping_date": None,  # "YYYY-MM-DD" 로직
-    "targets": []            # [{"user_id": int, "count": int, "last_used_date": str|None}, ...]
+    "targets": [],           # [{"user_id": int, "count": int, "last_used_date": str|None}, ...]
+    "buttons": {}            # {message_id: {"expiration_days": int, "used_users": [user_id, ...]}}
 }
 
 
@@ -71,6 +72,8 @@ def _ensure_guild_config(config: Dict, guild_id: int) -> Tuple[Dict, str]:
             config[key]["channel_id"] = None
         if "last_ping_date" not in config[key]:
             config[key]["last_ping_date"] = None
+        if "buttons" not in config[key]:
+            config[key]["buttons"] = {}
     return config, key
 
 
@@ -331,3 +334,60 @@ def swap_user_fortune_data(old_user_id: int, new_user_id: int) -> bool:
     except Exception as e:
         print(f"Error swapping fortune data: {e}")
         return False
+
+
+def create_fortune_button(guild_id: int, message_id: int, expiration_days: int):
+    """
+    운세 보상 버튼을 생성하여 저장합니다.
+    """
+    config = _load_config()
+    config, key = _ensure_guild_config(config, guild_id)
+    
+    config[key]["buttons"][str(message_id)] = {
+        "expiration_days": int(expiration_days),
+        "used_users": []
+    }
+    _save_config(config)
+
+
+def get_button_info(guild_id: int, message_id: int) -> Optional[Dict]:
+    """
+    버튼 정보를 가져옵니다.
+    """
+    config = get_guild_config(guild_id)
+    buttons = config.get("buttons", {})
+    return buttons.get(str(message_id))
+
+
+def record_button_click(guild_id: int, message_id: int, user_id: int) -> bool:
+    """
+    유저가 버튼을 클릭했음을 기록합니다.
+    """
+    config = _load_config()
+    config, key = _ensure_guild_config(config, guild_id)
+    
+    buttons = config[key].get("buttons", {})
+    btn_data = buttons.get(str(message_id))
+    
+    if not btn_data:
+        return False
+        
+    used_users = btn_data.get("used_users", [])
+    if int(user_id) in used_users:
+        return False  # 이미 누름
+        
+    used_users.append(int(user_id))
+    btn_data["used_users"] = used_users
+    config[key]["buttons"][str(message_id)] = btn_data
+    _save_config(config)
+    return True
+
+
+def is_button_clicked(guild_id: int, message_id: int, user_id: int) -> bool:
+    """
+    유저가 해당 버튼을 이미 눌렀는지 확인합니다.
+    """
+    info = get_button_info(guild_id, message_id)
+    if not info:
+        return False
+    return int(user_id) in info.get("used_users", [])

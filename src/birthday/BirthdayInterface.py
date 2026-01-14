@@ -325,7 +325,7 @@ class BirthdayInterface(commands.Cog):
     async def midnight_update(self):
         """매일 자정에 모든 길드의 생일 메시지 업데이트"""
         # 스케줄러에 의해 호출됨
-        for guild_id in GUILD_ID:
+        for guild_id in GUILD_IDS:
             guild = self.bot.get_guild(guild_id)
             if guild:
                 await self.update_birthday_message(guild)
