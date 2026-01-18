@@ -20,95 +20,66 @@ class RoleEmbed(commands.Cog):
         except Exception as e:
             print(f"🐾{self.__class__.__name__} 로그 전송 오류 발생: {e}")
 
-    @commands.Cog.listener()
-    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
-        if payload.member.bot:
-            return
+    class RoleButton(discord.ui.Button):
+        def __init__(self, role_id: int, role_name: str, emoji: str):
+            super().__init__(
+                style=discord.ButtonStyle.secondary,
+                emoji=emoji,
+                custom_id=f"role_btn:{role_id}"
+            )
+            self.role_id = role_id
+            self.role_name = role_name
 
-        # 모든 임베드 설정을 확인하여 해당 메시지가 추적 대상인지 확인
-        config = embed_manager.config.get("embeds", {})
-        target_embed_name = None
-        target_role_data = None
-
-        for name, data in config.items():
-            if data.get("type") != "role":
-                continue
+        async def callback(self, interaction: discord.Interaction):
+            guild = interaction.guild
+            member = interaction.user
             
-            # 메시지 ID가 목록에 있는지 확인
-            for _, msg_id in data.get("message_ids", []):
-                if msg_id == payload.message_id:
-                    target_embed_name = name
-                    break
+            role = guild.get_role(self.role_id)
+            if not role:
+                 # ID 조회 실패 시 이름으로 검색 (호환성)
+                 role = discord.utils.get(guild.roles, name=self.role_name)
             
-            if target_embed_name:
-                roles = data["data"].get("roles", [])
-                for r in roles:
-                    if str(payload.emoji) == r["emoji"]:
-                        target_role_data = r
-                        break
-                break
-        
-        if target_role_data:
-            guild = self.bot.get_guild(payload.guild_id)
-            if guild:
-                role_obj = discord.utils.get(guild.roles, name=target_role_data["role"])
-                if role_obj:
-                    try:
-                        await payload.member.add_roles(role_obj)
-                    except discord.Forbidden:
-                        await self.log(f"권한 부족으로 {payload.member}({payload.member.id})에게 역할 {role_obj.name} 부여 실패 [길드: {guild.name}({guild.id})]")
-                    except Exception as e:
-                        await self.log(f"역할 {role_obj.name} 부여 중 오류 발생: {e} [사용자: {payload.member}({payload.member.id})]")
+            if not role:
+                await interaction.response.send_message("해당 역할을 찾을 수 없다묘... 관리자에게 문의하라묘!", ephemeral=True)
+                return
 
-    @commands.Cog.listener()
-    async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent):
-        # 봇인지는 payload.member가 없을 수 있어서(캐시 문제) 확인 어려울 수 있으나, 
-        # 로직상 봇이 반응을 제거하는 경우는 드물거나 무시해도 됨.
-        
-        config = embed_manager.config.get("embeds", {})
-        target_embed_name = None
-        target_role_data = None
+            try:
+                if role in member.roles:
+                    await member.remove_roles(role)
+                    await interaction.response.send_message(f"'{self.role_name}' 역할을 회수했다묘. 필요하면 다시 누르라묘.", ephemeral=True)
+                else:
+                    await member.add_roles(role)
+                    await interaction.response.send_message(f"'{self.role_name}' 역할을 줬다묘! 잘 쓰라묘!", ephemeral=True)
+            except discord.Forbidden:
+                await interaction.response.send_message("권한이 없어서 역할을 줄 수 없다묘... 내 권한을 확인해달라묘!", ephemeral=True)
+            except Exception as e:
+                print(f"역할 버튼 처리 오류: {e}")
+                await interaction.response.send_message("오류가 발생했다묘... 다시 시도해달라묘.", ephemeral=True)
 
-        for name, data in config.items():
-            if data.get("type") != "role":
-                continue
-            
-            for _, msg_id in data.get("message_ids", []):
-                if msg_id == payload.message_id:
-                    target_embed_name = name
-                    break
-            
-            if target_embed_name:
-                roles = data["data"].get("roles", [])
-                for r in roles:
-                     if str(payload.emoji) == r["emoji"]:
-                        target_role_data = r
-                        break
-                break
-
-        if target_role_data:
-            guild = self.bot.get_guild(payload.guild_id)
-            if guild:
-                member = guild.get_member(payload.user_id)
-                if not member:
-                     try:
-                        member = await guild.fetch_member(payload.user_id)
-                     except:
-                        pass
+    class RoleView(discord.ui.View):
+        def __init__(self, roles_data: list):
+            super().__init__(timeout=None)
+            added_ids = set()
+            for role_info in roles_data:
+                role_id = role_info.get("role_id")
+                role_name = role_info.get("role")
+                emoji = role_info.get("emoji")
                 
-                if member and not member.bot:
-                    role_obj = discord.utils.get(guild.roles, name=target_role_data["role"])
-                    if role_obj:
-                        try:
-                            await member.remove_roles(role_obj)
-                        except discord.Forbidden:
-                            await self.log(f"권한 부족으로 {member}({member.id})에게서 역할 {role_obj.name} 회수 실패 [길드: {guild.name}({guild.id})]")
-                        except Exception as e:
-                            await self.log(f"역할 {role_obj.name} 회수 중 오류 발생: {e} [사용자: {member}({member.id})]")
+                # ID가 유효한 경우에만 버튼 생성
+                if role_id:
+                    if role_id in added_ids:
+                        continue
+                    self.add_item(RoleEmbed.RoleButton(role_id, role_name, emoji))
+                    added_ids.add(role_id)
+                else:
+                    pass
 
+    def build_role_view(self, data: dict) -> discord.ui.View:
+        roles_data = data["data"].get("roles", [])
+        return self.RoleView(roles_data)
 
     def build_role_embed(self, name: str, data: dict) -> discord.Embed:
-        # 특정 포맷의 설명 구성
+        # 임베드 설명문 구성
         roles_data = data["data"].get("roles", [])
         
         description_lines = [
@@ -116,11 +87,11 @@ class RoleEmbed(commands.Cog):
             f"（⠀´ㅅ` ) ... {name} 받으라묘....✩",
             "𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃",
             "",
-            ""  # 요청대로 중앙 간격을 위한 공백 2줄
+            ""  # 중앙 간격 추가
         ]
 
         for role in roles_data:
-            description_lines.append(f"{role['emoji']} {role['role']}")
+            description_lines.append(f"{role['emoji']} <@&{role['role_id']}>")
             description_lines.append(f"-# ⠀◟. {role['description']}")
             description_lines.append("-# ⠀")
         
@@ -130,67 +101,11 @@ class RoleEmbed(commands.Cog):
         color = discord.Color.from_rgb(*color_list)
 
         embed = discord.Embed(
-            title="", # 공란으로 설정
+            title="", # 공란
             description="\n".join(description_lines),
             color=color
         )
         return embed
-
-    async def update_reactions(self, name: str, data: dict):
-        # 모든 추적된 메시지의 반응 업데이트
-        # 추가 명령 시 기존 이모지는 유지하고 새 이모지만 추가
-        
-        message_ids = data.get("message_ids", [])
-        roles = data["data"].get("roles", [])
-        
-        # 목표 이모지 목록
-        target_emojis = [r['emoji'] for r in roles]
-
-        for channel_id, message_id in message_ids:
-            try:
-                channel = self.bot.get_channel(channel_id)
-                if not channel:
-                     channel = await self.bot.fetch_channel(channel_id)
-                
-                message = await channel.fetch_message(message_id)
-                
-                # 불필요한 API 호출 방지를 위해 기존 반응 확인
-                existing_reactions = {str(r.emoji): r for r in message.reactions}
-                
-                for emoji in target_emojis:
-                     reacted = False
-                     if emoji in existing_reactions:
-                        if existing_reactions[emoji].me:
-                            reacted = True
-                     
-                     if not reacted:
-                         try:
-                             await message.add_reaction(emoji)
-                         except discord.HTTPException as e:
-                             print(f"반응 추가 실패 {emoji}: {e}")
-
-            except Exception as e:
-                print(f"메시지 {message_id} 반응 업데이트 중 오류 발생: {e}")
-
-    async def reset_reactions(self, name: str, data: dict):
-        message_ids = data.get("message_ids", [])
-        roles = data["data"].get("roles", [])
-        target_emojis = [r['emoji'] for r in roles]
-
-        for channel_id, message_id in message_ids:
-            try:
-                channel = self.bot.get_channel(channel_id) or await self.bot.fetch_channel(channel_id)
-                message = await channel.fetch_message(message_id)
-                
-                # 봇의 모든 반응 제거 (초기화)
-                await message.clear_reactions()
-
-                # 다시 추가
-                for emoji in target_emojis:
-                    await message.add_reaction(emoji)
-            except Exception as e:
-                 print(f"메시지 {message_id} 반응 초기화 중 오류 발생: {e}")
-
 
     @is_guild_admin()
     @role_group.command(name="추가", description="역할 임베드에 새로운 역할을 추가합니다.")
@@ -200,9 +115,11 @@ class RoleEmbed(commands.Cog):
         description="역할 설명", 
         emoji="이모지"
     )
-    async def add_role(self, interaction: discord.Interaction, name: str, role: str, description: str, emoji: str):
-        data = embed_manager.get_embed_data(name)
+    async def add_role(self, interaction: discord.Interaction, name: str, role: discord.Role, description: str, emoji: str):
+        data = embed_manager.get_embed_data(name, reload=True)
         if not data:
+            available = list(embed_manager.config.get("embeds", {}).keys())
+            print(f"DEBUG: '{name}' 찾기 실패. 현재 등록된 임베드: {available}")
             await interaction.response.send_message(f"'{name}' 임베드를 찾을 수 없습니다.")
             return
         
@@ -210,9 +127,20 @@ class RoleEmbed(commands.Cog):
             await interaction.response.send_message(f"'{name}'은 역할 임베드가 아닙니다.")
             return
 
+        roles = data["data"].get("roles", [])
+        for r in roles:
+            if r.get("role_id") == role.id:
+                await interaction.response.send_message(f"이미 '{role.name}' 역할이 등록되어 있습니다.")
+                return
+            # 이름 중복 체크 (선택사항이나 안전을 위해)
+            if r.get("role") == role.name:
+                await interaction.response.send_message(f"이미 '{role.name}' 이름의 역할이 등록되어 있습니다.")
+                return
+
         new_role = {
             "name": name, 
-            "role": role,
+            "role": role.name,
+            "role_id": role.id,
             "description": description,
             "emoji": emoji
         }
@@ -223,15 +151,13 @@ class RoleEmbed(commands.Cog):
         data["data"]["roles"].append(new_role)
         embed_manager.set_embed_data(name, data)
 
-        # 메시지 업데이트
+        # 임베드 및 버튼 업데이트
         embed = self.build_role_embed(name, data)
-        await embed_manager.update_embed_messages(self.bot, name, embed)
+        view = self.build_role_view(data)
+        await embed_manager.update_embed_messages(self.bot, name, embed, view=view)
         
-        # 반응 추가
-        await self.update_reactions(name, data)
-
-        await self.log(f"{interaction.user}({interaction.user.id})가 '{name}' 임베드에 '{role}' 역할을 추가함 [길드: {interaction.guild.name}({interaction.guild.id})]")
-        await interaction.response.send_message(f"'{name}' 임베드에 '{role}' 역할이 추가되었습니다.")
+        await self.log(f"{interaction.user}({interaction.user.id})가 '{name}' 임베드에 '{role.name}' 역할을 추가함 [길드: {interaction.guild.name}({interaction.guild.id})]")
+        await interaction.response.send_message(f"'{name}' 임베드에 '{role.name}' 역할이 추가되었습니다.")
 
     @is_guild_admin()
     @role_group.command(name="제거", description="역할 임베드에서 역할을 제거합니다.")
@@ -243,7 +169,6 @@ class RoleEmbed(commands.Cog):
             return
 
         roles = data["data"].get("roles", [])
-        # 찾아서 제거
         new_roles = [r for r in roles if r["role"] != role]
         
         if len(roles) == len(new_roles):
@@ -253,12 +178,10 @@ class RoleEmbed(commands.Cog):
         data["data"]["roles"] = new_roles
         embed_manager.set_embed_data(name, data)
 
-        # 메시지 업데이트
+        # 임베드 및 버튼 업데이트
         embed = self.build_role_embed(name, data)
-        await embed_manager.update_embed_messages(self.bot, name, embed)
-
-        # 반응 초기화
-        await self.reset_reactions(name, data)
+        view = self.build_role_view(data)
+        await embed_manager.update_embed_messages(self.bot, name, embed, view=view)
 
         await self.log(f"{interaction.user}({interaction.user.id})가 '{name}' 임베드에서 '{role}' 역할을 제거함 [길드: {interaction.guild.name}({interaction.guild.id})]")
         await interaction.response.send_message(f"'{name}' 임베드에서 '{role}' 역할이 제거되었습니다.")
@@ -297,11 +220,9 @@ class RoleEmbed(commands.Cog):
         embed_manager.set_embed_data(name, data)
         
         embed = self.build_role_embed(name, data)
-        await embed_manager.update_embed_messages(self.bot, name, embed)
+        view = self.build_role_view(data)
+        await embed_manager.update_embed_messages(self.bot, name, embed, view=view)
         
-        if emoji:
-             await self.update_reactions(name, data)
-
         await self.log(f"{interaction.user}({interaction.user.id})가 '{name}' 임베드의 '{role}' 역할을 수정함 [길드: {interaction.guild.name}({interaction.guild.id})]")
         await interaction.response.send_message(f"'{name}' 임베드의 '{role}' 역할이 수정되었습니다.")
 

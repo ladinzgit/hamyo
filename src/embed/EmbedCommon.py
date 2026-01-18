@@ -32,10 +32,9 @@ class EmbedCommon(commands.Cog):
             await interaction.response.send_message(f"이미 '{name}'이라는 이름의 임베드가 존재합니다.")
             return
 
-        # 타입에 따른 데이터 초기화
         data = {
             "type": kind,
-            "color": [255, 255, 255], # 기본 흰색
+            "color": [255, 255, 255], 
             "message_ids": [],
             "data": {}
         }
@@ -56,12 +55,13 @@ class EmbedCommon(commands.Cog):
             await interaction.response.send_message(f"'{name}' 임베드를 찾을 수 없습니다.", ephemeral=True)
             return
         
-        # 타입에 따라 임베드 생성
         role_embed_cog = None
+        view = None
         if data["type"] == "role":
             role_embed_cog = self.bot.get_cog("RoleEmbed")
             if role_embed_cog:
                 embed = role_embed_cog.build_role_embed(name, data)
+                view = role_embed_cog.build_role_view(data)
             else:
                  await interaction.response.send_message("RoleEmbed 모듈이 로드되지 않았습니다.", ephemeral=True)
                  return
@@ -69,17 +69,9 @@ class EmbedCommon(commands.Cog):
              await interaction.response.send_message(f"알 수 없는 임베드 타입입니다: {data['type']}", ephemeral=True)
              return
 
-        # 채널에 직접 전송
-        msg = await interaction.channel.send(embed=embed)
+        msg = await interaction.channel.send(embed=embed, view=view)
         
-        # 메시지 ID 저장
         await embed_manager.add_message_id(name, interaction.channel_id, msg.id)
-
-        # 역할 임베드의 경우 반응 추가
-        if data["type"] == "role" and role_embed_cog:
-            # 데이터 갱신 (ID 추가된 것 반영)
-            updated_data = embed_manager.get_embed_data(name)
-            await role_embed_cog.update_reactions(name, updated_data)
 
         await self.log(f"{interaction.user}({interaction.user.id})가 '{name}' 임베드를 채널 {interaction.channel.name}({interaction.channel.id})에 출력함 [길드: {interaction.guild.name}({interaction.guild.id})]")
         await interaction.response.send_message("출력이 완료되었습니다.", ephemeral=True)
@@ -106,12 +98,12 @@ class EmbedCommon(commands.Cog):
         data["color"] = [r, g, b]
         embed_manager.set_embed_data(name, data)
         
-        # 업데이트 트리거
         if data["type"] == "role":
              role_embed_cog = self.bot.get_cog("RoleEmbed")
              if role_embed_cog:
                  embed = role_embed_cog.build_role_embed(name, data)
-                 await embed_manager.update_embed_messages(self.bot, name, embed)
+                 view = role_embed_cog.build_role_view(data)
+                 await embed_manager.update_embed_messages(self.bot, name, embed, view=view)
 
         await self.log(f"{interaction.user}({interaction.user.id})가 '{name}' 임베드 색상을 ({r},{g},{b})로 변경함 [길드: {interaction.guild.name}({interaction.guild.id})]")
         await interaction.response.send_message(f"'{name}' 임베드의 색상이 변경되었습니다.")
