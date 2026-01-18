@@ -107,11 +107,11 @@ class RoleEmbed(commands.Cog):
     async def add_role(self, interaction: discord.Interaction, name: str, role: str, description: str, emoji: str):
         data = embed_manager.get_embed_data(name)
         if not data:
-            await interaction.response.send_message(f"'{name}' 임베드를 찾을 수 없습니다.", ephemeral=True)
+            await interaction.response.send_message(f"'{name}' 임베드를 찾을 수 없습니다.")
             return
         
         if data["type"] != "role":
-            await interaction.response.send_message(f"'{name}'은 역할 임베드가 아닙니다.", ephemeral=True)
+            await interaction.response.send_message(f"'{name}'은 역할 임베드가 아닙니다.")
             return
 
         new_role = {
@@ -134,7 +134,7 @@ class RoleEmbed(commands.Cog):
         # 반응 추가
         await self.update_reactions(name, data)
 
-        await interaction.response.send_message(f"'{name}' 임베드에 '{role}' 역할이 추가되었습니다.", ephemeral=True)
+        await interaction.response.send_message(f"'{name}' 임베드에 '{role}' 역할이 추가되었습니다.")
 
     @is_guild_admin()
     @role_group.command(name="제거", description="역할 임베드에서 역할을 제거합니다.")
@@ -142,7 +142,7 @@ class RoleEmbed(commands.Cog):
     async def remove_role(self, interaction: discord.Interaction, name: str, role: str):
         data = embed_manager.get_embed_data(name)
         if not data or data["type"] != "role":
-            await interaction.response.send_message(f"'{name}' 역할 임베드를 찾을 수 없습니다.", ephemeral=True)
+            await interaction.response.send_message(f"'{name}' 역할 임베드를 찾을 수 없습니다.")
             return
 
         roles = data["data"].get("roles", [])
@@ -150,7 +150,7 @@ class RoleEmbed(commands.Cog):
         new_roles = [r for r in roles if r["role"] != role]
         
         if len(roles) == len(new_roles):
-             await interaction.response.send_message(f"'{name}' 임베드에서 '{role}' 역할을 찾을 수 없습니다.", ephemeral=True)
+             await interaction.response.send_message(f"'{name}' 임베드에서 '{role}' 역할을 찾을 수 없습니다.")
              return
 
         data["data"]["roles"] = new_roles
@@ -163,7 +163,7 @@ class RoleEmbed(commands.Cog):
         # 반응 초기화
         await self.reset_reactions(name, data)
 
-        await interaction.response.send_message(f"'{name}' 임베드에서 '{role}' 역할이 제거되었습니다.", ephemeral=True)
+        await interaction.response.send_message(f"'{name}' 임베드에서 '{role}' 역할이 제거되었습니다.")
 
     @is_guild_admin()
     @role_group.command(name="수정", description="역할 임베드의 역할을 수정합니다.")
@@ -176,7 +176,7 @@ class RoleEmbed(commands.Cog):
     async def edit_role(self, interaction: discord.Interaction, name: str, role: str, description: str = None, emoji: str = None):
         data = embed_manager.get_embed_data(name)
         if not data or data["type"] != "role":
-             await interaction.response.send_message(f"'{name}' 역할 임베드를 찾을 수 없습니다.", ephemeral=True)
+             await interaction.response.send_message(f"'{name}' 역할 임베드를 찾을 수 없습니다.")
              return
 
         roles = data["data"].get("roles", [])
@@ -187,7 +187,7 @@ class RoleEmbed(commands.Cog):
                 break
         
         if found_idx == -1:
-             await interaction.response.send_message(f"'{name}' 임베드에서 '{role}' 역할을 찾을 수 없습니다.", ephemeral=True)
+             await interaction.response.send_message(f"'{name}' 임베드에서 '{role}' 역할을 찾을 수 없습니다.")
              return
 
         if description:
@@ -204,7 +204,7 @@ class RoleEmbed(commands.Cog):
         if emoji:
              await self.update_reactions(name, data)
 
-        await interaction.response.send_message(f"'{name}' 임베드의 '{role}' 역할이 수정되었습니다.", ephemeral=True)
+        await interaction.response.send_message(f"'{name}' 임베드의 '{role}' 역할이 수정되었습니다.")
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(RoleEmbed(bot))
