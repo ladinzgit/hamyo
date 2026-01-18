@@ -11,6 +11,16 @@ class EmbedCommon(commands.Cog):
 
     embed_group = app_commands.Group(name="임베드", description="임베드 관리 명령어")
 
+    async def log(self, message: str):
+        """Logger cog를 통해 로그 메시지 전송"""
+        try:
+            logger = self.bot.get_cog("Logger")
+            if logger:
+                await logger.log(message)
+        except Exception as e:
+            print(f"🐾{self.__class__.__name__} 로그 전송 오류 발생: {e}")
+
+
     @is_guild_admin()
     @embed_group.command(name="생성", description="새로운 임베드를 생성합니다.")
     @app_commands.describe(kind="임베드 종류 (현재는 '역할'만 지원)", name="임베드 이름")
@@ -34,6 +44,7 @@ class EmbedCommon(commands.Cog):
             data["data"]["roles"] = []
         
         embed_manager.set_embed_data(name, data)
+        await self.log(f"{interaction.user}({interaction.user.id})가 '{name}' 임베드({kind})를 생성함 [길드: {interaction.guild.name}({interaction.guild.id})]")
         await interaction.response.send_message(f"'{name}' 임베드({kind})가 생성되었습니다.")
 
     @is_guild_admin()
@@ -70,6 +81,7 @@ class EmbedCommon(commands.Cog):
             updated_data = embed_manager.get_embed_data(name)
             await role_embed_cog.update_reactions(name, updated_data)
 
+        await self.log(f"{interaction.user}({interaction.user.id})가 '{name}' 임베드를 채널 {interaction.channel.name}({interaction.channel.id})에 출력함 [길드: {interaction.guild.name}({interaction.guild.id})]")
         await interaction.response.send_message("출력이 완료되었습니다.", ephemeral=True)
 
     @is_guild_admin()
@@ -77,6 +89,7 @@ class EmbedCommon(commands.Cog):
     @app_commands.describe(name="제거할 임베드 이름")
     async def delete_embed(self, interaction: discord.Interaction, name: str):
         if embed_manager.remove_embed_data(name):
+            await self.log(f"{interaction.user}({interaction.user.id})가 '{name}' 임베드를 제거함 [길드: {interaction.guild.name}({interaction.guild.id})]")
             await interaction.response.send_message(f"'{name}' 임베드가 제거되었습니다.")
         else:
              await interaction.response.send_message(f"'{name}' 임베드를 찾을 수 없습니다.")
@@ -100,6 +113,7 @@ class EmbedCommon(commands.Cog):
                  embed = role_embed_cog.build_role_embed(name, data)
                  await embed_manager.update_embed_messages(self.bot, name, embed)
 
+        await self.log(f"{interaction.user}({interaction.user.id})가 '{name}' 임베드 색상을 ({r},{g},{b})로 변경함 [길드: {interaction.guild.name}({interaction.guild.id})]")
         await interaction.response.send_message(f"'{name}' 임베드의 색상이 변경되었습니다.")
 
 async def setup(bot: commands.Bot):
