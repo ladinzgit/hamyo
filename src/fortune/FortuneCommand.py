@@ -187,7 +187,7 @@ class FortuneCommand(commands.Cog):
                     },
                     {"role": "user", "content": prompt},
                 ],
-                temperature=0.9,
+                temperature=1.0,
                 reasoning_effort="low",
                 max_completion_tokens=2000,
             )
