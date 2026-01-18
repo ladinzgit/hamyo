@@ -56,9 +56,9 @@ class RoleEmbed(commands.Cog):
                     try:
                         await payload.member.add_roles(role_obj)
                     except discord.Forbidden:
-                        print(f"권한 부족으로 {payload.member}에게 역할 {role_obj} 부여 실패")
+                        await self.log(f"권한 부족으로 {payload.member}({payload.member.id})에게 역할 {role_obj.name} 부여 실패 [길드: {guild.name}({guild.id})]")
                     except Exception as e:
-                        print(f"역할 부여 중 오류: {e}")
+                        await self.log(f"역할 {role_obj.name} 부여 중 오류 발생: {e} [사용자: {payload.member}({payload.member.id})]")
 
     @commands.Cog.listener()
     async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent):
@@ -102,9 +102,9 @@ class RoleEmbed(commands.Cog):
                         try:
                             await member.remove_roles(role_obj)
                         except discord.Forbidden:
-                            print(f"권한 부족으로 {member}에게서 역할 {role_obj} 회수 실패")
+                            await self.log(f"권한 부족으로 {member}({member.id})에게서 역할 {role_obj.name} 회수 실패 [길드: {guild.name}({guild.id})]")
                         except Exception as e:
-                            print(f"역할 회수 중 오류: {e}")
+                            await self.log(f"역할 {role_obj.name} 회수 중 오류 발생: {e} [사용자: {member}({member.id})]")
 
 
     def build_role_embed(self, name: str, data: dict) -> discord.Embed:
