@@ -77,6 +77,36 @@ class EmbedCommon(commands.Cog):
         await interaction.response.send_message("출력이 완료되었습니다.", ephemeral=True)
 
     @is_guild_admin()
+    @embed_group.command(name="목록", description="현재 등록된 모든 임베드와 정보를 확인합니다.")
+    async def list_embeds(self, interaction: discord.Interaction):
+        # 최신 상태 로드
+        embed_manager.config = embed_manager.load_config()
+        embeds = embed_manager.config.get("embeds", {})
+
+        if not embeds:
+            await interaction.response.send_message("등록된 임베드가 없습니다.", ephemeral=True)
+            return
+
+        embed = discord.Embed(title="임베드 목록", color=discord.Color.blue())
+        
+        for name, data in embeds.items():
+            kind = data.get("type", "알 수 없음")
+            msg_ids = data.get("message_ids", [])
+            msg_count = len(msg_ids)
+            
+            info = [f"**타입**: {kind}"]
+            info.append(f"**등록된 메시지**: {msg_count}개")
+            
+            if kind == "role":
+                roles = data.get("data", {}).get("roles", [])
+                role_count = len(roles)
+                info.append(f"**등록된 역할**: {role_count}개")
+            
+            embed.add_field(name=f"📄 {name}", value="\n".join(info), inline=False)
+            
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @is_guild_admin()
     @embed_group.command(name="제거", description="임베드를 시스템에서 제거합니다.")
     @app_commands.describe(name="제거할 임베드 이름")
     async def delete_embed(self, interaction: discord.Interaction, name: str):
