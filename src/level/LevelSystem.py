@@ -7,8 +7,14 @@ import asyncio
 import datetime
 from datetime import datetime
 import pytz
+import re
 
 KST = pytz.timezone("Asia/Seoul")
+
+def extract_name(text: str) -> str:
+    # 닉네임에서 유효한 이름 부분만 추출
+    match = re.search(r"([가-힣A-Za-z0-9_]+)$", text or "")
+    return match.group(1) if match else text
 
 class LevelSystem(commands.Cog):
     def __init__(self, bot):
@@ -105,7 +111,7 @@ class LevelSystem(commands.Cog):
             
             # 사용자 정보
             embed.set_author(
-                name=f"{user.display_name}의 수행 기록",
+                name=f"{extract_name(user.display_name)}의 수행 기록",
                 icon_url=user.display_avatar.url
             )
             
