@@ -89,7 +89,8 @@ class LevelSystem(commands.Cog):
             return
         
         try:
-            user = self.bot.get_user(user_id)
+            # 닉네임 표시를 위해 먼저 Guild Member로 조회
+            user = await self._safe_fetch_member(quest_channel.guild, user_id)
             if not user:
                 try:
                     user = await self.bot.fetch_user(user_id)
