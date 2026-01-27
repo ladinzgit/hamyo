@@ -16,6 +16,9 @@ from typing import List, Optional, Tuple, Union
 # 채팅 1개당 점수 (수정 가능)
 POINTS_PER_MESSAGE = 1
 
+# 채널당 최대 조회 메시지 수 (성능 최적화)
+MAX_MESSAGES_PER_CHANNEL = 1000000
+
 # 설정 파일 경로
 CONFIG_PATH = "config/chatting_config.json"
 
@@ -209,16 +212,31 @@ class ChattingCommands(commands.GroupCog, group_name="실적"):
         start: datetime,
         end: datetime
     ) -> int:
-        """지정된 채널에서 사용자의 메시지 수를 계산합니다."""
+        """
+        지정된 채널에서 사용자의 메시지 수를 계산합니다.
+        
+        최적화 전략:
+        - after: 시작 날짜 이후 메시지만 조회 (이전 메시지 스킵)
+        - before: 종료 날짜 이전 메시지만 조회 
+        - oldest_first=True: after와 함께 사용 시 시작일부터 순차 조회
+        - limit: 채널당 최대 조회 수 제한으로 무한 로딩 방지
+        """
         count = 0
         try:
-            async for message in channel.history(after=start, before=end, limit=None):
+            # after + oldest_first=True 조합으로 시작일부터 순차 조회
+            async for message in channel.history(
+                after=start,
+                before=end,
+                limit=MAX_MESSAGES_PER_CHANNEL,
+                oldest_first=True
+            ):
                 if message.author.id == user.id:
                     count += 1
         except discord.Forbidden:
+            # 채널 접근 권한 없음
             pass
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"채널 {channel.name} 메시지 조회 중 오류: {e}")
         return count
 
     @app_commands.command(name="확인", description="개인 채팅 실적을 확인합니다.")
