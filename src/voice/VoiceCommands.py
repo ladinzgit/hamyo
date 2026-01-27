@@ -229,7 +229,8 @@ class RankingView(discord.ui.View):
             f"-# {self.window_label}",
         ]
         if self.user_rank_info:
-            desc_lines.append(f"**내 순위:** {self.user_rank_info[0]}위 • {self.format_duration(self.user_rank_info[1])}")
+            desc_lines.append(f"**내 순위:** {self.user_rank_info[0]}위")
+            desc_lines.append(f"-# ╰ {self.format_duration(self.user_rank_info[1])}")
         desc_lines.append("𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃")
 
         embed = discord.Embed(
@@ -239,15 +240,12 @@ class RankingView(discord.ui.View):
         )
         
         embed.add_field(
-            name=f"📊 순위 ({self.page}/{self.total_pages} 페이지)",
+            name=f"순위 ({self.page}/{self.total_pages} 페이지)",
             value=f"\n{body}\n",
             inline=False,
         )
 
-        if self.footer_note:
-            embed.set_footer(text=f"{self.footer_note} • 반영까지 최대 1분이 소요될 수 있다묘 .ᐟ")
-        else:
-            embed.set_footer(text="반영까지 최대 1분이 소요될 수 있다묘 .ᐟ")
+        embed.set_footer(text="반영까지 최대 1분이 소요될 수 있다묘 .ᐟ")
 
         return embed
 
