@@ -227,26 +227,46 @@ class RoleEmbed(commands.Cog):
         await interaction.response.send_message(f"'{name}' 임베드의 '{role}' 역할이 수정되었습니다.")
 
     @commands.Cog.listener()
-    async def on_ready(self):
-        """봇 시작 시 모든 역할 임베드의 View를 등록하여 버튼 상호작용 복원"""
+    async def on_interaction(self, interaction: discord.Interaction):
+        """role_btn: 으로 시작하는 모든 버튼 상호작용을 처리"""
+        # 버튼 상호작용만 처리
+        if interaction.type != discord.InteractionType.component:
+            return
+        
+        custom_id = interaction.data.get("custom_id", "")
+        if not custom_id.startswith("role_btn:"):
+            return
+        
+        # custom_id에서 role_id 추출
         try:
-            # embed_config에서 모든 role 타입 임베드를 가져와 View 등록
-            config = embed_manager.load_config()
-            embeds = config.get("embeds", {})
-            
-            registered_count = 0
-            for name, data in embeds.items():
-                if data.get("type") == "role":
-                    roles_data = data.get("data", {}).get("roles", [])
-                    if roles_data:
-                        view = self.RoleView(roles_data)
-                        self.bot.add_view(view)
-                        registered_count += 1
-            
-            if registered_count > 0:
-                await self.log(f"역할 버튼 View {registered_count}개 등록 완료")
+            role_id = int(custom_id.split(":")[1])
+        except (IndexError, ValueError):
+            return
+        
+        guild = interaction.guild
+        member = interaction.user
+        
+        if not guild:
+            await interaction.response.send_message("서버에서만 사용할 수 있다묘!", ephemeral=True)
+            return
+        
+        role = guild.get_role(role_id)
+        if not role:
+            await interaction.response.send_message("해당 역할을 찾을 수 없다묘... 관리자에게 문의하라묘!", ephemeral=True)
+            return
+        
+        try:
+            if role in member.roles:
+                await member.remove_roles(role)
+                await interaction.response.send_message(f"'{role.name}' 역할을 회수했다묘. 필요하면 다시 누르라묘.", ephemeral=True)
+            else:
+                await member.add_roles(role)
+                await interaction.response.send_message(f"'{role.name}' 역할을 줬다묘! 잘 쓰라묘!", ephemeral=True)
+        except discord.Forbidden:
+            await interaction.response.send_message("권한이 없어서 역할을 줄 수 없다묘... 내 권한을 확인해달라묘!", ephemeral=True)
         except Exception as e:
-            print(f"역할 버튼 View 등록 중 오류: {e}")
+            print(f"역할 버튼 처리 오류: {e}")
+            await interaction.response.send_message("오류가 발생했다묘... 다시 시도해달라묘.", ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(RoleEmbed(bot))
