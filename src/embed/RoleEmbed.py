@@ -226,5 +226,27 @@ class RoleEmbed(commands.Cog):
         await self.log(f"{interaction.user}({interaction.user.id})가 '{name}' 임베드의 '{role}' 역할을 수정함 [길드: {interaction.guild.name}({interaction.guild.id})]")
         await interaction.response.send_message(f"'{name}' 임베드의 '{role}' 역할이 수정되었습니다.")
 
+    @commands.Cog.listener()
+    async def on_ready(self):
+        """봇 시작 시 모든 역할 임베드의 View를 등록하여 버튼 상호작용 복원"""
+        try:
+            # embed_config에서 모든 role 타입 임베드를 가져와 View 등록
+            config = embed_manager.load_config()
+            embeds = config.get("embeds", {})
+            
+            registered_count = 0
+            for name, data in embeds.items():
+                if data.get("type") == "role":
+                    roles_data = data.get("data", {}).get("roles", [])
+                    if roles_data:
+                        view = self.RoleView(roles_data)
+                        self.bot.add_view(view)
+                        registered_count += 1
+            
+            if registered_count > 0:
+                await self.log(f"역할 버튼 View {registered_count}개 등록 완료")
+        except Exception as e:
+            print(f"역할 버튼 View 등록 중 오류: {e}")
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(RoleEmbed(bot))
