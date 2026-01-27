@@ -193,40 +193,61 @@ class RankingView(discord.ui.View):
         self.prev_button.disabled = self.page <= 1
         self.next_button.disabled = self.page >= self.total_pages
 
-    def render_page(self) -> str:
+    def render_page(self) -> discord.Embed:
         start_index = (self.page - 1) * self.items_per_page
         current = self.ranked[start_index : start_index + self.items_per_page]
+
+        # 커스텀 순위 이모지 매핑
+        rank_emojis = {
+            1: "<a:BM_n_001:1399388350762319878>",
+            2: "<a:BM_n_002:1399388356869226556>",
+            3: "<a:BM_n_003:1399388362749640894>",
+        }
 
         rows = []
         for idx, (uid, seconds) in enumerate(current, start=start_index + 1):
             name = self.name_resolver(uid)
-            prefix = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else f"{idx:>2}위"
-            marker = " • 당신" if self.user_rank_info and self.user_rank_info[0] == idx else ""
-            rows.append(f"{prefix} {name} — {self.format_duration(seconds)}{marker}")
+            is_me = self.user_rank_info and self.user_rank_info[0] == idx
+            marker = " `← 나`" if is_me else ""
+            
+            if idx in rank_emojis:
+                # 1~3위: 커스텀 이모지 + 이름 강조
+                rank_display = rank_emojis[idx]
+                rows.append(f"{rank_display} **{name}**{marker}\n╰ <a:BM_moon_001:1378716907624202421> {self.format_duration(seconds)}")
+            else:
+                # 4위 이상: 영어 서수 (4th, 5th...) + 이름
+                suffix = "th" if 11 <= idx <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(idx % 10, "th")
+                rows.append(f"`{idx}{suffix}` {name}{marker}\n╰ <a:BM_moon_001:1378716907624202421> {self.format_duration(seconds)}")
 
         if not rows:
             rows.append("표시할 기록이 없습니다.")
 
         body = "\n".join(rows)
-        meta = f"{self.window_label}\n페이지 {self.page}/{self.total_pages}"
-        extras = []
-        if self.footer_note:
-            extras.append(self.footer_note)
+
+        # TimeSummaryView 스타일의 description 구성
+        desc_lines = [
+            f"-# {self.window_label}",
+        ]
+        if self.user_rank_info:
+            desc_lines.append(f"**내 순위:** {self.user_rank_info[0]}위 • {self.format_duration(self.user_rank_info[1])}")
+        desc_lines.append("𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃")
 
         embed = discord.Embed(
-            title=f"{self.emoji_prefix} {self.title}",
-            description=meta,
+            title=f"{self.emoji_prefix}{self.title}",
+            description="\n".join(desc_lines),
             colour=self.colour,
         )
-        embed.add_field(name="랭킹", value=f"\n{body}\n", inline=False)
-        if self.user_rank_info:
-            embed.add_field(
-                name="내 순위",
-                value=f"{self.user_rank_info[0]}위 • {self.format_duration(self.user_rank_info[1])}",
-                inline=False,
-            )
-        if extras:
-            embed.set_footer(text=" • ".join(extras))
+        
+        embed.add_field(
+            name=f"📊 순위 ({self.page}/{self.total_pages} 페이지)",
+            value=f"\n{body}\n",
+            inline=False,
+        )
+
+        if self.footer_note:
+            embed.set_footer(text=f"{self.footer_note} • 반영까지 최대 1분이 소요될 수 있다묘 .ᐟ")
+        else:
+            embed.set_footer(text="반영까지 최대 1분이 소요될 수 있다묘 .ᐟ")
 
         return embed
 
