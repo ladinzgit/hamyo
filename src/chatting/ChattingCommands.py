@@ -117,7 +117,7 @@ class ChattingSummaryView(discord.ui.View):
                 pass
 
 
-class ChattingCommands(commands.GroupCog, group_name="실적"):
+class ChattingCommands(commands.Cog):
     """채팅 실적 조회 명령어 Cog"""
     
     def __init__(self, bot):
@@ -199,8 +199,8 @@ class ChattingCommands(commands.GroupCog, group_name="실적"):
             else:
                 end = start.replace(month=start.month + 1)
         else:  # 총합
-            # 총합의 경우 매우 오래 전부터 현재까지
-            start = datetime(2020, 1, 1, tzinfo=self.tz)
+            # 총합의 경우 서버 오픈 일부터 현재까지
+            start = datetime(2025, 8, 1, tzinfo=self.tz)
             end = datetime.now(self.tz) + timedelta(days=1)
             
         return start, end
@@ -239,10 +239,10 @@ class ChattingCommands(commands.GroupCog, group_name="실적"):
             print(f"채널 {channel.name} 메시지 조회 중 오류: {e}")
         return count
 
-    @app_commands.command(name="확인", description="개인 채팅 실적을 확인합니다.")
+    @app_commands.command(name="실적", description="개인 채팅 실적을 확인합니다.")
     @app_commands.describe(
         user="확인할 사용자를 선택합니다. (미입력 시 현재 사용자)",
-        period="확인할 기간을 선택합니다. (일간/주간/월간/총합, 미입력 시 총합)",
+        period="확인할 기간을 선택합니다. (일간/주간/월간/총합, 미입력 시 일간)",
         base_date="기준일을 지정합니다. (YYYY-MM-DD, MMDD 등, 미입력 시 현재 날짜)"
     )
     @app_commands.choices(period=[
@@ -255,7 +255,7 @@ class ChattingCommands(commands.GroupCog, group_name="실적"):
         self,
         interaction: discord.Interaction,
         user: discord.Member = None,
-        period: str = "총합",
+        period: str = "일간",
         base_date: str = None
     ):
         """채팅 실적을 확인하는 슬래시 명령어"""
