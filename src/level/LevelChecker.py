@@ -7,10 +7,22 @@ import asyncio
 import datetime
 from datetime import datetime
 import pytz
+import random
 
 KST = pytz.timezone("Asia/Seoul")
 
 class LevelChecker(commands.Cog):
+    # 퀘스트 완료 시 반응으로 달리는 이모지 풀
+    REACTION_EMOJI_POOL = [
+        '<:BM_k_001:1399387536085880883>', '<:BM_k_002:1399387517668819065>',
+        '<:BM_k_003:1399387520135069770>', '<:BM_k_004:1399387524010606644>',
+        '<:BM_k_009:1399387531534930063>', '<:BM_k_010:1399387534101843978>',
+        '<:BM_l_001:1399386974292545636>', '<:BM_l_002:1399386968546345051>',
+        '<:BM_l_003:1399386959847227452>', '<:BM_l_004:1399386971511722037>',
+        '<:BM_l_005:1399386966306455644>', '<:BM_l_006:1399386963290751078>',
+        '<:BM_l_007:1399386951186124881>', '<:BM_l_008:1399386948971266078>'
+    ]
+
     def __init__(self, bot):
         self.bot = bot
         self.data_manager = LevelDataManager()
@@ -155,14 +167,14 @@ class LevelChecker(commands.Cog):
             user_id = message.author.id
             result = await self.process_call(user_id)
             if result.get('success'):
-                await message.add_reaction('<:BM_r_008:1445392406332575804>')
+                await message.add_reaction(random.choice(self.REACTION_EMOJI_POOL))
                 return
 
         if message.channel.id == FRIEND_CHANNEL_ID and any(role.id == FRIEND_ROLE_ID for role in message.role_mentions):
             user_id = message.author.id
             result = await self.process_friend(user_id)
             if result.get('success'):
-                await message.add_reaction('<:BM_r_008:1445392406332575804>')
+                await message.add_reaction(random.choice(self.REACTION_EMOJI_POOL))
                 return
         
         # --- 다방일지 퀘스트 감지 ---
@@ -188,7 +200,7 @@ class LevelChecker(commands.Cog):
                     
                     # 성공 시 반응 추가
                     if result['success']:
-                        await message.add_reaction('<:BM_j_010:1399387534101843978>')
+                        await message.add_reaction(random.choice(self.REACTION_EMOJI_POOL))
                 except Exception as e:
                     await self.log(f"다방일지 처리 중 오류 발생: {e}")
 
@@ -199,10 +211,7 @@ class LevelChecker(commands.Cog):
             try:
                 user_id = message.author.id
                 result = await self.process_board(user_id)
-                await message.add_reaction('<:BM_k_008:1399387531534930063>')
-                
-                if not result.get('success'):
-                    await self.log(f"게시판 퀘스트 처리 결과: {result}")
+                await message.add_reaction(random.choice(self.REACTION_EMOJI_POOL))
             except Exception as e:
                 await self.log(f"게시판 퀘스트 처리 중 오류 발생: {e}")
 

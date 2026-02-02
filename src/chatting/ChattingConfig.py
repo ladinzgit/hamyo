@@ -1,5 +1,5 @@
 """
-채팅 실적 설정을 관리하는 모듈입니다.
+채팅 설정을 관리하는 모듈입니다.
 추적할 채널을 등록/제거/초기화하는 관리자 명령어를 제공합니다.
 """
 import discord
@@ -30,7 +30,7 @@ def save_config(config: dict):
 
 
 class ChattingConfig(commands.Cog):
-    """채팅 실적 설정 관리 Cog"""
+    """채팅 설정 관리 Cog"""
     
     def __init__(self, bot):
         self.bot = bot
@@ -47,21 +47,21 @@ class ChattingConfig(commands.Cog):
         except Exception as e:
             print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
 
-    @commands.group(name="실적", invoke_without_command=True)
+    @commands.group(name="채팅", invoke_without_command=True)
     @is_guild_admin()
     async def chatting(self, ctx):
-        """실적 관리자 명령어 도움말을 표시합니다."""
+        """채팅 관리자 명령어 도움말을 표시합니다."""
         command_name = ctx.invoked_with
         
         embed = discord.Embed(
-            title="실적 관리자 명령어",
-            description="채팅 실적 관리자 명령어 사용 방법입니다.\n[*실적]으로 접근 가능합니다.",
+            title="채팅 관리자 명령어",
+            description="채팅 관리자 명령어 사용 방법입니다.\n[*채팅]으로 접근 가능합니다.",
             colour=discord.Colour.from_rgb(253, 237, 134)
         )
         
         embed.add_field(
             name=f"*{command_name} 채널등록 (채널)",
-            value="실적을 기록할 채널을 등록합니다. (채널 여러 개 지정 가능)",
+            value="채팅을 기록할 채널을 등록합니다. (채널 여러 개 지정 가능)",
             inline=False
         )
         embed.add_field(
@@ -96,16 +96,16 @@ class ChattingConfig(commands.Cog):
             channel_mentions.append("None")
 
         embed.add_field(name="||.||", value="**현재 설정**", inline=False)
-        embed.add_field(name="실적 기록중인 채널", value=", ".join(channel_mentions), inline=False)
+        embed.add_field(name="채팅 기록중인 채널", value=", ".join(channel_mentions), inline=False)
 
         await ctx.reply(embed=embed)
-        await self.log(f"관리자 {ctx.author}({ctx.author.id})님께서 실적 명령어 사용 방법을 조회하였습니다.")
+        await self.log(f"관리자 {ctx.author}({ctx.author.id})님께서 채팅 명령어 사용 방법을 조회하였습니다.")
 
     @chatting.command(name="채널등록")
     @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def register_channel(self, ctx, *channels: discord.TextChannel):
-        """실적 추적 채널을 등록합니다."""
+        """채팅 추적 채널을 등록합니다."""
         if not channels:
             await ctx.reply("등록할 텍스트 채널을 지정해주세요.")
             return
@@ -119,7 +119,7 @@ class ChattingConfig(commands.Cog):
                 tracked.append(ch.id)
                 added.append(ch.mention)
                 await self.log(
-                    f"{ctx.author}({ctx.author.id})님에 의해 실적 추적 채널에 "
+                    f"{ctx.author}({ctx.author.id})님에 의해 채팅 추적 채널에 "
                     f"{ch.mention}({ch.id})를 등록 완료하였습니다. "
                     f"[길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]"
                 )
@@ -128,7 +128,7 @@ class ChattingConfig(commands.Cog):
         save_config(config)
 
         if added:
-            await ctx.reply(f"다음 채널을 실적 추적에 등록했습니다:\n{', '.join(added)}")
+            await ctx.reply(f"다음 채널을 채팅 추적에 등록했습니다:\n{', '.join(added)}")
         else:
             await ctx.reply("모든 채널이 이미 등록되어 있습니다.")
 
@@ -136,7 +136,7 @@ class ChattingConfig(commands.Cog):
     @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def unregister_channel(self, ctx, *channels: discord.TextChannel):
-        """실적 추적 채널을 제거합니다."""
+        """채팅 추적 채널을 제거합니다."""
         if not channels:
             await ctx.reply("제거할 텍스트 채널을 지정해주세요.")
             return
@@ -151,7 +151,7 @@ class ChattingConfig(commands.Cog):
                 removed.append(ch.mention)
                 await self.log(
                     f"{ctx.author}({ctx.author.id})님에 의해 "
-                    f"{ch.mention}({ch.id}) 채널 실적 추적을 중지하였습니다. "
+                    f"{ch.mention}({ch.id}) 채널 채팅 추적을 중지하였습니다. "
                     f"[길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]"
                 )
 
@@ -159,7 +159,7 @@ class ChattingConfig(commands.Cog):
         save_config(config)
 
         if removed:
-            await ctx.reply(f"다음 채널을 실적 추적에서 제거했습니다:\n{', '.join(removed)}")
+            await ctx.reply(f"다음 채널을 채팅 추적에서 제거했습니다:\n{', '.join(removed)}")
         else:
             await ctx.reply("제거할 채널을 찾지 못했습니다.")
 
@@ -167,14 +167,14 @@ class ChattingConfig(commands.Cog):
     @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def reset_channels(self, ctx):
-        """모든 실적 추적 채널을 초기화합니다."""
+        """모든 채팅 추적 채널을 초기화합니다."""
         config = load_config()
         config["tracked_channels"] = []
         save_config(config)
         
-        await ctx.reply("모든 실적 추적 채널이 초기화되었습니다.")
+        await ctx.reply("모든 채팅 추적 채널이 초기화되었습니다.")
         await self.log(
-            f"{ctx.author}({ctx.author.id})님에 의해 모든 실적 추적 채널이 초기화되었습니다. "
+            f"{ctx.author}({ctx.author.id})님에 의해 모든 채팅 추적 채널이 초기화되었습니다. "
             f"[길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]"
         )
 

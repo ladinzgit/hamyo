@@ -1,6 +1,6 @@
 """
-채팅 실적 관련 명령어를 관리하는 모듈입니다.
-사용자의 채팅 활동 실적을 조회할 수 있는 기능을 제공합니다.
+채팅 관련 명령어를 관리하는 모듈입니다.
+사용자의 채팅 활동을 조회할 수 있는 기능을 제공합니다.
 """
 import discord
 from discord import app_commands
@@ -32,7 +32,7 @@ def load_config() -> dict:
 
 
 class ChattingSummaryView(discord.ui.View):
-    """채팅 실적 요약을 표시하는 View 클래스"""
+    """채팅 기록 요약을 표시하는 View 클래스"""
     
     def __init__(
         self,
@@ -65,13 +65,13 @@ class ChattingSummaryView(discord.ui.View):
         return message_count * POINTS_PER_MESSAGE
 
     def render_embed(self) -> discord.Embed:
-        """실적 정보를 embed로 렌더링합니다."""
+        """채팅 기록 정보를 embed로 렌더링합니다."""
         def extract_name(text: str) -> str:
             match = re.search(r"([가-힣A-Za-z0-9_]+)$", text or "")
             return match.group(1) if match else text
 
         display_label = extract_name(self.user.display_name)
-        title = f"<:BM_k_003:1399387520135069770>، {display_label}님의 채팅 실적"
+        title = f"<:BM_k_003:1399387520135069770>، {display_label}님의 채팅 기록"
         date_range_pretty = self.date_range.replace(" ~ ", " → ")
         
         total_points = self.calculate_points(self.total_messages)
@@ -117,8 +117,8 @@ class ChattingSummaryView(discord.ui.View):
                 pass
 
 
-class ChattingCommands(commands.Cog):
-    """채팅 실적 조회 명령어 Cog"""
+class ChattingCommands(commands.GroupCog, group_name="채팅"):
+    """채팅 조회 명령어 Cog"""
     
     def __init__(self, bot):
         self.bot = bot
@@ -239,7 +239,7 @@ class ChattingCommands(commands.Cog):
             print(f"채널 {channel.name} 메시지 조회 중 오류: {e}")
         return count
 
-    @app_commands.command(name="실적", description="개인 채팅 실적을 확인합니다.")
+    @app_commands.command(name="확인", description="개인 채팅 기록을 확인합니다.")
     @app_commands.describe(
         user="확인할 사용자를 선택합니다. (미입력 시 현재 사용자)",
         period="확인할 기간을 선택합니다. (일간/주간/월간/총합, 미입력 시 일간)",
@@ -258,7 +258,7 @@ class ChattingCommands(commands.Cog):
         period: str = "일간",
         base_date: str = None
     ):
-        """채팅 실적을 확인하는 슬래시 명령어"""
+        """채팅 기록을 확인하는 슬래시 명령어"""
         try:
             user = user or interaction.user
 
@@ -278,7 +278,7 @@ class ChattingCommands(commands.Cog):
             tracked_channel_ids = self.get_tracked_channels()
             if not tracked_channel_ids:
                 await interaction.response.send_message(
-                    "설정된 실적 추적 채널이 없습니다. 관리자에게 문의해주세요.",
+                    "설정된 채팅 추적 채널이 없습니다. 관리자에게 문의해주세요.",
                     ephemeral=True
                 )
                 return
@@ -334,21 +334,21 @@ class ChattingCommands(commands.Cog):
             
             await self.log(
                 f"{interaction.user}({interaction.user.id})님께서 {user}({user.id})님의 "
-                f"{period} 채팅 실적을 조회했습니다. "
+                f"{period} 채팅 기록을 조회했습니다. "
                 f"[길드: {interaction.guild.name}({interaction.guild.id}), "
                 f"채널: {interaction.channel.name if interaction.channel else 'DM'}({interaction.channel_id})]"
             )
 
         except Exception as e:
             await self.log(
-                f"채팅 실적 확인 중 오류 발생: {e} "
+                f"채팅 기록 확인 중 오류 발생: {e} "
                 f"[길드: {interaction.guild.name if interaction.guild else 'N/A'}, "
                 f"채널: {interaction.channel.name if interaction.channel else 'DM'}({interaction.channel_id})]"
             )
             if not interaction.response.is_done():
-                await interaction.response.send_message("실적 조회 중 오류가 발생했습니다.", ephemeral=True)
+                await interaction.response.send_message("채팅 기록 조회 중 오류가 발생했습니다.", ephemeral=True)
             else:
-                await interaction.followup.send("실적 조회 중 오류가 발생했습니다.", ephemeral=True)
+                await interaction.followup.send("채팅 기록 조회 중 오류가 발생했습니다.", ephemeral=True)
 
 
 async def setup(bot: commands.Bot):
