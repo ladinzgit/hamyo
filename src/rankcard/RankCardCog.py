@@ -7,6 +7,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import aiohttp
+import traceback
 import io
 
 from src.rankcard.RankCardService import RankCardService
@@ -50,6 +51,8 @@ class RankCardCog(commands.Cog):
         3. 이미지 생성
         4. 결과 전송
         """
+        loading_msg = None
+
         try:
             # 로딩 메시지
             if is_slash:
@@ -67,7 +70,7 @@ class RankCardCog(commands.Cog):
             # 아바타 이미지 다운로드
             avatar_bytes = await self._download_avatar(data.avatar_url)
             if not avatar_bytes:
-                error_msg = "아바타 이미지를 불러올 수 없습니다."
+                error_msg = "❌ 아바타 이미지를 불러올 수 없습니다."
                 if is_slash:
                     await ctx_or_interaction.followup.send(error_msg, ephemeral=True)
                 else:
@@ -98,16 +101,28 @@ class RankCardCog(commands.Cog):
             )
 
         except Exception as e:
-            error_msg = "랭크 카드 생성 중 오류가 발생했습니다."
-            await self.log(f"랭크 카드 생성 오류: {e}")
+            tb = traceback.format_exc()
+            await self.log(f"랭크 카드 생성 오류: {e}\n{tb}")
+
+            error_embed = discord.Embed(
+                description=f"❌ 랭크 카드 생성 중 오류가 발생했습니다.\n```{type(e).__name__}: {e}```",
+                color=discord.Color.red()
+            )
 
             if is_slash:
                 if not ctx_or_interaction.response.is_done():
-                    await ctx_or_interaction.response.send_message(error_msg, ephemeral=True)
+                    await ctx_or_interaction.response.send_message(
+                        embed=error_embed, ephemeral=True
+                    )
                 else:
-                    await ctx_or_interaction.followup.send(error_msg, ephemeral=True)
+                    await ctx_or_interaction.followup.send(
+                        embed=error_embed, ephemeral=True
+                    )
             else:
-                await ctx_or_interaction.send(error_msg)
+                if loading_msg:
+                    await loading_msg.edit(embed=error_embed)
+                else:
+                    await ctx_or_interaction.send(embed=error_embed)
 
     async def _download_avatar(self, url: str) -> bytes | None:
         """아바타 이미지를 비동기로 다운로드합니다."""
