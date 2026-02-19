@@ -5,16 +5,17 @@ Pillow를 사용하여 유저의 레벨/경지 정보를 시각화한 카드 이
 레이아웃 구성:
   - 캔버스: 860x280px, 다크 배경(#0f0f13), 라운드 코너(24px)
   - 배경: 역할 색상 그라디언트 + 꽃 패턴 장식
-  - 왼쪽: 원형 아바타(140x140px) + 경지 배지
+  - 왼쪽: 원형 아바타(140x140px) + 아이콘 배지
   - 오른쪽: 이름, 다공, 다음 경지 진행바
-  - 하단: 글래스모피즘 채팅/음성 레벨 박스
+  - 하단: 글래스모피즘(블러) 채팅/음성 레벨 박스
 """
 
 import io
+import os
 import logging
 from typing import Optional, Tuple
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 from src.rankcard.RankCardService import RankCardData
 
@@ -36,9 +37,10 @@ TEXT_DIM = (120, 120, 130)
 MAIN_BAR_BG = (40, 40, 50)          # #282832
 
 # 글래스모피즘 색상
-GLASS_FILL = (255, 255, 255, 15)     # 반투명 백색 배경
-GLASS_STROKE = (255, 255, 255, 40)   # 반투명 백색 테두리
+GLASS_FILL = (255, 255, 255, 12)     # 매우 은은한 백색
+GLASS_STROKE = (255, 255, 255, 25)   # 얇고 은은한 테두리
 GLASS_BAR_BG = (0, 0, 0, 80)        # 반투명 흑색 트랙
+GLASS_BLUR_RADIUS = 8               # 블러 반경
 
 # ── 역할별 테마 색상 ──
 ROLE_COLORS = {
@@ -47,6 +49,16 @@ ROLE_COLORS = {
     'daho':     (244, 114, 182),      # #f472b6  핑크
     'dakyung':  (251, 191, 36),       # #fbbf24  골드
     'dahyang':  (129, 140, 248),      # #818cf8  보라
+}
+
+# ── 역할별 아이콘 경로 ──
+ICON_DIR = "assets/icons"
+ROLE_ICON_FILES = {
+    'hub':      'hub.png',
+    'dado':     'dado.png',
+    'daho':     'daho.png',
+    'dakyung':  'dakyung.png',
+    'dahyang':  'dahyang.png',
 }
 
 # ── 폰트 경로 ──
@@ -61,6 +73,21 @@ def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont:
     except (IOError, OSError) as e:
         logger.warning(f"폰트 로드 실패 ({path}): {e} — 기본 폰트를 사용합니다.")
         return ImageFont.load_default()
+
+
+def _load_role_icon(role: str, size: int = 18) -> Optional[Image.Image]:
+    """역할 아이콘 PNG를 로드하고 지정 크기로 리사이즈합니다."""
+    filename = ROLE_ICON_FILES.get(role)
+    if not filename:
+        return None
+    path = os.path.join(ICON_DIR, filename)
+    try:
+        icon = Image.open(path).convert('RGBA')
+        icon = icon.resize((size, size), Image.LANCZOS)
+        return icon
+    except (IOError, OSError) as e:
+        logger.warning(f"아이콘 로드 실패 ({path}): {e}")
+        return None
 
 
 def _make_rounded_rect_mask(size: Tuple[int, int], radius: int) -> Image.Image:
@@ -88,7 +115,7 @@ class RankCardGenerator:
         self.font_exp = _load_font(FONT_MEDIUM_PATH, 16)
         self.font_level = _load_font(FONT_BOLD_PATH, 18)
         self.font_progress = _load_font(FONT_MEDIUM_PATH, 13)
-        self.font_badge = _load_font(FONT_BOLD_PATH, 14)
+        self.font_badge = _load_font(FONT_BOLD_PATH, 13)
         self.font_sub_label = _load_font(FONT_MEDIUM_PATH, 12)
         self.font_rank = _load_font(FONT_BOLD_PATH, 11)
 
@@ -107,7 +134,6 @@ class RankCardGenerator:
 
         # ── 캔버스 생성 ──
         canvas = Image.new('RGBA', (CANVAS_WIDTH, CANVAS_HEIGHT), BG_COLOR + (255,))
-        draw = ImageDraw.Draw(canvas)
 
         # ── 배경 그라디언트 오버레이 (은은하게) ──
         self._draw_background_gradient(canvas, role_color)
@@ -115,26 +141,21 @@ class RankCardGenerator:
         # ── 배경 꽃 패턴 장식 ──
         self._draw_flower_pattern(canvas, role_color)
 
-        # draw 객체를 다시 생성 (배경 합성 후)
-        draw = ImageDraw.Draw(canvas)
-
         # ── 아바타 (원형) ──
         avatar_x, avatar_y = 30, 30
         avatar_size = 140
         self._draw_avatar(canvas, avatar_bytes, avatar_x, avatar_y, avatar_size)
 
-        # draw 객체를 아바타 합성 후 다시 생성
-        draw = ImageDraw.Draw(canvas)
-
-        # ── 역할 배지 (아바타 하단) ──
-        badge_text = f"{data.role_emoji} {data.role_display}"
+        # ── 역할 배지 (아이콘 + 텍스트, 아바타 하단) ──
         badge_cx = avatar_x + avatar_size // 2
         badge_y = avatar_y + avatar_size + 12
-        self._draw_badge(canvas, draw, badge_cx, badge_y, badge_text, role_color)
+        self._draw_badge(canvas, badge_cx, badge_y, data.role_display, data.current_role, role_color)
 
-        # ── 정보 영역 (오른쪽) ──
-        info_x = avatar_x + avatar_size + 32
+        # ── 정보 영역 (오른쪽, 여백 넉넉히) ──
+        info_x = avatar_x + avatar_size + 42  # 기존 32 → 42 여백 확대
         info_y = 32
+
+        draw = ImageDraw.Draw(canvas)
 
         # 이름
         draw.text((info_x, info_y), data.user_name, fill=TEXT_WHITE, font=self.font_name)
@@ -154,7 +175,6 @@ class RankCardGenerator:
         pct_text = f"{data.role_progress_pct:.1f}%"
 
         draw.text((info_x, info_y), progress_label, fill=TEXT_DIM, font=self.font_progress)
-        # 퍼센트 텍스트를 오른쪽 정렬
         pct_bbox = draw.textbbox((0, 0), pct_text, font=self.font_progress)
         pct_w = pct_bbox[2] - pct_bbox[0]
         draw.text(
@@ -171,7 +191,7 @@ class RankCardGenerator:
 
         # ── 하단 글래스모피즘 서브 스탯 박스 ──
         sub_y = 190
-        sub_box_width = (CANVAS_WIDTH - info_x - 40 - 16) // 2  # 두 박스 사이 16px 간격
+        sub_box_width = (CANVAS_WIDTH - info_x - 40 - 16) // 2
 
         # 채팅 레벨 박스 (왼쪽)
         self._draw_glass_stat_box(
@@ -235,15 +255,16 @@ class RankCardGenerator:
         배경에 반투명 꽃 패턴을 그립니다.
         5개의 원을 꽃잎처럼 배치하여 장식합니다.
         """
+        import math
+
         overlay = Image.new('RGBA', canvas.size, (0, 0, 0, 0))
         d = ImageDraw.Draw(overlay)
 
-        # 꽃 중심 좌표 (카드 오른쪽, 살짝 상단)
         cx, cy = 720, 100
         radius = 120
         petal_color = color + (25,)  # ~10% 불투명도
 
-        # 5개 꽃잎 오프셋 (정오각형 배치)
+        # 5개 꽃잎 (정오각형 배치)
         offsets = [
             (0, -1),
             (0.95, -0.31),
@@ -275,19 +296,17 @@ class RankCardGenerator:
             avatar_img = Image.open(io.BytesIO(avatar_bytes)).convert('RGBA')
             avatar_img = avatar_img.resize((size, size), Image.LANCZOS)
 
-            # 원형 마스크
             mask = _make_circle_mask(size)
 
-            # 테두리용 배경 원 (살짝 큰 원)
+            # 반투명 테두리 원
             border_size = size + 6
             border_circle = Image.new('RGBA', (border_size, border_size), (0, 0, 0, 0))
             border_draw = ImageDraw.Draw(border_circle)
             border_draw.ellipse(
                 [(0, 0), (border_size - 1, border_size - 1)],
-                fill=(255, 255, 255, 30)
+                fill=(255, 255, 255, 25)
             )
 
-            # 테두리 원 배치
             canvas.paste(
                 Image.alpha_composite(
                     canvas.crop((x - 3, y - 3, x - 3 + border_size, y - 3 + border_size)),
@@ -296,7 +315,6 @@ class RankCardGenerator:
                 (x - 3, y - 3)
             )
 
-            # 아바타 배치
             canvas.paste(avatar_img, (x, y), mask)
         except Exception as e:
             logger.error(f"아바타 그리기 실패: {e}")
@@ -307,35 +325,65 @@ class RankCardGenerator:
             )
 
     def _draw_badge(
-        self, canvas: Image.Image, draw: ImageDraw.ImageDraw,
-        cx: int, cy: int, text: str,
-        color: Tuple[int, int, int]
+        self, canvas: Image.Image,
+        cx: int, cy: int, role_name: str,
+        role_key: str, color: Tuple[int, int, int]
     ):
-        """아바타 아래에 필(pill) 모양 역할 배지를 그립니다."""
-        bbox = draw.textbbox((0, 0), text, font=self.font_badge)
-        tw = bbox[2] - bbox[0]
-        th = bbox[3] - bbox[1]
+        """
+        아바타 아래에 아이콘 + 텍스트 조합의 필(pill) 배지를 그립니다.
+        이모지 대신 assets/icons/ 의 PNG 아이콘을 사용합니다.
+        """
+        badge_layer = Image.new('RGBA', canvas.size, (0, 0, 0, 0))
+        bd = ImageDraw.Draw(badge_layer)
 
-        pad_x, pad_y = 14, 5
-        bw = tw + pad_x * 2
-        bh = th + pad_y * 2
+        icon_size = 16
+        icon_img = _load_role_icon(role_key, icon_size)
+
+        # 텍스트 크기 계산
+        text_bbox = bd.textbbox((0, 0), role_name, font=self.font_badge)
+        tw = text_bbox[2] - text_bbox[0]
+        th = text_bbox[3] - text_bbox[1]
+
+        # 배지 레이아웃: [pad | icon | gap | text | pad]
+        icon_text_gap = 6
+        pad_x = 12
+        pad_y = 5
+
+        if icon_img:
+            content_w = icon_size + icon_text_gap + tw
+        else:
+            content_w = tw
+
+        bw = content_w + pad_x * 2
+        bh = max(th, icon_size) + pad_y * 2
 
         bx = cx - bw // 2
         by = cy
 
-        # 반투명 배지를 별도 레이어에 그림 (fill/outline 모두 RGBA 지원)
-        badge_layer = Image.new('RGBA', canvas.size, (0, 0, 0, 0))
-        badge_draw = ImageDraw.Draw(badge_layer)
-
-        badge_draw.rounded_rectangle(
+        # 배경 필 (은은한 투명도)
+        bd.rounded_rectangle(
             [(bx, by), (bx + bw, by + bh)],
             radius=bh // 2,
-            fill=color + (50,),
-            outline=color + (100,),
+            fill=color + (40,),
+            outline=color + (70,),
         )
-        badge_draw.text(
-            (bx + pad_x, by + pad_y),
-            text, fill=TEXT_WHITE, font=self.font_badge
+
+        # 아이콘 배치
+        content_x = bx + pad_x
+        content_cy = by + bh // 2  # 수직 중앙
+
+        if icon_img:
+            icon_y = content_cy - icon_size // 2
+            badge_layer.paste(icon_img, (int(content_x), int(icon_y)), icon_img)
+            text_x = content_x + icon_size + icon_text_gap
+        else:
+            text_x = content_x
+
+        # 텍스트 (수직 중앙 정렬)
+        text_y = content_cy - th // 2 - 1
+        bd.text(
+            (int(text_x), int(text_y)),
+            role_name, fill=TEXT_WHITE, font=self.font_badge
         )
 
         canvas.paste(Image.alpha_composite(canvas, badge_layer))
@@ -353,12 +401,10 @@ class RankCardGenerator:
         radius: int = 6,
     ):
         """메인 경지 프로그레스 바를 그립니다. (다크 트랙)"""
-        # 배경 트랙
         draw.rounded_rectangle(
             [(x, y), (x + width, y + height)],
             radius, fill=MAIN_BAR_BG
         )
-        # 채움
         fill_width = max(int(width * (progress / 100.0)), radius * 2)
         if progress > 0:
             draw.rounded_rectangle(
@@ -375,12 +421,10 @@ class RankCardGenerator:
         radius: int = 5,
     ):
         """글래스 박스 내부의 프로그레스 바를 그립니다. (반투명 흑색 트랙)"""
-        # 배경 트랙 (반투명 검정)
         overlay_draw.rounded_rectangle(
             [(x, y), (x + width, y + height)],
             radius, fill=GLASS_BAR_BG
         )
-        # 채움
         fill_width = max(int(width * (progress / 100.0)), radius * 2)
         if progress > 0:
             overlay_draw.rounded_rectangle(
@@ -402,16 +446,32 @@ class RankCardGenerator:
     ):
         """
         글래스모피즘 스타일의 채팅/음성 레벨 박스를 그립니다.
-        반투명 백색 배경 + 백색 테두리로 유리 효과를 구현합니다.
+        배경 블러 + 반투명 백색으로 유리(frosted glass) 효과를 구현합니다.
         """
         box_height = 68
         box_radius = 10
 
-        # 별도 레이어에 반투명 요소 그리기
+        # ── 1단계: 배경 블러 (frosted glass 효과) ──
+        # 박스 영역의 배경을 잘라내어 블러 처리
+        box_region = canvas.crop((x, y, x + width, y + box_height))
+        blurred = box_region.filter(ImageFilter.GaussianBlur(radius=GLASS_BLUR_RADIUS))
+
+        # 블러된 영역에 라운드 마스크 적용
+        blur_mask = _make_rounded_rect_mask((width, box_height), box_radius)
+        blur_layer = Image.new('RGBA', (width, box_height), (0, 0, 0, 0))
+        blur_layer.paste(blurred, mask=blur_mask)
+        canvas.paste(
+            Image.alpha_composite(
+                canvas.crop((x, y, x + width, y + box_height)),
+                blur_layer
+            ),
+            (x, y)
+        )
+
+        # ── 2단계: 글래스 오버레이 (반투명 백색 + 테두리) ──
         overlay = Image.new('RGBA', canvas.size, (0, 0, 0, 0))
         od = ImageDraw.Draw(overlay)
 
-        # 글래스 박스 배경 (반투명 백색)
         od.rounded_rectangle(
             [(x, y), (x + width, y + box_height)],
             box_radius,
@@ -426,7 +486,7 @@ class RankCardGenerator:
             label, fill=TEXT_LIGHT, font=self.font_sub_label
         )
 
-        # 라벨 옆에 순위 표시 (ex: "#3 / 15")
+        # 라벨 옆에 순위 표시
         if rank is not None:
             rank_text = f"#{rank}"
             if total_users > 0:
