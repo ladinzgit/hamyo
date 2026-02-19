@@ -272,7 +272,7 @@ class ChattingCommands(commands.GroupCog, group_name="채팅"):
                         channel = await self.bot.fetch_channel(channel_id)
                     except Exception:
                         continue
-                if isinstance(channel, discord.TextChannel) and count > 0:
+                if isinstance(channel, (discord.TextChannel, discord.VoiceChannel)) and count > 0:
                     channel_details.append((channel, count, points))
 
             # 날짜 범위 문자열 생성

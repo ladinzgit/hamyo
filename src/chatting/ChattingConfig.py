@@ -8,6 +8,7 @@ import json
 import os
 import re
 from datetime import datetime
+from typing import Union
 import pytz
 
 from src.core.admin_utils import GUILD_IDS, only_in_guild, is_guild_admin
@@ -153,17 +154,27 @@ class ChattingConfig(commands.Cog):
     @chatting_config.command(name="채널등록")
     @only_in_guild()
     @commands.has_permissions(administrator=True)
-    async def register_channel(self, ctx, *channels: discord.TextChannel):
-        """채팅 추적 채널을 등록합니다."""
+    async def register_channel(self, ctx, *channels: Union[discord.TextChannel, discord.VoiceChannel, discord.CategoryChannel]):
+        """채팅 추적 채널을 등록합니다. 카테고리를 지정하면 해당 카테고리 내 모든 텍스트 채널이 등록됩니다."""
         if not channels:
-            await ctx.reply("등록할 텍스트 채널을 지정해주세요.")
+            await ctx.reply("등록할 텍스트 채널 또는 카테고리를 지정해주세요.")
             return
-            
+
+        # 카테고리를 텍스트 채널 목록으로 확장
+        text_channels = []
+        for ch in channels:
+            if isinstance(ch, discord.CategoryChannel):
+                text_channels.extend(
+                    c for c in ch.channels if isinstance(c, (discord.TextChannel, discord.VoiceChannel))
+                )
+            else:
+                text_channels.append(ch)
+
         config = load_config()
         tracked = config.get("tracked_channels", [])
         added = []
         
-        for ch in channels:
+        for ch in text_channels:
             if ch.id not in tracked:
                 tracked.append(ch.id)
                 added.append(ch.mention)
@@ -184,17 +195,27 @@ class ChattingConfig(commands.Cog):
     @chatting_config.command(name="채널제거")
     @only_in_guild()
     @commands.has_permissions(administrator=True)
-    async def unregister_channel(self, ctx, *channels: discord.TextChannel):
-        """채팅 추적 채널을 제거합니다."""
+    async def unregister_channel(self, ctx, *channels: Union[discord.TextChannel, discord.VoiceChannel, discord.CategoryChannel]):
+        """채팅 추적 채널을 제거합니다. 카테고리를 지정하면 해당 카테고리 내 모든 텍스트 채널이 제거됩니다."""
         if not channels:
-            await ctx.reply("제거할 텍스트 채널을 지정해주세요.")
+            await ctx.reply("제거할 텍스트 채널 또는 카테고리를 지정해주세요.")
             return
-            
+
+        # 카테고리를 텍스트 채널 목록으로 확장
+        text_channels = []
+        for ch in channels:
+            if isinstance(ch, discord.CategoryChannel):
+                text_channels.extend(
+                    c for c in ch.channels if isinstance(c, (discord.TextChannel, discord.VoiceChannel))
+                )
+            else:
+                text_channels.append(ch)
+
         config = load_config()
         tracked = config.get("tracked_channels", [])
         removed = []
         
-        for ch in channels:
+        for ch in text_channels:
             if ch.id in tracked:
                 tracked.remove(ch.id)
                 removed.append(ch.mention)
@@ -325,7 +346,7 @@ class ChattingConfig(commands.Cog):
                 except Exception:
                     continue
 
-            if not isinstance(channel, discord.TextChannel):
+            if not isinstance(channel, (discord.TextChannel, discord.VoiceChannel)):
                 continue
 
             # 채널별 메시지 수집
