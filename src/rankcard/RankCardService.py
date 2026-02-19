@@ -3,6 +3,7 @@
 음성/채팅/레벨 데이터를 각 모듈에서 읽어와 XPFormulas로 레벨을 계산합니다.
 """
 
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional, Tuple, List
@@ -183,13 +184,24 @@ class RankCardService:
         pct = (progress_in_range / range_size) * 100
         return next_role_key, next_role_display, min(max(pct, 0.0), 100.0)
 
+    async def _get_tracked_voice_channels(self) -> List[int]:
+        """음성 추적 채널 목록을 가져옵니다. (VoiceCommands와 동일한 로직)"""
+        try:
+            voice_cog = self.bot.get_cog('VoiceCommands')
+            if voice_cog and hasattr(voice_cog, 'get_expanded_tracked_channels'):
+                return await voice_cog.get_expanded_tracked_channels()
+        except Exception:
+            pass
+        return None
+
     async def _get_voice_total(self, user_id: int) -> int:
         """유저의 누적 음성 시간(초)을 반환합니다."""
         try:
             await self.voice_dm.ensure_initialized()
             base_date = datetime.now(KST)
+            tracked = await self._get_tracked_voice_channels()
             times, _, _ = await self.voice_dm.get_user_times(
-                user_id, '누적', base_date
+                user_id, '누적', base_date, tracked
             )
             return sum(times.values()) if times else 0
         except Exception:
@@ -200,8 +212,9 @@ class RankCardService:
         try:
             await self.voice_dm.ensure_initialized()
             base_date = datetime.now(KST)
+            tracked = await self._get_tracked_voice_channels()
             rank, total_users, _, _, _ = await self.voice_dm.get_user_rank(
-                user_id, '누적', base_date
+                user_id, '누적', base_date, tracked
             )
             return rank, total_users
         except Exception:
@@ -253,12 +266,8 @@ class RankCardService:
     @staticmethod
     def _extract_name(text: str) -> str:
         """닉네임에서 칭호를 제거하고 순수 이름만 추출합니다."""
-        import re
-        # "칭호 | 이름" 패턴에서 이름 부분 추출
-        match = re.search(r'[|｜]\s*(.+)', text)
-        if match:
-            return match.group(1).strip()
-        return text.strip()
+        match = re.search(r"([가-힣A-Za-z0-9_]+)$", text or "")
+        return match.group(1) if match else text
 
 
 async def setup(bot):

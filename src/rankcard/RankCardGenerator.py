@@ -111,7 +111,7 @@ class RankCardGenerator:
 
     def __init__(self):
         # 폰트 로드 (다양한 크기)
-        self.font_name = _load_font(FONT_BOLD_PATH, 26)
+        self.font_name = _load_font(FONT_BOLD_PATH, 30)
         self.font_exp = _load_font(FONT_MEDIUM_PATH, 16)
         self.font_level = _load_font(FONT_BOLD_PATH, 18)
         self.font_progress = _load_font(FONT_MEDIUM_PATH, 13)
