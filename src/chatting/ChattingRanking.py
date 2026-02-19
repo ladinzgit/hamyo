@@ -172,15 +172,28 @@ class ChattingRankingView(discord.ui.View):
 
 class ChattingRanking(commands.Cog):
     """채팅 순위 조회 명령어 Cog"""
-
-    chatting_group = app_commands.Group(name="채팅", description="채팅 관련 명령어")
     
     def __init__(self, bot):
         self.bot = bot
         self.tz = pytz.timezone('Asia/Seoul')
         
     async def cog_load(self):
+        # ChattingCommands가 소유한 '채팅' 그룹을 찾아서 '순위' 명령어를 추가
+        chatting_cog = self.bot.get_cog('ChattingCommands')
+        if chatting_cog:
+            # GroupCog의 app_command가 곧 그룹 자체
+            group = chatting_cog.__cog_app_commands_group__
+            if group and not group.get_command('순위'):
+                group.add_command(self._build_ranking_command())
         print(f"✅ {self.__class__.__name__} loaded successfully!")
+
+    async def cog_unload(self):
+        # 언로드 시 '순위' 명령어 제거
+        chatting_cog = self.bot.get_cog('ChattingCommands')
+        if chatting_cog:
+            group = chatting_cog.__cog_app_commands_group__
+            if group:
+                group.remove_command('순위')
 
     async def log(self, message):
         """로그 메시지를 Logger cog를 통해 전송합니다."""
@@ -302,20 +315,35 @@ class ChattingRanking(commands.Cog):
             print(f"채널 {channel.name} 순위 조회 중 오류: {e}")
         return user_counts
 
-    @chatting_group.command(name="순위", description="채팅 순위를 확인합니다.")
-    @app_commands.describe(
-        role="순위를 조회할 역할입니다. (미입력 시 전체 유저)",
-        period="확인할 기간을 선택합니다. (일간/주간/월간/총합, 미입력 시 일간)",
-        page="확인할 페이지를 선택합니다. (기본값: 1)",
-        base_date="기준일을 지정합니다. (YYYY-MM-DD, MMDD 등, 미입력 시 현재 날짜)"
-    )
-    @app_commands.choices(period=[
-        app_commands.Choice(name="일간", value="일간"),
-        app_commands.Choice(name="주간", value="주간"),
-        app_commands.Choice(name="월간", value="월간"),
-        app_commands.Choice(name="총합", value="총합")
-    ])
-    async def check_ranking(
+    def _build_ranking_command(self) -> app_commands.Command:
+        """'순위' 명령어를 동적으로 생성합니다."""
+        cog_self = self
+
+        @app_commands.command(name="순위", description="채팅 순위를 확인합니다.")
+        @app_commands.describe(
+            role="순위를 조회할 역할입니다. (미입력 시 전체 유저)",
+            period="확인할 기간을 선택합니다. (일간/주간/월간/총합, 미입력 시 일간)",
+            page="확인할 페이지를 선택합니다. (기본값: 1)",
+            base_date="기준일을 지정합니다. (YYYY-MM-DD, MMDD 등, 미입력 시 현재 날짜)"
+        )
+        @app_commands.choices(period=[
+            app_commands.Choice(name="일간", value="일간"),
+            app_commands.Choice(name="주간", value="주간"),
+            app_commands.Choice(name="월간", value="월간"),
+            app_commands.Choice(name="총합", value="총합")
+        ])
+        async def check_ranking(
+            interaction: discord.Interaction,
+            role: discord.Role = None,
+            period: str = "일간",
+            page: int = 1,
+            base_date: str = None
+        ):
+            await cog_self._check_ranking(interaction, role, period, page, base_date)
+
+        return check_ranking
+
+    async def _check_ranking(
         self,
         interaction: discord.Interaction,
         role: discord.Role = None,
