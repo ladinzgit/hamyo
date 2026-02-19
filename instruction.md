@@ -1,152 +1,141 @@
-당신은 discord.py를 통해 각 유저들이 다양한 미션을 통해, 미션을 달성하면 공통의 목표(비몽트리)의 성장에 기여하여, 비몽트리를 성장하는 시스템을 만들어야 합니다. src/hamyo/ 경로의 모든 파일을 사용하여 코드 형태, 로그 관리 등의 내용을 최대한 모방하세요. 전체 시간대 관리는 [BirthdayInterface.py](http://birthdayinterface.py/) 의 시간대 관리 방법을 사용하세요. import 하지 말고 해당 cog 내 직접 구현하세요.
+Here is the updated `instruction.md` file. It incorporates the new **Tiered XP System**, specific **Command** requirements, and strict **Integration** rules with your existing voice/chat modules.
 
-모든 기능이 수행되는 날짜에서만 아래 기능들이 모두 실행되도록 하세요.
+***
 
-# 미션 내용
+# Instruction: Implement "Kyungji" Rank Card System with Tiered XP
 
-## 인증 방법에 따라 분류
+## 1. Project Overview
+We are implementing a custom Rank Card system for a Discord bot. The system visualizes user levels based on a unique "Kyungji" (Boundaries) concept and calculates levels using a specific **Tiered Growth System**.
 
-1. 완전 자동으로 인증
-    - 출석체크
-2. 몽경수행에 인증 시 자동으로 인증
-    - 업, 추천, 지인 초대, 몽경수행 인증
-3. 몽경수행에는 없지만 자동화 가능 (몽경수행에 대해선 [LevelChecker.py](http://levelchecker.py/), [LevelCommand.py](http://levelcommand.py/), [LevelConfig.py](http://levelconfig.py/), [LevelDataManager.py](http://leveldatamanager.py/) 참조)
-    - 자유 또는 허브키우기 음성방에서 1시간 활동하기, 게임모집글 통해 게임하기
-4. 직접 인증 (직접적으로 구현하지 않음)
-    - 디코올 후기, 겨울 노래, 이벤트 추천, 눈사람, 일기, 오늘의 음료
-5. 직접 만들어야 하는 기능
-    - 눈송이 줍기
+The card must be designed using `easy_pil` (or `Pillow`) with a **Korean-style, Compact, and Density-filled** layout.
 
-## 인증 가능 횟수에 따른 분류
+## 2. Directory Structure & Location
+*   **Target Directory:** `src/rankcard/`
+*   **Existing Context:**
+    *   Voice Data Logic: `src/voice/` (Do not modify, just import/read)
+    *   Chat Data Logic: `src/chatting/` (Do not modify, just import/read)
+    *   Monggyeong (Main Level) Logic: `src/level/`
+    *   Assets: `assets/fonts/`
 
-1. 일회성
-    - 디코올 후기, 겨울 노래, 이벤트 추천, 눈사람, 일기
-2. 다회성
-    - 업, 추천, 출석체크, 지인 초대, 오늘의 음료, 게임모집글 통해 게임하기, 눈송이 줍기, 자유 또는 허브키우기 음성방에서 1시간 활동하기, 몽경수행 인증
-
-## 경험치통
-
-0단계 : 0 눈송이
-1단계 : 500 눈송이
-2단계 : 1000 눈송이
-3단계 : 1700 눈송이
-4단계 : 2500 눈송이
-
-# 전체 구현 내용
-
-- data/tree.db: 각 유저별 경험치(단위는 눈송이로 통일, 이후 눈송이라는 표현 사용), 유저별 퀘스트 내역을 관리, aiosqlite 기반
-- config/tree_config.json: TreeConfig.py를 통해 설정하는 미션 - 눈송이 량 쌍 값 등을 저장하는 설정 파일, 미션 내용 중 ‘4. 직접 인증’ 에 해당
-- src/hamyo/TreeDataManager.py: db와 통신하여 실질적으로 경험치 확인, 경험치 추가/제거, 미션 수행 확인 등의 작업을 수행합니다.
-- src/hamyo/cogs/TreeConfig.py: 관리자 명령어 관리
-- src/hamyo/cogs/TreeCommand.py: 모든 미션에 대한 눈송이 지급을 관리
-- src/hamyo/cogs/TreeSnowflake.py: 미션 내용의 '5. 직접 만들어야 하는 기능' 의 눈송이 줍기 기능 구현
-- src/hamyo/cogs/TreeDashboard.py: TreeConfig.py를 통해 설정하는 트리 상태 채널에 현재 트리 상태를 업데이트.
-- 그 외의 cog에 self.bot.dispatch를 통해 이벤트를 발생하여 TreeCommand.py이 수신할 수 있도록 함.
-
-# 각 기능 별 설명
-
-## src/hamyo/cogs/TreeCommand.py
-
-- 필요한 기능
-    1. 눈송이 지급: TreeDataManager.py의 메소드를 호출하여 해당 유저에게 눈송이를 지급합니다. 얼마나 지급할지는 TreeConfig.py를 통해 정한 눈송이 량만큼 지급합니다.
-    2. 미션 수행 확인: TreeDataManager.py의 메소드를 호출하여 해당 유저가 미션을 수행했는지 확인합니다. 인증 가능 횟수가 일회성이라면 모든 기록을 통틀어 해당 유저가 해당 내용을 수행했는지, 다회성이라면 해당 날짜에만 해당 유저가 수행했는지를 확인해 True/False로 return합니다.
-    3. 미션 수행 기록: 해당 유저가 미션을 완료했다면 해당 미션에 대해 했다고 기록합니다.
-    4. on_custom_event를 통한 다른 cog로부터의 미션 유효성 체크: 다른 cog에 구현되어 있는 기능에서 self.bot.dispatch를 통해 이벤트를 발생시키면 이벤트를 수신하여 해당 유저가 이 미션을 수행했는지 2번의 미션 수행 확인를 통해 체크하여 수행했다면 1번의 경험치 지급를 통해 경험치를 지급합니다. 동시에 3번의 미션 수행 기록을 통해 미션을 수행했다고 기록합니다. 반드시 KST 기준의 시간대 관리를 통해 시간도 같이 기록합니다. 2, 3번 기능의 구현을 위함입니다. 각 기능에 따라 해당 메소드를 여러 개로 분리할 수 있습니다.
-        1. 만약, 해당 미션이 인증 방법 1번과 2번, 완전 자동으로 인증과, 몽경수행에 인증 시 자동으로 인증인 경우 해당 이벤트에서 미션이 같이 완료되었음을 알리기 위해 [LevelChecker.py](http://levelchecker.py/)에서  self.send_quest_completion_message 에서 보내는 채널을 참고하여 같은 채널에서 보내도록 함.
-        2. 만약, 해당 미션이 몽경수행에는 없지만 자동화 가능인 경우  [LevelChecker.py](http://levelchecker.py/)에서  self.send_quest_completion_message를 참고하여 config/tree_config.json에서 지정한 채널로 인증 완료 메시지를 보내도록 함.
-    5. 관리자를 통한 수동 인증: TreeConfig.py를 통해 지정한 역할을 해당 유저가 가지고 있다면, 해당 관리자를 관리자라고 간주하여 인증 명령어를 인증할 수 있도록 합니다. 명령어 형식은 ‘*눈송이 인증 (유저) (미션 이름)’ 입니다. 입력시 2번 미션 수행 확인을 통해 유효한지 확인 한 후, 1번과 3번의 내용을 수행합니다.
-    6. 눈송이 보유량/순위 확인: ‘*눈송이 확인’ 명령어를 입력하면 현재 보유한 눈송이의 개수와, 순위를 표시합니다.
-    7. 명령어 확인: 만일 ‘*눈송이’ 명령어만 실행하면 위의 2가지 명령어 실행 방법을 표시합니다. 
-- embed 디자인
-    - embed의 색은 하늘색으로 설정 (#BFDAF7)
-    - 전체적인 embed 디자인은 전체 cog의 embed를 참고하되, 특히 [Birthday.py](http://Birthday.py) 의 페르소나를 참고하여 작업할 것.
-    - 해당 미션의 내용에 맞는 내용을 넣을 것.
-- 게임모집글 통해 게임하기는 해당 채널에서 사용하는 역할을 멘션했는지를 체크하며, TreeConfig.py에서 지정한 채널과 역할을 인식하도록 함.
-
-## src/hamyo/cogs/TreeConfig.py
-
-- [BirthdayInterface.py](http://birthdayinterface.py/) 를 참고하여 only_in_guild() 메소드와 @commands.has_permissions(administrator=True) 데코레이터를 해당 cog 안에 직접 구현하여 사용 권한을 해당 서버의 관리자이거나, 해당 cog에서 관리하는 역할을 가지고 있을 경우 실행 가능하도록 권한 설정
-- tree_config.json만 수정하도록 함. (db는 TreeDataManager.py만 통신)
-- 필요한 기능
-    - *눈송이설정 미션추가 (미션 이름) (눈송이 량): 미션 이름 - 눈송이 량 쌍 내용을 저장합니다.
-    - *눈송이설정 미션제거 (미션 이름): 해당 미션 제거
-    - *눈송이설정 미션목록: 미션 목록 열람
-    - *눈송이설정 역할지정 (눈송이 량): ‘*눈송이 인증’ 을 실행할 수 있는 역할을 저장
-    - *눈송이설정 알림채널지정 (채널): TreeCommand.py의 필요한 기능 4-b에 해당하는 채널을 지정
-    - *눈송이설정 눈송이채널지정 (채널): TreeSnowflake.py이 소통할 메인채널 지정
-    - *눈송이설정 게임인증 채널 (채널): TreeCommand.py가 인식하는 게임 채널 지정
-    - *눈송이설정 게임인증 역할 (역할): TreeCommand.py가 인식하는 게임 역할 지정
-    - *눈송이설정 기간설정 (시작일) (종료일): 모든 기능이 수행되는 날짜 지정
-    - 그 외 필요한 내용 구현
-
-## src/hamyo/cogs/TreeSnowflake.py
-
-- 특정 시간, 특정 채널에 올라온 메시지의 버튼을 1분 안에 누르면 선착순 인원에게 눈송이 지급
-    - 시간과 채널은 TreeConfig.py에서 설정
-- 시간은 랜덤하게 하루에 2회
-    - 단, 제외했으면 하는 시간: 오전 1시 - 9시
-    - 각 타임은 적어도 1시간 간격은 되도록 설정
-- 버튼은 파란색 계열, 안되면 초록색
-- 선착순 6명에게 지급
-- 눈송이는 220 지급
-- 만약, 다음 메시지가 나왔음에도 선착순이 다 끝났을 경우 다음 메시지가 나올 시점에는 이전 메시지 무효화 처리
-- 나오는 메시지
-    - 처음 나오는 메시지
-    
-    ```cpp
-    . ᘏ▸◂ᘏ        ╭◜◝     ◜◝     ◜◝     ◜◝     ◜◝╮
-    ꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱   .oO :BM_evt_002: 220 눈송이 받을 다도! ᝰꪑ
-    ( つ❄️O        ╰◟◞     ◟◞     ◟◞     ◟◞     ◟◞╯ 
-    ```
-    
-    - 만약 선착순 안에 들었다면 멘션과 함께
-    
-    ```cpp
-    . ᘏ▸◂ᘏ        ╭◜◝     ◜◝     ◜◝     ◜◝     ◜◝╮
-    ꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱   .oO :BM_evt_002: 220 눈송이를 쌓았다묘! ᝰꪑ
-    ( つ🎉O        ╰◟◞     ◟◞     ◟◞     ◟◞     ◟◞╯
-    ```
-    
-    - 만약 선착순 마감할 경우 기존에 올린 메시지 내용 이걸로 대체
-        
-        ```cpp
-        . ᘏ▸◂ᘏ        ╭◜◝     ◜◝     ◜◝     ◜◝     ◜◝╮
-        ꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱   .oO  눈송이를 모두 나눠줬다묘.. ᝰꪑ
-        ( つ📦O        ╰◟◞     ◟◞     ◟◞     ◟◞     ◟◞╯ 
-        ```
-        
-
-## src/hamyo/cogs/TreeDashboard.py
-
-- 현재 트리 상태를 업데이트
-- 현재 트리 상태와 트리 이미지를 보여줌 (서순 상 트리 이미지 보내고 트리 상태를 텍스트로 보내기)
-- 트리 이미지는 로컬에 src/hamyo/images/0.png ,…, 4.png까지 있음
-- 누군가로 인해 눈송이 양이 변했을 경우 그때 트리를 업데이트
-    - 만약 트리 레벨은 변하지 않았으면: 메시지만 ‘수정’
-    - 만약 트리 레벨이 변했다면: 이미지랑 메시지 둘 다 ‘제거 후 재업로드’
-        - 트리 레벨까지 변했으면 TreeSnowflake.py에서 관리하는 채널에 레벨이 올랐다고 공지 올리기
-- 메시지 양식
-
-```cpp
-# <a:BM_m_001:1399387800373301319> 비몽트리 상태창 <a:BM_m_002:1399387809772470342> 
-<:BM_inv:1384475516152582144> 
-> 🎄 : 비몽트리 0단계
-> -# ．╰୧：다음 단계까지 00 경험치
-
-> ❄️  : 비몽트리 경험치 기여도 순위
-> 
-> -# ╰୧：<@고유아이디>  : 00 경험치
-> -# ╰୧：<@고유아이디>  : 00 경험치
-> -# ╰୧：<@고유아이디>  : 00 경험치
-> -# ╰୧：<@고유아이디>  : 00 경험치
+**Required File Structure:**
+```text
+src/rankcard/
+├── __init__.py
+├── RankCardGenerator.py  # Image drawing logic (Visuals)
+├── RankCardService.py    # Data aggregation & Level Calculation Logic
+├── XPFormulas.py         # The new specific math for Voice/Chat levels
+└── RankCardCog.py        # Discord Commands (*rank, /rank)
 ```
 
-## 그 외의 cog에 self.bot.dispatch를 통해 이벤트를 발생하여 TreeCommand.py이 수신
+## 3. Data Integration & XP Logic (Crucial)
 
-- 인증 방법에 따라 분류에서, 1~3번에 대해서는 self.bot.dispatch를 이용해 이벤트를 발생시켜 이를 TreeCommand.py이 받아 유효성을 체크한 후 미션 완료 기록과 경험치 지급이 되어야 함.
-- 이 경우에는, [LevelChecker.py](http://levelchecker.py/) 와 기능이 매우 비슷하니 많이 참고하여 해당 기능과 모든 cog의 내용을 참고하여 각각에 대해 구현해야 하는 기능을 잘 생각하여 구현하세요.
+### A. Data Retrieval
+*   **Do not** create new databases or tables for raw scores.
+*   **Voice Score:** Import/Use the existing logic from `src/voice/` to retrieve the user's total voice time or score.
+*   **Chat Score:** Import/Use the existing logic from `src/chatting/` to retrieve the user's total chat count or score.
+*   **Main Level (Monggyeong):** Use `src/level/LevelDataManager` to retrieve the "Kyungji" (Role) and Total "Dagong" (EXP).
 
-## TreeDataManager.py
+### B. Tiered XP System (New Logic)
+You must implement a calculator (in `XPFormulas.py`) that converts **Total Raw Score** into **Level** and **Progress %** using the following rules.
 
-- DB에 대한 CRUD 기능을 작성합니다.
-- 위에서의 필요한 needs에 맞게 메소드를 적절히 구성하세요.
+**Concept:** Difficulty increases sharply every 10 levels (Tiers).
+*   **Tier Calculation:** `current_level // 10`
+*   **Tier Multiplier:** `1 + (tier * 0.5)`
+
+**Formulas (XP required for NEXT level):**
+
+1.  **Voice Level:**
+    *   Base: `(Level * 139) + 70`
+    *   **Final:** `((Level * 139) + 70) * (1 + (Level // 10) * 0.5)`
+2.  **Chat Level:**
+    *   Base: `(Level * 69.5) + 35`
+    *   **Final:** `((Level * 69.5) + 35) * (1 + (Level // 10) * 0.5)`
+
+**Implementation Snippet:**
+Use this exact logic structure to determine requirements:
+```python
+import math
+
+class LevelManager:
+    # Constants
+    VOICE_GROWTH = 139
+    VOICE_BASE = 70
+    CHAT_GROWTH = 69.5
+    CHAT_BASE = 35
+
+    @staticmethod
+    def get_tier_multiplier(level):
+        """Multiplier increases by 0.5 every 10 levels"""
+        tier = level // 10
+        return 1 + (tier * 0.5)
+
+    @classmethod
+    def get_next_voice_xp(cls, level):
+        standard_xp = (level * cls.VOICE_GROWTH) + cls.VOICE_BASE
+        return int(standard_xp * cls.get_tier_multiplier(level))
+
+    @classmethod
+    def get_next_chat_xp(cls, level):
+        standard_xp = (level * cls.CHAT_GROWTH) + cls.CHAT_BASE
+        return int(standard_xp * cls.get_tier_multiplier(level))
+```
+*Note: Since you will have the **Total XP** from the DB, you need to write a loop or an algorithm that subtracts required XP cumulatively to find the current Level and the remaining XP for the progress bar.*
+
+## 4. Design Specifications (Visuals)
+
+### A. General Settings
+*   **Canvas:** `860px` x `280px`, Rounded Corners (`24px`).
+*   **Theme:** Dark (`#0f0f13`) with specific gradients per role.
+*   **Fonts:**
+    *   Bold: `assets/fonts/Pretendard-Bold.ttf`
+    *   Medium: `assets/fonts/Pretendard-Medium.ttf`
+*   **Language:** **Korean Only**. Do not use English labels (e.g., use '다공' instead of 'EXP').
+
+### B. "Kyungji" Themes (Roles)
+Background gradient must change based on the user's role.
+
+| Role Key | Korean Name | Color (Hex) | Concept |
+| :--- | :--- | :--- | :--- |
+| `hub` | **허브** | `#4ade80` | Green / Sprout |
+| `dado` | **다도** | `#a3e635` | Lime / Tea |
+| `daho` | **다호** | `#f472b6` | Pink / Flower |
+| `dakyung` | **다경** | `#fbbf24` | Gold / Star |
+| `dahyang` | **다향** | `#818cf8` | Purple / Universe |
+
+### C. Layout Details
+1.  **Background:**
+    *   Dark base (`#0f0f13`).
+    *   **Decoration:** Place a large, semi-transparent (opacity ~10%) icon or shape representing the role on the right side. (For prototype, use a large text character of the Role Name or a simple shape if icons are missing).
+2.  **Avatar (Left):**
+    *   Size: `140x140px`, Circular.
+    *   Badge: Pill-shaped, located under the avatar, displaying the **Role Name** (e.g., **🌸 다호**).
+3.  **Info (Right):**
+    *   **Name:** Large, White.
+    *   **Total Dagong:** `3,500 다공` (Use the Main Level XP).
+    *   **Main Progress Bar:** Shows progress to the *Next Kyungji* (Role).
+        *   Text: `다음 경지 : [Next Role Name]` | `[Percent]%`
+4.  **Sub-Stats (Bottom):**
+    *   **Chat Level:** Box layout. Label `채팅 레벨`, Value `Lv. [Calc]`. Progress bar based on the tiered formula.
+    *   **Voice Level:** Box layout. Label `음성 레벨`, Value `Lv. [Calc]`. Progress bar based on the tiered formula.
+
+## 5. Commands & Coding Standards
+
+### A. Commands
+The functionality must be accessible via:
+1.  Prefix Command: `*rank`
+2.  Prefix Command: `*랭크`
+3.  Slash Command: `/rank`
+
+### B. Requirements
+1.  **Logging:** Analyze existing files in `src/` and replicate the logging format/system exactly.
+2.  **Comments:** Provide clear comments explaining the logic (especially the tiered XP calculation).
+3.  **Error Handling:**
+    *   Handle cases where a user has no data in Voice or Chat modules (treat as 0 XP).
+    *   Handle missing font files gracefully (fallback or error log).
+4.  **Separation of Concerns:**
+    *   `RankCardGenerator` should **only** draw images.
+    *   `RankCardService` should **only** handle data logic (fetching from other modules + calculating levels).
+    *   `RankCardCog` should handle Discord interactions.
+
+***
+*End of Instruction*
