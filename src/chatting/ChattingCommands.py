@@ -1,6 +1,6 @@
 """
 채팅 관련 명령어를 관리하는 모듈입니다.
-사용자의 채팅 활동을 조회할 수 있는 기능을 제공합니다.
+사용자의 채팅 활동을 DB 기반으로 조회할 수 있는 기능을 제공합니다.
 """
 import discord
 from discord import app_commands
@@ -10,14 +10,9 @@ import pytz
 import re
 import json
 import os
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
 
-
-# 채팅 1개당 점수 (수정 가능)
-POINTS_PER_MESSAGE = 1
-
-# 채널당 최대 조회 메시지 수 (성능 최적화)
-MAX_MESSAGES_PER_CHANNEL = 1000000
+from src.core.ChattingDataManager import ChattingDataManager
 
 # 설정 파일 경로
 CONFIG_PATH = "config/chatting_config.json"
@@ -28,7 +23,7 @@ def load_config() -> dict:
     if os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
             return json.load(f)
-    return {"tracked_channels": []}
+    return {"tracked_channels": [], "ignored_role_ids": []}
 
 
 class ChattingSummaryView(discord.ui.View):
@@ -42,7 +37,8 @@ class ChattingSummaryView(discord.ui.View):
         period: str,
         date_range: str,
         total_messages: int,
-        channel_details: List[Tuple[discord.TextChannel, int]],
+        total_points: int,
+        channel_details: List[Tuple[discord.TextChannel, int, int]],
     ):
         super().__init__(timeout=180)
         self.owner_id = owner_id
@@ -50,19 +46,15 @@ class ChattingSummaryView(discord.ui.View):
         self.period = period
         self.date_range = date_range
         self.total_messages = total_messages
+        self.total_points = total_points
         self.channel_details = channel_details
         self.message: Optional[discord.Message] = None
 
         # 총합 점수 및 기간 표시 버튼
-        total_points = total_messages * POINTS_PER_MESSAGE
         summary_label = f"총합 {total_messages}개 ({total_points}점)"
         window_label = f"{period} • {date_range}"
         self.add_item(discord.ui.Button(style=discord.ButtonStyle.primary, label=summary_label, disabled=True))
         self.add_item(discord.ui.Button(style=discord.ButtonStyle.secondary, label=window_label, disabled=True))
-
-    def calculate_points(self, message_count: int) -> int:
-        """메시지 수를 점수로 변환합니다."""
-        return message_count * POINTS_PER_MESSAGE
 
     def render_embed(self) -> discord.Embed:
         """채팅 기록 정보를 embed로 렌더링합니다."""
@@ -74,10 +66,9 @@ class ChattingSummaryView(discord.ui.View):
         title = f"<:BM_k_003:1399387520135069770>، {display_label}님의 채팅 기록"
         date_range_pretty = self.date_range.replace(" ~ ", " → ")
         
-        total_points = self.calculate_points(self.total_messages)
         desc_lines = [
             f"-# {self.period}، {date_range_pretty}",
-            f"**총합:** {self.total_messages}개 ({total_points}점)",
+            f"**총합:** {self.total_messages}개 ({self.total_points}점)",
             "𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃",
         ]
 
@@ -90,8 +81,7 @@ class ChattingSummaryView(discord.ui.View):
         # 채널별 상세 정보
         if self.channel_details:
             channel_lines = []
-            for channel, count in sorted(self.channel_details, key=lambda x: x[1], reverse=True):
-                points = self.calculate_points(count)
+            for channel, count, points in sorted(self.channel_details, key=lambda x: x[2], reverse=True):
                 channel_lines.append(f"{channel.mention}\n<a:BM_moon_001:1378716907624202421>{count}개 ({points}점)")
             
             channel_text = "\n".join(channel_lines)
@@ -102,7 +92,7 @@ class ChattingSummaryView(discord.ui.View):
             )
 
         embed.set_thumbnail(url=self.user.display_avatar)
-        embed.set_footer(text="메시지 조회에 시간이 걸릴 수 있다묘 .ᐟ")
+        embed.set_footer(text="채팅 기록 조회 결과다묘 .ᐟ")
         return embed
 
     async def on_timeout(self):
@@ -123,6 +113,8 @@ class ChattingCommands(commands.GroupCog, group_name="채팅"):
     def __init__(self, bot):
         self.bot = bot
         self.tz = pytz.timezone('Asia/Seoul')
+        self.data_manager = ChattingDataManager()
+        bot.loop.create_task(self.data_manager.initialize())
         
     async def cog_load(self):
         print(f"✅ {self.__class__.__name__} loaded successfully!")
@@ -199,45 +191,10 @@ class ChattingCommands(commands.GroupCog, group_name="채팅"):
             else:
                 end = start.replace(month=start.month + 1)
         else:  # 총합
-            # 총합의 경우 서버 오픈 일부터 현재까지
             start = datetime(2025, 8, 1, tzinfo=self.tz)
             end = datetime.now(self.tz) + timedelta(days=1)
             
         return start, end
-
-    async def count_messages_in_channel(
-        self,
-        channel: discord.TextChannel,
-        user: discord.Member,
-        start: datetime,
-        end: datetime
-    ) -> int:
-        """
-        지정된 채널에서 사용자의 메시지 수를 계산합니다.
-        
-        최적화 전략:
-        - after: 시작 날짜 이후 메시지만 조회 (이전 메시지 스킵)
-        - before: 종료 날짜 이전 메시지만 조회 
-        - oldest_first=True: after와 함께 사용 시 시작일부터 순차 조회
-        - limit: 채널당 최대 조회 수 제한으로 무한 로딩 방지
-        """
-        count = 0
-        try:
-            # after + oldest_first=True 조합으로 시작일부터 순차 조회
-            async for message in channel.history(
-                after=start,
-                before=end,
-                limit=MAX_MESSAGES_PER_CHANNEL,
-                oldest_first=True
-            ):
-                if message.author.id == user.id:
-                    count += 1
-        except discord.Forbidden:
-            # 채널 접근 권한 없음
-            pass
-        except Exception as e:
-            print(f"채널 {channel.name} 메시지 조회 중 오류: {e}")
-        return count
 
     @app_commands.command(name="확인", description="개인 채팅 기록을 확인합니다.")
     @app_commands.describe(
@@ -287,26 +244,13 @@ class ChattingCommands(commands.GroupCog, group_name="채팅"):
 
             # 기간 범위 계산
             start, end = self.get_period_range(period, base_datetime)
-            
-            # 채널별 메시지 수 집계
-            channel_details: List[Tuple[discord.TextChannel, int]] = []
-            total_messages = 0
+            start_str = start.strftime("%Y-%m-%d %H:%M:%S")
+            end_str = end.strftime("%Y-%m-%d %H:%M:%S")
 
-            for channel_id in tracked_channel_ids:
-                channel = self.bot.get_channel(channel_id)
-                if channel is None:
-                    try:
-                        channel = await self.bot.fetch_channel(channel_id)
-                    except Exception:
-                        continue
-                
-                if not isinstance(channel, discord.TextChannel):
-                    continue
-
-                count = await self.count_messages_in_channel(channel, user, start, end)
-                if count > 0:
-                    channel_details.append((channel, count))
-                    total_messages += count
+            # DB에서 유저의 채팅 통계 조회
+            total_messages, total_points = await self.data_manager.get_user_chat_stats(
+                user.id, start_str, end_str
+            )
 
             if total_messages == 0:
                 await interaction.followup.send(
@@ -315,17 +259,34 @@ class ChattingCommands(commands.GroupCog, group_name="채팅"):
                 )
                 return
 
+            # 채널별 상세 통계 조회
+            channel_stats = await self.data_manager.get_user_channel_stats(
+                user.id, start_str, end_str
+            )
+
+            channel_details: List[Tuple[discord.TextChannel, int, int]] = []
+            for channel_id, count, points in channel_stats:
+                channel = self.bot.get_channel(channel_id)
+                if channel is None:
+                    try:
+                        channel = await self.bot.fetch_channel(channel_id)
+                    except Exception:
+                        continue
+                if isinstance(channel, discord.TextChannel) and count > 0:
+                    channel_details.append((channel, count, points))
+
             # 날짜 범위 문자열 생성
-            start_str = start.strftime("%Y-%m-%d")
-            end_str = (end - timedelta(days=1)).strftime("%Y-%m-%d")
+            date_start_str = start.strftime("%Y-%m-%d")
+            date_end_str = (end - timedelta(days=1)).strftime("%Y-%m-%d")
 
             # View 생성 및 응답
             view = ChattingSummaryView(
                 owner_id=interaction.user.id,
                 user=user,
                 period=period,
-                date_range=f"{start_str} ~ {end_str}",
+                date_range=f"{date_start_str} ~ {date_end_str}",
                 total_messages=total_messages,
+                total_points=total_points,
                 channel_details=channel_details,
             )
 

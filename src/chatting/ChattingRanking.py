@@ -1,23 +1,17 @@
 """
 채팅 순위 관련 명령어를 관리하는 모듈입니다.
-사용자들의 채팅 활동 순위를 조회할 수 있는 기능을 제공합니다.
+사용자들의 채팅 활동 순위를 DB 기반으로 조회할 수 있는 기능을 제공합니다.
 """
 import discord
 from discord import app_commands
 from discord.ext import commands
 from datetime import datetime, timedelta
 import pytz
-import re
 import json
 import os
 from typing import Callable, Dict, List, Optional, Tuple
 
-
-# 채팅 1개당 점수 (수정 가능)
-POINTS_PER_MESSAGE = 1
-
-# 채널당 최대 조회 메시지 수 (성능 최적화)
-MAX_MESSAGES_PER_CHANNEL = 1000000
+from src.core.ChattingDataManager import ChattingDataManager
 
 # 설정 파일 경로
 CONFIG_PATH = "config/chatting_config.json"
@@ -28,7 +22,7 @@ def load_config() -> dict:
     if os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
             return json.load(f)
-    return {"tracked_channels": []}
+    return {"tracked_channels": [], "ignored_role_ids": []}
 
 
 class ChattingRankingView(discord.ui.View):
@@ -38,8 +32,8 @@ class ChattingRankingView(discord.ui.View):
         self,
         *,
         owner_id: int,
-        ranked: List[Tuple[int, int]],
-        formatter: Callable[[int], str],
+        ranked: List[Tuple[int, int, int]],
+        formatter: Callable[[int, int], str],
         name_resolver: Callable[[int], str],
         title: str,
         window_label: str,
@@ -62,7 +56,10 @@ class ChattingRankingView(discord.ui.View):
         self.emoji_prefix = emoji_prefix
         self.colour = colour or discord.Colour.from_rgb(253, 237, 134)
         self.message: Optional[discord.Message] = None
-        self.user_rank_info = next(((idx + 1, count) for idx, (uid, count) in enumerate(ranked) if uid == owner_id), None)
+        self.user_rank_info = next(
+            ((idx + 1, count, points) for idx, (uid, count, points) in enumerate(ranked) if uid == owner_id),
+            None
+        )
 
         # 페이지 이동 버튼
         self.prev_button = discord.ui.Button(style=discord.ButtonStyle.secondary, label="◀ 이전")
@@ -92,32 +89,29 @@ class ChattingRankingView(discord.ui.View):
         }
 
         rows = []
-        for idx, (uid, count) in enumerate(current, start=start_index + 1):
+        for idx, (uid, count, points) in enumerate(current, start=start_index + 1):
             name = self.name_resolver(uid)
             is_me = self.user_rank_info and self.user_rank_info[0] == idx
             marker = " `← 나`" if is_me else ""
             
             if idx in rank_emojis:
-                # 1~3위: 커스텀 이모지 + 이름 강조
                 rank_display = rank_emojis[idx]
-                rows.append(f"{rank_display} **{name}**{marker}\n╰ <a:BM_moon_001:1378716907624202421> {self.format_count(count)}")
+                rows.append(f"{rank_display} **{name}**{marker}\n╰ <a:BM_moon_001:1378716907624202421> {self.format_count(count, points)}")
             else:
-                # 4위 이상: 영어 서수 (4th, 5th...) + 이름
                 suffix = "th" if 11 <= idx <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(idx % 10, "th")
-                rows.append(f"`{idx}{suffix}` {name}{marker}\n╰ <a:BM_moon_001:1378716907624202421> {self.format_count(count)}")
+                rows.append(f"`{idx}{suffix}` {name}{marker}\n╰ <a:BM_moon_001:1378716907624202421> {self.format_count(count, points)}")
 
         if not rows:
             rows.append("표시할 기록이 없습니다.")
 
         body = "\n".join(rows)
 
-        # TimeSummaryView 스타일의 description 구성
         desc_lines = [
             f"-# {self.window_label}",
         ]
         if self.user_rank_info:
             desc_lines.append(f"**내 순위:** {self.user_rank_info[0]}위")
-            desc_lines.append(f"-# ╰ {self.format_count(self.user_rank_info[1])}")
+            desc_lines.append(f"-# ╰ {self.format_count(self.user_rank_info[1], self.user_rank_info[2])}")
         desc_lines.append("𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃𓂃")
 
         embed = discord.Embed(
@@ -176,12 +170,13 @@ class ChattingRanking(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.tz = pytz.timezone('Asia/Seoul')
+        self.data_manager = ChattingDataManager()
+        bot.loop.create_task(self.data_manager.initialize())
         
     async def cog_load(self):
         # ChattingCommands가 소유한 '채팅' 그룹을 찾아서 '순위' 명령어를 추가
         chatting_cog = self.bot.get_cog('ChattingCommands')
         if chatting_cog:
-            # GroupCog의 app_command가 곧 그룹 자체
             group = chatting_cog.__cog_app_commands_group__
             if group and not group.get_command('순위'):
                 group.add_command(self._build_ranking_command())
@@ -203,11 +198,6 @@ class ChattingRanking(commands.Cog):
                 await logger.log(message)
         except Exception as e:
             print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
-
-    def get_tracked_channels(self) -> List[int]:
-        """설정된 추적 채널 목록을 반환합니다."""
-        config = load_config()
-        return config.get("tracked_channels", [])
 
     def parse_date(self, date_str: str) -> Optional[datetime]:
         """
@@ -267,53 +257,14 @@ class ChattingRanking(commands.Cog):
             else:
                 end = start.replace(month=start.month + 1)
         else:  # 총합
-            # 총합의 경우 서버 오픈 일부터 현재까지
             start = datetime(2025, 8, 1, tzinfo=self.tz)
             end = datetime.now(self.tz) + timedelta(days=1)
             
         return start, end
 
-    def format_message_count(self, count: int) -> str:
-        """메시지 수를 포맷팅합니다."""
-        points = count * POINTS_PER_MESSAGE
+    def format_message_count(self, count: int, points: int) -> str:
+        """메시지 수와 점수를 포맷팅합니다."""
         return f"{count}개 ({points}점)"
-
-    async def count_all_users_messages(
-        self,
-        channel: discord.TextChannel,
-        start: datetime,
-        end: datetime,
-        target_user_ids: Optional[set] = None
-    ) -> Dict[int, int]:
-        """
-        지정된 채널에서 모든 사용자의 메시지 수를 계산합니다.
-        target_user_ids가 지정되면 해당 유저들만 집계합니다.
-        """
-        user_counts: Dict[int, int] = {}
-        try:
-            async for message in channel.history(
-                after=start,
-                before=end,
-                limit=MAX_MESSAGES_PER_CHANNEL,
-                oldest_first=True
-            ):
-                # 봇 메시지 제외
-                if message.author.bot:
-                    continue
-                    
-                uid = message.author.id
-                
-                # 특정 유저만 필터링
-                if target_user_ids is not None and uid not in target_user_ids:
-                    continue
-                    
-                user_counts[uid] = user_counts.get(uid, 0) + 1
-        except discord.Forbidden:
-            # 채널 접근 권한 없음
-            pass
-        except Exception as e:
-            print(f"채널 {channel.name} 순위 조회 중 오류: {e}")
-        return user_counts
 
     def _build_ranking_command(self) -> app_commands.Command:
         """'순위' 명령어를 동적으로 생성합니다."""
@@ -370,19 +321,12 @@ class ChattingRanking(commands.Cog):
                 await interaction.response.send_message("페이지 번호는 1 이상이어야 합니다.", ephemeral=True)
                 return
 
-            # 추적 채널 목록 가져오기
-            tracked_channel_ids = self.get_tracked_channels()
-            if not tracked_channel_ids:
-                await interaction.response.send_message(
-                    "설정된 채팅 추적 채널이 없습니다. 관리자에게 문의해주세요.",
-                    ephemeral=True
-                )
-                return
-
             await interaction.response.defer()
 
             # 기간 범위 계산
             start, end = self.get_period_range(period, base_datetime)
+            start_str = start.strftime("%Y-%m-%d %H:%M:%S")
+            end_str = end.strftime("%Y-%m-%d %H:%M:%S")
 
             # 역할 필터링 대상 유저 ID 집합
             target_user_ids = None
@@ -395,27 +339,13 @@ class ChattingRanking(commands.Cog):
                     )
                     return
 
-            # 모든 채널에서 메시지 수 집계
-            all_user_counts: Dict[int, int] = {}
+            # DB에서 전체 유저 통계 조회
+            all_stats = await self.data_manager.get_all_users_stats(
+                start_str, end_str, target_user_ids
+            )
 
-            for channel_id in tracked_channel_ids:
-                channel = self.bot.get_channel(channel_id)
-                if channel is None:
-                    try:
-                        channel = await self.bot.fetch_channel(channel_id)
-                    except Exception:
-                        continue
-                
-                if not isinstance(channel, discord.TextChannel):
-                    continue
-
-                channel_counts = await self.count_all_users_messages(channel, start, end, target_user_ids)
-                for uid, count in channel_counts.items():
-                    all_user_counts[uid] = all_user_counts.get(uid, 0) + count
-
-            # 순위 정렬
-            user_totals = [(uid, count) for uid, count in all_user_counts.items()]
-            ranked = sorted(user_totals, key=lambda x: x[1], reverse=True)
+            # (user_id, count, points) 리스트
+            ranked = [(uid, count, points) for uid, count, points in all_stats]
 
             if not ranked:
                 role_text = f"{role.name} 역할의 " if role else ""
@@ -437,20 +367,20 @@ class ChattingRanking(commands.Cog):
                 return
 
             # 날짜 범위 문자열 생성
-            start_str = start.strftime("%Y-%m-%d")
-            end_str = (end - timedelta(days=1)).strftime("%Y-%m-%d")
+            date_start_str = start.strftime("%Y-%m-%d")
+            date_end_str = (end - timedelta(days=1)).strftime("%Y-%m-%d")
 
             # 타이틀 및 라벨 설정
             if role:
                 title = f"{role.name} 역할 채팅 순위"
-                window_label = f"{role.name} • {period} ({start_str} ~ {end_str})"
+                window_label = f"{role.name} • {period} ({date_start_str} ~ {date_end_str})"
                 colour = role.colour
             else:
                 title = "채팅 순위"
-                window_label = f"{period} ({start_str} ~ {end_str})"
+                window_label = f"{period} ({date_start_str} ~ {date_end_str})"
                 colour = discord.Colour.from_rgb(253, 237, 134)
 
-            footer_note = "메시지 조회에 시간이 걸릴 수 있다묘 .ᐟ"
+            footer_note = "채팅 순위 조회 결과다묘 .ᐟ"
 
             def resolve_name(uid: int) -> str:
                 member = interaction.guild.get_member(uid)
