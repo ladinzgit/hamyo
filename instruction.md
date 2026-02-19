@@ -1,141 +1,118 @@
-Here is the updated `instruction.md` file. It incorporates the new **Tiered XP System**, specific **Command** requirements, and strict **Integration** rules with your existing voice/chat modules.
+Great. Since the performance (execution time) issue is resolved and you have provided the working code structure, this **new `instruction.md`** will focus entirely on **polishing the Visuals (UI/UX)** to match your design requirements (Flower pattern, Glassmorphism, Density).
+
+It instructs the Coding Agent to **keep the logic** of `RankCardService` and `RankCardCog` (since they work) but **rewrite `RankCardGenerator`** to fix the design issues.
 
 ***
 
-# Instruction: Implement "Kyungji" Rank Card System with Tiered XP
+# Instruction: Refine Visuals for "Kyungji" Rank Card
 
-## 1. Project Overview
-We are implementing a custom Rank Card system for a Discord bot. The system visualizes user levels based on a unique "Kyungji" (Boundaries) concept and calculates levels using a specific **Tiered Growth System**.
+## 1. Project Status & Goal
+*   **Current Status:** The backend logic (Data fetching, XP calculation, Command handling) is **working correctly and fast**.
+*   **Goal:** The current image output is visually broken (text on background, opaque boxes). We need to **rewrite `RankCardGenerator.py`** to match the "Compact & Glassmorphism" design with a procedural flower background.
 
-The card must be designed using `easy_pil` (or `Pillow`) with a **Korean-style, Compact, and Density-filled** layout.
+## 2. Directory Structure
+*   **Work Directory:** `src/rankcard/`
+*   **Files:**
+    *   `RankCardGenerator.py` **(TARGET FOR REWRITE)**
+    *   `RankCardService.py` (Keep existing logic)
+    *   `RankCardCog.py` (Keep existing logic)
+    *   `XPFormulas.py` (Keep existing logic)
 
-## 2. Directory Structure & Location
-*   **Target Directory:** `src/rankcard/`
-*   **Existing Context:**
-    *   Voice Data Logic: `src/voice/` (Do not modify, just import/read)
-    *   Chat Data Logic: `src/chatting/` (Do not modify, just import/read)
-    *   Monggyeong (Main Level) Logic: `src/level/`
-    *   Assets: `assets/fonts/`
+## 3. Visual Design Specifications (RankCardGenerator.py)
 
-**Required File Structure:**
-```text
-src/rankcard/
-├── __init__.py
-├── RankCardGenerator.py  # Image drawing logic (Visuals)
-├── RankCardService.py    # Data aggregation & Level Calculation Logic
-├── XPFormulas.py         # The new specific math for Voice/Chat levels
-└── RankCardCog.py        # Discord Commands (*rank, /rank)
-```
+You must rewrite `RankCardGenerator.py` to implement the following specific design details.
 
-## 3. Data Integration & XP Logic (Crucial)
-
-### A. Data Retrieval
-*   **Do not** create new databases or tables for raw scores.
-*   **Voice Score:** Import/Use the existing logic from `src/voice/` to retrieve the user's total voice time or score.
-*   **Chat Score:** Import/Use the existing logic from `src/chatting/` to retrieve the user's total chat count or score.
-*   **Main Level (Monggyeong):** Use `src/level/LevelDataManager` to retrieve the "Kyungji" (Role) and Total "Dagong" (EXP).
-
-### B. Tiered XP System (New Logic)
-You must implement a calculator (in `XPFormulas.py`) that converts **Total Raw Score** into **Level** and **Progress %** using the following rules.
-
-**Concept:** Difficulty increases sharply every 10 levels (Tiers).
-*   **Tier Calculation:** `current_level // 10`
-*   **Tier Multiplier:** `1 + (tier * 0.5)`
-
-**Formulas (XP required for NEXT level):**
-
-1.  **Voice Level:**
-    *   Base: `(Level * 139) + 70`
-    *   **Final:** `((Level * 139) + 70) * (1 + (Level // 10) * 0.5)`
-2.  **Chat Level:**
-    *   Base: `(Level * 69.5) + 35`
-    *   **Final:** `((Level * 69.5) + 35) * (1 + (Level // 10) * 0.5)`
-
-**Implementation Snippet:**
-Use this exact logic structure to determine requirements:
-```python
-import math
-
-class LevelManager:
-    # Constants
-    VOICE_GROWTH = 139
-    VOICE_BASE = 70
-    CHAT_GROWTH = 69.5
-    CHAT_BASE = 35
-
-    @staticmethod
-    def get_tier_multiplier(level):
-        """Multiplier increases by 0.5 every 10 levels"""
-        tier = level // 10
-        return 1 + (tier * 0.5)
-
-    @classmethod
-    def get_next_voice_xp(cls, level):
-        standard_xp = (level * cls.VOICE_GROWTH) + cls.VOICE_BASE
-        return int(standard_xp * cls.get_tier_multiplier(level))
-
-    @classmethod
-    def get_next_chat_xp(cls, level):
-        standard_xp = (level * cls.CHAT_GROWTH) + cls.CHAT_BASE
-        return int(standard_xp * cls.get_tier_multiplier(level))
-```
-*Note: Since you will have the **Total XP** from the DB, you need to write a loop or an algorithm that subtracts required XP cumulatively to find the current Level and the remaining XP for the progress bar.*
-
-## 4. Design Specifications (Visuals)
-
-### A. General Settings
-*   **Canvas:** `860px` x `280px`, Rounded Corners (`24px`).
-*   **Theme:** Dark (`#0f0f13`) with specific gradients per role.
+### A. Canvas & Theme
+*   **Size:** `860px` (W) x `280px` (H).
+*   **Background Color:** `#0f0f13` (Dark).
+*   **Corners:** Rounded (`24px`).
 *   **Fonts:**
     *   Bold: `assets/fonts/Pretendard-Bold.ttf`
     *   Medium: `assets/fonts/Pretendard-Medium.ttf`
-*   **Language:** **Korean Only**. Do not use English labels (e.g., use '다공' instead of 'EXP').
 
-### B. "Kyungji" Themes (Roles)
-Background gradient must change based on the user's role.
+### B. Background Decoration (The Flower)
+*   **Requirement:** Remove the existing `_draw_deco_character` (Text). Replace it with a **Procedural Flower Pattern**.
+*   **Logic:** Draw 5 overlapping circles arranged in a circle to mimic a flower shape.
+*   **Style:**
+    *   **Color:** Role Theme Color.
+    *   **Opacity:** Very Low (**10%** / Alpha ~25). It must be subtle.
+    *   **Position:** Right side of the card, partially cut off, serving as a wallpaper.
+*   **Snippet for Generator:**
+    ```python
+    def _draw_flower_pattern(self, canvas, draw, color):
+        # Center coordinates for the flower (Right side)
+        cx, cy = 720, 100
+        radius = 120 
+        # 5 petals
+        offsets = [
+            (0, -1), (0.95, -0.31), (0.59, 0.81), (-0.59, 0.81), (-0.95, -0.31)
+        ]
+        # Use a separate layer for transparency
+        overlay = Image.new('RGBA', canvas.size, (0,0,0,0))
+        d = ImageDraw.Draw(overlay)
+        
+        petal_color = color + (25,) # Low Alpha (approx 10%)
+        
+        for dx, dy in offsets:
+            x = cx + dx * (radius * 0.6)
+            y = cy + dy * (radius * 0.6)
+            # Draw petal (circle)
+            d.ellipse(
+                [(x - radius, y - radius), (x + radius, y + radius)],
+                fill=petal_color
+            )
+        
+        # Composite
+        canvas.paste(Image.alpha_composite(canvas, overlay), (0,0))
+    ```
 
-| Role Key | Korean Name | Color (Hex) | Concept |
-| :--- | :--- | :--- | :--- |
-| `hub` | **허브** | `#4ade80` | Green / Sprout |
-| `dado` | **다도** | `#a3e635` | Lime / Tea |
-| `daho` | **다호** | `#f472b6` | Pink / Flower |
-| `dakyung` | **다경** | `#fbbf24` | Gold / Star |
-| `dahyang` | **다향** | `#818cf8` | Purple / Universe |
+### C. Sub-Stat Boxes (Glassmorphism)
+*   **Requirement:** The current boxes are too dark/opaque. They need to look like **Glass**.
+*   **Style:**
+    *   **Fill:** White with extremely low opacity (`255, 255, 255, 15`). **Do not use Gray/Black.**
+    *   **Stroke (Border):** White with low opacity (`255, 255, 255, 40`), 1px width.
+    *   **Text Colors inside box:**
+        *   Labels: Light Gray (`#dddddd`).
+        *   Values (Lv): Pure White (`#ffffff`).
+    *   **Progress Bar inside box:**
+        *   Track (Background): Black with low opacity (`0, 0, 0, 80`).
+        *   Fill: Specific Role/Stat Color.
 
-### C. Layout Details
-1.  **Background:**
-    *   Dark base (`#0f0f13`).
-    *   **Decoration:** Place a large, semi-transparent (opacity ~10%) icon or shape representing the role on the right side. (For prototype, use a large text character of the Role Name or a simple shape if icons are missing).
-2.  **Avatar (Left):**
-    *   Size: `140x140px`, Circular.
-    *   Badge: Pill-shaped, located under the avatar, displaying the **Role Name** (e.g., **🌸 다호**).
-3.  **Info (Right):**
-    *   **Name:** Large, White.
-    *   **Total Dagong:** `3,500 다공` (Use the Main Level XP).
-    *   **Main Progress Bar:** Shows progress to the *Next Kyungji* (Role).
-        *   Text: `다음 경지 : [Next Role Name]` | `[Percent]%`
-4.  **Sub-Stats (Bottom):**
-    *   **Chat Level:** Box layout. Label `채팅 레벨`, Value `Lv. [Calc]`. Progress bar based on the tiered formula.
-    *   **Voice Level:** Box layout. Label `음성 레벨`, Value `Lv. [Calc]`. Progress bar based on the tiered formula.
+### D. Layout Adjustments
+1.  **Avatar:** Keep the circular crop and badge logic. Ensure `Image.LANCZOS` is used for high-quality resizing.
+2.  **Badge:** Ensure the text is centered and the pill shape has the Role Color.
+3.  **Main Progress Bar:**
+    *   Label: `다음 경지 : [Next Role]` (Left) | `[XX.X]%` (Right).
+    *   Track: Dark Gray (`#282832`).
+    *   Fill: Gradient or Solid Role Color.
 
-## 5. Commands & Coding Standards
+## 4. Logic & Data Preservation
 
-### A. Commands
-The functionality must be accessible via:
-1.  Prefix Command: `*rank`
-2.  Prefix Command: `*랭크`
-3.  Slash Command: `/rank`
+### A. `RankCardService.py`
+*   **Keep the provided code.** It correctly fetches data and calculates the Tiered XP.
+*   **Reminder:** It uses `TieredLevelManager` from `XPFormulas.py`.
 
-### B. Requirements
-1.  **Logging:** Analyze existing files in `src/` and replicate the logging format/system exactly.
-2.  **Comments:** Provide clear comments explaining the logic (especially the tiered XP calculation).
-3.  **Error Handling:**
-    *   Handle cases where a user has no data in Voice or Chat modules (treat as 0 XP).
-    *   Handle missing font files gracefully (fallback or error log).
-4.  **Separation of Concerns:**
-    *   `RankCardGenerator` should **only** draw images.
-    *   `RankCardService` should **only** handle data logic (fetching from other modules + calculating levels).
-    *   `RankCardCog` should handle Discord interactions.
+### B. `XPFormulas.py`
+*   **Keep the provided code.**
+*   **Formula Check:**
+    *   `Multiplier = 1 + (Level // 10) * 0.5`
+    *   Voice: `((Lv * 139) + 70) * Multiplier`
+    *   Chat: `((Lv * 69.5) + 35) * Multiplier`
+
+### C. `RankCardCog.py`
+*   **Keep the provided code.**
+*   It handles the `discord.File` sending and error logging correctly.
+
+## 5. Implementation Steps for Coding Agent
+
+1.  **Analyze** the provided `RankCardGenerator.py` code.
+2.  **Modify** `RankCardGenerator.py`:
+    *   Remove `ROLE_DECO_CHAR` mapping and `_draw_deco_character`.
+    *   Add `_draw_flower_pattern` method.
+    *   Update `_draw_sub_stat_box` to use the **Glassmorphism** colors (White transparent fill) instead of the current dark fill.
+    *   Update `_draw_background_gradient` to be subtle.
+3.  **Verify** that `RankCardService` and `XPFormulas` are imported correctly.
+4.  **Final Check:** Ensure no English labels exist on the card canvas (Use '다공', '레벨', '경지').
 
 ***
 *End of Instruction*
