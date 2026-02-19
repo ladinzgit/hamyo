@@ -170,8 +170,10 @@ class ChattingRankingView(discord.ui.View):
                 pass
 
 
-class ChattingRanking(commands.GroupCog, group_name="채팅"):
+class ChattingRanking(commands.Cog):
     """채팅 순위 조회 명령어 Cog"""
+
+    chatting_group = app_commands.Group(name="채팅", description="채팅 관련 명령어")
     
     def __init__(self, bot):
         self.bot = bot
@@ -300,7 +302,7 @@ class ChattingRanking(commands.GroupCog, group_name="채팅"):
             print(f"채널 {channel.name} 순위 조회 중 오류: {e}")
         return user_counts
 
-    @app_commands.command(name="순위", description="채팅 순위를 확인합니다.")
+    @chatting_group.command(name="순위", description="채팅 순위를 확인합니다.")
     @app_commands.describe(
         role="순위를 조회할 역할입니다. (미입력 시 전체 유저)",
         period="확인할 기간을 선택합니다. (일간/주간/월간/총합, 미입력 시 일간)",
