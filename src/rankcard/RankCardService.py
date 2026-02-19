@@ -3,11 +3,9 @@
 음성/채팅/레벨 데이터를 각 모듈에서 읽어와 XPFormulas로 레벨을 계산합니다.
 """
 
-import json
-import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Optional, Tuple, Dict
+from typing import Optional, Tuple, List
 
 import discord
 from discord.ext import commands
@@ -15,15 +13,13 @@ import pytz
 
 from src.core.DataManager import DataManager
 from src.core.LevelDataManager import LevelDataManager
+from src.core.ChattingDataManager import ChattingDataManager
 from src.rankcard.XPFormulas import TieredLevelManager, LevelInfo
 
 KST = pytz.timezone("Asia/Seoul")
 
-# 채팅 설정 파일 경로
-CHATTING_CONFIG_PATH = "config/chatting_config.json"
-
-# 채팅 채널당 최대 조회 메시지 수
-MAX_MESSAGES_PER_CHANNEL = 1000000
+# 누적 기간 시작일 (서버 오픈일)
+ALL_TIME_START = "2025-08-01 00:00:00"
 
 # 역할 승급 기준 (LevelSystem과 동일)
 ROLE_THRESHOLDS = {
@@ -87,14 +83,6 @@ class RankCardData:
     chat_total_users: int             # 채팅 전체 유저 수
 
 
-def _load_chatting_config() -> list:
-    """채팅 추적 채널 목록을 설정 파일에서 로드합니다."""
-    try:
-        with open(CHATTING_CONFIG_PATH, "r", encoding="utf-8") as f:
-            config = json.load(f)
-            return config.get("tracked_channels", [])
-    except (FileNotFoundError, json.JSONDecodeError):
-        return []
 
 
 class RankCardService:
@@ -104,6 +92,7 @@ class RankCardService:
         self.bot = bot
         self.voice_dm = DataManager()
         self.level_dm = LevelDataManager()
+        self.chat_dm = ChattingDataManager()
 
     async def get_rank_card_data(
         self,
@@ -223,66 +212,43 @@ class RankCardService:
     ) -> Tuple[int, Optional[int], int]:
         """
         유저의 누적 채팅 메시지 수와 순위를 반환합니다.
-        모든 유저의 메시지를 카운트하여 순위를 계산합니다.
+        ChattingDataManager DB를 통해 조회합니다.
 
         Returns:
             (유저 메시지 수, 순위, 전체 유저 수)
         """
-        tracked_ids = _load_chatting_config()
-        if not tracked_ids:
+        try:
+            await self.chat_dm.ensure_initialized()
+
+            end = datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S")
+
+            # 유저 채팅 수
+            user_count, _ = await self.chat_dm.get_user_chat_stats(
+                user.id, ALL_TIME_START, end
+            )
+
+            # 전체 유저 순위 (메시지 수 기준)
+            all_stats: List[Tuple[int, int, int]] = await self.chat_dm.get_all_users_stats(
+                ALL_TIME_START, end
+            )
+
+            if not all_stats:
+                return user_count, None, 0
+
+            # get_all_users_stats는 points DESC로 정렬되어 있으므로
+            # count 기준으로 다시 정렬
+            all_stats_sorted = sorted(all_stats, key=lambda x: x[1], reverse=True)
+            total_users = len(all_stats_sorted)
+
+            chat_rank = None
+            for idx, (uid, count, _) in enumerate(all_stats_sorted, start=1):
+                if uid == user.id:
+                    chat_rank = idx
+                    break
+
+            return user_count, chat_rank, total_users
+        except Exception:
             return 0, None, 0
-
-        # 전체 기간: 서버 오픈일부터 현재까지
-        start = datetime(2025, 8, 1, tzinfo=KST)
-        end = datetime.now(KST) + timedelta(days=1)
-
-        # 모든 유저의 메시지 수 집계
-        user_counts: Dict[int, int] = {}
-
-        for channel_id in tracked_ids:
-            channel = self.bot.get_channel(channel_id)
-            if channel is None:
-                try:
-                    channel = await self.bot.fetch_channel(channel_id)
-                except Exception:
-                    continue
-
-            if not isinstance(channel, discord.TextChannel):
-                continue
-
-            try:
-                async for message in channel.history(
-                    after=start,
-                    before=end,
-                    limit=MAX_MESSAGES_PER_CHANNEL,
-                    oldest_first=True
-                ):
-                    # 봇 메시지 제외
-                    if not message.author.bot:
-                        user_counts[message.author.id] = (
-                            user_counts.get(message.author.id, 0) + 1
-                        )
-            except discord.Forbidden:
-                pass
-            except Exception:
-                pass
-
-        # 유저의 메시지 수
-        user_total = user_counts.get(user.id, 0)
-
-        if not user_counts:
-            return user_total, None, 0
-
-        # 순위 계산 (내림차순 정렬)
-        ranked = sorted(user_counts.items(), key=lambda x: x[1], reverse=True)
-        total_users = len(ranked)
-        chat_rank = None
-        for idx, (uid, _) in enumerate(ranked, start=1):
-            if uid == user.id:
-                chat_rank = idx
-                break
-
-        return user_total, chat_rank, total_users
 
     @staticmethod
     def _extract_name(text: str) -> str:
