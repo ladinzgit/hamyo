@@ -425,3 +425,7 @@ class RankCardGenerator:
         output = Image.new('RGBA', canvas.size, (0, 0, 0, 0))
         output.paste(canvas, mask=mask)
         return output
+
+
+async def setup(bot):
+    pass  # 유틸리티 모듈 — Cog 없음

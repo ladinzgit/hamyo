@@ -303,7 +303,7 @@ class LevelCommands(commands.Cog):
             await self.log(f"{ctx.author}({ctx.author.id}) 님의 내정보 명령어 처리 중 오류 발생: {e}")
             return
     
-    @commands.command(name='순위', aliases=['ranking', 'rank', 'leaderboard'])
+    @commands.command(name='순위', aliases=['ranking', 'leaderboard'])
     async def ranking(self, ctx, period: str = '누적'):
         """경험치 순위 조회"""
         valid_periods = ['일간', 'daily', '주간', 'weekly', '월간', 'monthly', '누적', 'total', 'all']

@@ -293,3 +293,7 @@ class RankCardService:
         if match:
             return match.group(1).strip()
         return text.strip()
+
+
+async def setup(bot):
+    pass  # 유틸리티 모듈 — Cog 없음

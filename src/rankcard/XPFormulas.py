@@ -95,3 +95,7 @@ class TieredLevelManager:
             required_xp=current_required,
             progress_pct=min(progress, 100.0)
         )
+
+
+async def setup(bot):
+    pass  # 유틸리티 모듈 — Cog 없음
