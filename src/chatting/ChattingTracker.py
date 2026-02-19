@@ -37,7 +37,7 @@ def load_config() -> dict:
     if os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
             return json.load(f)
-    return {"tracked_channels": [], "ignored_role_ids": []}
+    return {"tracked_channels": [], "tracked_categories": [], "ignored_role_ids": []}
 
 
 class ChattingTracker(commands.Cog):
@@ -103,10 +103,18 @@ class ChattingTracker(commands.Cog):
         # 설정 로드
         config = load_config()
         tracked_channels = config.get("tracked_channels", [])
+        tracked_categories = config.get("tracked_categories", [])
         ignored_role_ids = config.get("ignored_role_ids", [])
 
-        # 추적 채널 확인
-        if message.channel.id not in tracked_channels:
+        # 추적 채널 확인: 채널 ID 직접 매치 또는 카테고리 ID 매치
+        channel_id = message.channel.id
+        category_id = getattr(message.channel, 'category_id', None)
+
+        is_tracked = (
+            channel_id in tracked_channels
+            or (category_id is not None and category_id in tracked_categories)
+        )
+        if not is_tracked:
             return
 
         content = message.content or ""

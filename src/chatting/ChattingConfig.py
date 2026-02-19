@@ -34,11 +34,12 @@ def load_config() -> dict:
     if os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
             config = json.load(f)
-            # 기존 설정에 ignored_role_ids가 없으면 추가
             if "ignored_role_ids" not in config:
                 config["ignored_role_ids"] = []
+            if "tracked_categories" not in config:
+                config["tracked_categories"] = []
             return config
-    return {"tracked_channels": [], "ignored_role_ids": []}
+    return {"tracked_channels": [], "tracked_categories": [], "ignored_role_ids": []}
 
 
 def save_config(config: dict):
@@ -81,18 +82,18 @@ class ChattingConfig(commands.Cog):
         )
         
         embed.add_field(
-            name=f"*{command_name} 채널등록 (채널)",
-            value="채팅을 기록할 채널을 등록합니다. (채널 여러 개 지정 가능)",
+            name=f"*{command_name} 채널등록 (채널/카테고리)",
+            value="채팅을 기록할 채널 또는 카테고리를 등록합니다.\n카테고리를 등록하면 해당 카테고리에 속한 모든 채널이 자동 추적됩니다.",
             inline=False
         )
         embed.add_field(
-            name=f"*{command_name} 채널제거 (채널)",
-            value="기존에 등록되어 있던 채널을 제거합니다. (채널 여러 개 지정 가능)",
+            name=f"*{command_name} 채널제거 (채널/카테고리)",
+            value="기존에 등록되어 있던 채널 또는 카테고리를 제거합니다.",
             inline=False
         )
         embed.add_field(
             name=f"*{command_name} 채널초기화",
-            value="현재 등록되어 있는 모든 채널을 제거합니다.",
+            value="현재 등록되어 있는 모든 채널 및 카테고리를 제거합니다.",
             inline=False
         )
         embed.add_field(
@@ -131,6 +132,23 @@ class ChattingConfig(commands.Cog):
         if not channel_mentions:
             channel_mentions.append("None")
 
+        # 현재 설정된 카테고리 표시
+        category_mentions = []
+        for cat_id in config.get("tracked_categories", []):
+            cat = self.bot.get_channel(cat_id)
+            if cat is None:
+                try:
+                    cat = await self.bot.fetch_channel(cat_id)
+                except Exception:
+                    cat = None
+            if cat:
+                category_mentions.append(cat.name)
+            else:
+                category_mentions.append(f"삭제된 카테고리(ID: {cat_id})")
+
+        if not category_mentions:
+            category_mentions.append("None")
+
         # 무시 역할 표시
         ignored_roles = []
         for role_id in config.get("ignored_role_ids", []):
@@ -146,6 +164,7 @@ class ChattingConfig(commands.Cog):
 
         embed.add_field(name="||.||\n", value="**현재 설정**", inline=False)
         embed.add_field(name="채팅 기록중인 채널", value=", ".join(channel_mentions), inline=False)
+        embed.add_field(name="채팅 기록중인 카테고리", value=", ".join(category_mentions), inline=False)
         embed.add_field(name="무시 역할", value=", ".join(ignored_roles), inline=False)
 
         await ctx.reply(embed=embed)
@@ -155,83 +174,87 @@ class ChattingConfig(commands.Cog):
     @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def register_channel(self, ctx, *channels: Union[discord.TextChannel, discord.VoiceChannel, discord.CategoryChannel]):
-        """채팅 추적 채널을 등록합니다. 카테고리를 지정하면 해당 카테고리 내 모든 텍스트 채널이 등록됩니다."""
+        """채팅 추적 채널/카테고리를 등록합니다."""
         if not channels:
-            await ctx.reply("등록할 텍스트 채널 또는 카테고리를 지정해주세요.")
+            await ctx.reply("등록할 채널 또는 카테고리를 지정해주세요.")
             return
 
-        # 카테고리를 텍스트 채널 목록으로 확장
-        text_channels = []
+        config = load_config()
+        tracked_channels = config.get("tracked_channels", [])
+        tracked_categories = config.get("tracked_categories", [])
+        added = []
+
         for ch in channels:
             if isinstance(ch, discord.CategoryChannel):
-                text_channels.extend(
-                    c for c in ch.channels if isinstance(c, (discord.TextChannel, discord.VoiceChannel))
-                )
+                if ch.id not in tracked_categories:
+                    tracked_categories.append(ch.id)
+                    added.append(f"📁 {ch.name}")
+                    await self.log(
+                        f"{ctx.author}({ctx.author.id})님에 의해 채팅 추적 카테고리에 "
+                        f"{ch.name}({ch.id})를 등록 완료하였습니다. "
+                        f"[길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]"
+                    )
             else:
-                text_channels.append(ch)
+                if ch.id not in tracked_channels:
+                    tracked_channels.append(ch.id)
+                    added.append(ch.mention)
+                    await self.log(
+                        f"{ctx.author}({ctx.author.id})님에 의해 채팅 추적 채널에 "
+                        f"{ch.mention}({ch.id})를 등록 완료하였습니다. "
+                        f"[길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]"
+                    )
 
-        config = load_config()
-        tracked = config.get("tracked_channels", [])
-        added = []
-        
-        for ch in text_channels:
-            if ch.id not in tracked:
-                tracked.append(ch.id)
-                added.append(ch.mention)
-                await self.log(
-                    f"{ctx.author}({ctx.author.id})님에 의해 채팅 추적 채널에 "
-                    f"{ch.mention}({ch.id})를 등록 완료하였습니다. "
-                    f"[길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]"
-                )
-
-        config["tracked_channels"] = tracked
+        config["tracked_channels"] = tracked_channels
+        config["tracked_categories"] = tracked_categories
         save_config(config)
 
         if added:
-            await ctx.reply(f"다음 채널을 채팅 추적에 등록했습니다:\n{', '.join(added)}")
+            await ctx.reply(f"다음 항목을 채팅 추적에 등록했습니다:\n{', '.join(added)}")
         else:
-            await ctx.reply("모든 채널이 이미 등록되어 있습니다.")
+            await ctx.reply("모든 항목이 이미 등록되어 있습니다.")
 
     @chatting_config.command(name="채널제거")
     @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def unregister_channel(self, ctx, *channels: Union[discord.TextChannel, discord.VoiceChannel, discord.CategoryChannel]):
-        """채팅 추적 채널을 제거합니다. 카테고리를 지정하면 해당 카테고리 내 모든 텍스트 채널이 제거됩니다."""
+        """채팅 추적 채널/카테고리를 제거합니다."""
         if not channels:
-            await ctx.reply("제거할 텍스트 채널 또는 카테고리를 지정해주세요.")
+            await ctx.reply("제거할 채널 또는 카테고리를 지정해주세요.")
             return
 
-        # 카테고리를 텍스트 채널 목록으로 확장
-        text_channels = []
+        config = load_config()
+        tracked_channels = config.get("tracked_channels", [])
+        tracked_categories = config.get("tracked_categories", [])
+        removed = []
+
         for ch in channels:
             if isinstance(ch, discord.CategoryChannel):
-                text_channels.extend(
-                    c for c in ch.channels if isinstance(c, (discord.TextChannel, discord.VoiceChannel))
-                )
+                if ch.id in tracked_categories:
+                    tracked_categories.remove(ch.id)
+                    removed.append(f"📁 {ch.name}")
+                    await self.log(
+                        f"{ctx.author}({ctx.author.id})님에 의해 "
+                        f"{ch.name}({ch.id}) 카테고리 채팅 추적을 중지하였습니다. "
+                        f"[길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]"
+                    )
             else:
-                text_channels.append(ch)
+                if ch.id in tracked_channels:
+                    tracked_channels.remove(ch.id)
+                    removed.append(ch.mention)
+                    await self.log(
+                        f"{ctx.author}({ctx.author.id})님에 의해 "
+                        f"{ch.mention}({ch.id}) 채널 채팅 추적을 중지하였습니다. "
+                        f"[길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]"
+                    )
 
-        config = load_config()
-        tracked = config.get("tracked_channels", [])
-        removed = []
-        
-        for ch in text_channels:
-            if ch.id in tracked:
-                tracked.remove(ch.id)
-                removed.append(ch.mention)
-                await self.log(
-                    f"{ctx.author}({ctx.author.id})님에 의해 "
-                    f"{ch.mention}({ch.id}) 채널 채팅 추적을 중지하였습니다. "
-                    f"[길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]"
-                )
-
-        config["tracked_channels"] = tracked
+        config["tracked_channels"] = tracked_channels
+        config["tracked_categories"] = tracked_categories
         save_config(config)
 
         if removed:
-            await ctx.reply(f"다음 채널을 채팅 추적에서 제거했습니다:\n{', '.join(removed)}")
+            await ctx.reply(f"다음 항목을 채팅 추적에서 제거했습니다:\n{', '.join(removed)}")
         else:
-            await ctx.reply("제거할 채널을 찾지 못했습니다.")
+            await ctx.reply("제거할 항목을 찾지 못했습니다.")
 
     @chatting_config.command(name="채널초기화")
     @only_in_guild()
@@ -240,11 +263,12 @@ class ChattingConfig(commands.Cog):
         """모든 채팅 추적 채널을 초기화합니다."""
         config = load_config()
         config["tracked_channels"] = []
+        config["tracked_categories"] = []
         save_config(config)
         
-        await ctx.reply("모든 채팅 추적 채널이 초기화되었습니다.")
+        await ctx.reply("모든 채팅 추적 채널 및 카테고리가 초기화되었습니다.")
         await self.log(
-            f"{ctx.author}({ctx.author.id})님에 의해 모든 채팅 추적 채널이 초기화되었습니다. "
+            f"{ctx.author}({ctx.author.id})님에 의해 모든 채팅 추적 채널/카테고리가 초기화되었습니다. "
             f"[길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]"
         )
 
@@ -317,11 +341,21 @@ class ChattingConfig(commands.Cog):
         """DB를 초기화하고 채널 히스토리를 기반으로 재구축합니다."""
         config = load_config()
         tracked_channels = config.get("tracked_channels", [])
+        tracked_categories = config.get("tracked_categories", [])
         ignored_role_ids = config.get("ignored_role_ids", [])
 
-        if not tracked_channels:
-            await ctx.reply("설정된 채팅 추적 채널이 없습니다.")
+        if not tracked_channels and not tracked_categories:
+            await ctx.reply("설정된 채팅 추적 채널/카테고리가 없습니다.")
             return
+
+        # 카테고리에서 채널 ID 수집 (tracked_channels와 합산, 중복 제거)
+        all_channel_ids = set(tracked_channels)
+        for cat_id in tracked_categories:
+            cat = self.bot.get_channel(cat_id)
+            if cat and isinstance(cat, discord.CategoryChannel):
+                for c in cat.channels:
+                    if isinstance(c, (discord.TextChannel, discord.VoiceChannel)):
+                        all_channel_ids.add(c.id)
 
         # 확인 메시지
         embed = discord.Embed(
@@ -329,7 +363,7 @@ class ChattingConfig(commands.Cog):
             description="기존 DB를 삭제하고 채널 히스토리를 기반으로 재구축합니다.\n잠시 기다려 주세요...",
             colour=discord.Colour.from_rgb(253, 237, 134)
         )
-        embed.add_field(name="대상 채널 수", value=f"{len(tracked_channels)}개", inline=True)
+        embed.add_field(name="대상 채널 수", value=f"{len(all_channel_ids)}개", inline=True)
         progress_msg = await ctx.reply(embed=embed)
 
         # DB 초기화
@@ -338,7 +372,7 @@ class ChattingConfig(commands.Cog):
         total_records = 0
         processed_channels = 0
 
-        for channel_id in tracked_channels:
+        for channel_id in all_channel_ids:
             channel = self.bot.get_channel(channel_id)
             if channel is None:
                 try:
