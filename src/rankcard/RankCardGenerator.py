@@ -6,13 +6,14 @@ Pillow를 사용하여 유저의 레벨/경지 정보를 시각화한 카드 이
 import io
 import os
 import logging
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 from src.rankcard.RankCardService import RankCardData
 
-logger = logging.getLogger(__name__)
+# 폰트 로드 실패 메시지 수집 (Logger cog를 통해 비동기 전송)
+_font_load_errors: list[str] = []
 
 # ── 캔버스 설정 ──
 CANVAS_WIDTH = 860
@@ -63,7 +64,7 @@ def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont:
     try:
         return ImageFont.truetype(path, size)
     except (IOError, OSError) as e:
-        logger.warning(f"폰트 로드 실패 ({path}): {e} — 기본 폰트를 사용합니다.")
+        _font_load_errors.append(f"폰트 로드 실패 ({path}, {size}px): {e}")
         return ImageFont.load_default()
 
 
@@ -107,6 +108,13 @@ class RankCardGenerator:
         self.font_sub_label = _load_font(FONT_MEDIUM_PATH, 13)
         self.font_sub_val = _load_font(FONT_MEDIUM_PATH, 12)  # XP 수치용 폰트
         self.font_rank = _load_font(FONT_BOLD_PATH, 12)
+
+    @staticmethod
+    def get_font_errors() -> List[str]:
+        """수집된 폰트 로드 에러를 반환하고 비웁니다."""
+        errors = _font_load_errors.copy()
+        _font_load_errors.clear()
+        return errors
 
     def generate(self, data: RankCardData, avatar_bytes: bytes) -> io.BytesIO:
         role_color = ROLE_COLORS.get(data.current_role, ROLE_COLORS['hub'])
