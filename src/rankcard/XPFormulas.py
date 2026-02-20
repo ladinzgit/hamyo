@@ -14,6 +14,7 @@ from dataclasses import dataclass
 class LevelInfo:
     """레벨 계산 결과를 담는 데이터 클래스"""
     level: int            # 현재 레벨
+    total_xp: int         # 누적 총 XP
     current_xp: int       # 현재 레벨에서의 누적 XP
     required_xp: int      # 다음 레벨까지 필요한 총 XP
     progress_pct: float   # 진행률 (0.0 ~ 100.0)
@@ -76,6 +77,7 @@ class TieredLevelManager:
 
         return LevelInfo(
             level=level,
+            total_xp=total_xp,
             current_xp=remaining_xp,
             required_xp=current_required,
             progress_pct=min(progress, 100.0)

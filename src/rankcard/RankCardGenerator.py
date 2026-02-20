@@ -189,6 +189,7 @@ class RankCardGenerator:
             canvas, info_x, sub_y, sub_box_width,
             "채팅 레벨", data.chat_level_info.level, data.chat_level_info.progress_pct,
             data.chat_level_info.current_xp, data.chat_level_info.required_xp,
+            data.chat_level_info.total_xp,
             role_color, data.chat_rank, data.chat_total_users
         )
 
@@ -196,6 +197,7 @@ class RankCardGenerator:
             canvas, info_x + sub_box_width + 16 * S, sub_y, sub_box_width,
             "음성 레벨", data.voice_level_info.level, data.voice_level_info.progress_pct,
             data.voice_level_info.current_xp, data.voice_level_info.required_xp,
+            data.voice_level_info.total_xp,
             role_color, data.voice_rank, data.voice_total_users
         )
 
@@ -343,7 +345,7 @@ class RankCardGenerator:
         self, canvas: Image.Image,
         x: int, y: int, width: int,
         label: str, level: int, progress: float,
-        current_xp: int, required_xp: int,
+        current_xp: int, required_xp: int, total_xp: int,
         color: Tuple[int, int, int], rank: Optional[int], total_users: int
     ):
         box_height = 70 * S
@@ -373,9 +375,9 @@ class RankCardGenerator:
         # 상단 왼쪽: 라벨 & 순위
         od.text((x + pad_x, y + 14 * S), label, fill=TEXT_LIGHT, font=self.font_sub_label)
         if rank is not None:
-            rank_text = f"#{rank}"
+            rank_text = f"{rank}등"
             if total_users > 0:
-                rank_text += f" / {total_users}"
+                rank_text += f" / 총 {total_users}명"
             label_w = od.textbbox((0, 0), label, font=self.font_sub_label)[2]
             od.text((x + pad_x + label_w + 6 * S, y + 15 * S), rank_text, fill=color, font=self.font_rank)
 
@@ -391,7 +393,7 @@ class RankCardGenerator:
 
         # 하단: XP / 퍼센트
         text_y = bar_y + 10 * S
-        xp_text = f"{current_xp:,} / {required_xp:,}"
+        xp_text = f"{current_xp:,} / {required_xp:,}  (총 {total_xp:,})"
         od.text((x + pad_x, text_y), xp_text, fill=TEXT_DIM, font=self.font_sub_val)
 
         pct_text = f"{progress:.1f}%"
