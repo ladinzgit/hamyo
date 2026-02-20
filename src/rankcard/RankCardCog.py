@@ -23,10 +23,6 @@ class RankCardCog(commands.Cog):
         self.generator = RankCardGenerator()
 
     async def cog_load(self):
-        # 폰트 로드 에러가 있으면 Logger cog를 통해 보고
-        font_errors = self.generator.get_font_errors()
-        for err in font_errors:
-            await self.log(f"⚠️ {err}")
         await self.log("RankCardCog 로드됨")
 
     # ── 로깅 ──
