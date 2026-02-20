@@ -67,7 +67,7 @@ class RankCardGenerator:
             self.font_value = ImageFont.load_default()
             self.font_level = ImageFont.load_default()
 
-    async def generate(self, data: 'RankCardData', avatar_bytes: Optional[bytes] = None) -> io.BytesIO:
+    def generate(self, data: 'RankCardData', avatar_bytes: bytes) -> io.BytesIO:
         """데이터를 바탕으로 비몽책방 테마 랭크카드 이미지를 생성합니다."""
         
         # 1. 배경 레이어 (딥 네이비)
@@ -105,11 +105,10 @@ class RankCardGenerator:
         text_start_x = avatar_x + avatar_size + 40 * S
         
         # 유저 이름
-        main_draw.text((text_start_x, avatar_y + 10 * S), getattr(data, 'name', 'Unknown'), fill=TEXT_TITLE, font=self.font_name)
+        main_draw.text((text_start_x, avatar_y + 10 * S), data.user_name, fill=TEXT_TITLE, font=self.font_name)
         
         # 칭호/역할 (예: 다도, 다향 등)
-        role_display = getattr(data, 'role_display', '허브')
-        role_text = f"✨ 칭호 : {role_display}"
+        role_text = f"✨ 칭호 : {data.role_display}"
         main_draw.text((text_start_x, avatar_y + 85 * S), role_text, fill=TEXT_GOLD, font=self.font_role)
 
         # 8. 진행 바 영역 (음성 & 채팅)
@@ -120,9 +119,10 @@ class RankCardGenerator:
         voice_y = avatar_y + 140 * S
         self._draw_stat_section(
             main_draw, "음성", 
-            getattr(data, 'voice_rank', None), getattr(data, 'total_users', 0), 
-            getattr(data, 'voice_level', 0), getattr(data, 'voice_curr_xp', 0), 
-            getattr(data, 'voice_req_xp', 1), getattr(data, 'voice_xp', 0), getattr(data, 'voice_prog', 0.0),
+            data.voice_rank, data.voice_total_users, 
+            data.voice_level_info.level, data.voice_level_info.current_xp, 
+            data.voice_level_info.required_xp, data.voice_level_info.total_xp,
+            data.voice_level_info.progress_pct,
             bar_x, voice_y, bar_width, BAR_VOICE
         )
 
@@ -130,9 +130,10 @@ class RankCardGenerator:
         chat_y = voice_y + 70 * S
         self._draw_stat_section(
             main_draw, "채팅", 
-            getattr(data, 'chat_rank', None), getattr(data, 'total_users', 0), 
-            getattr(data, 'chat_level', 0), getattr(data, 'chat_curr_xp', 0), 
-            getattr(data, 'chat_req_xp', 1), getattr(data, 'chat_xp', 0), getattr(data, 'chat_prog', 0.0),
+            data.chat_rank, data.chat_total_users, 
+            data.chat_level_info.level, data.chat_level_info.current_xp, 
+            data.chat_level_info.required_xp, data.chat_level_info.total_xp,
+            data.chat_level_info.progress_pct,
             bar_x, chat_y, bar_width, BAR_CHAT
         )
 
@@ -268,9 +269,9 @@ class RankCardGenerator:
         """음성/채팅 섹션 (텍스트 + 얇고 우아한 프로그레스 바)을 그립니다."""
         
         # 상단 텍스트 (타이틀 & 랭크)
-        rank_text = f"상위 {rank}위" if rank else "Unranked"
+        rank_text = f"{rank}등" if rank else "Unranked"
         if total_users > 0 and rank:
-            rank_text += f" / {total_users}명"
+            rank_text += f" / 총 {total_users}명"
             
         label_full = f"{label}  |  {rank_text}"
         draw.text((x, y), label_full, fill=TEXT_SUB, font=self.font_label)
