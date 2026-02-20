@@ -61,7 +61,7 @@ class RankCardGenerator:
             "DejaVuSans.ttf"    
         ]
         
-        # [수정됨] 좁은 공간에 텍스트가 짓눌리지 않도록 폰트 크기 최적화
+        # 좁은 공간에 텍스트가 짓눌리지 않도록 폰트 크기 최적화
         self.font_name = self._load_font(self.primary_font_bold, 40 * S)
         self.font_role = self._load_font(self.primary_font_main, 20 * S)
         self.font_label = self._load_font(self.primary_font_bold, 18 * S)
@@ -80,7 +80,8 @@ class RankCardGenerator:
             logger.warning(f"폰트를 찾을 수 없습니다: {font_path}")
             return ImageFont.load_default()
 
-    async def generate(self, data: 'RankCardData', avatar_bytes: Optional[bytes] = None) -> io.BytesIO:
+    # [수정됨] async 키워드 제거 (오류의 핵심 원인 해결)
+    def generate(self, data: 'RankCardData', avatar_bytes: Optional[bytes] = None) -> io.BytesIO:
         # 1. 배경 레이어
         base_img = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), (0, 0, 0, 0))
         draw = ImageDraw.Draw(base_img)
@@ -104,7 +105,7 @@ class RankCardGenerator:
         # 6. 아바타 렌더링 (중앙 정렬 위치로 조정)
         avatar_size = 160 * S
         avatar_x = 50 * S
-        avatar_y = (CANVAS_HEIGHT - avatar_size) // 2  # 세로 중앙 정렬 (60 * S)
+        avatar_y = (CANVAS_HEIGHT - avatar_size) // 2  # 세로 중앙 정렬 (120 * S)
         
         if avatar_bytes:
             self._draw_avatar(base_img, avatar_bytes, avatar_x, avatar_y, avatar_size)
