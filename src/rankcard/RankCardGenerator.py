@@ -1,6 +1,6 @@
 """
-랭크 카드 이미지 생성 모듈입니다.
-Pillow를 사용하여 유저의 레벨/경지 정보를 시각화한 카드 이미지를 생성합니다.
+비몽책방(Dream Bookstore) 테마 랭크 카드 생성 모듈
+몽환적인 딥 네이비 배경, 웜 베이지 조명, 책갈피 포인트, 별가루 이펙트가 적용되었습니다.
 
 2배수 렌더링 기법 적용:
   내부적으로 2배 크기(1720x560)로 렌더링한 뒤,
@@ -10,404 +10,308 @@ Pillow를 사용하여 유저의 레벨/경지 정보를 시각화한 카드 이
 
 import io
 import os
+import random
 import logging
 from typing import Optional, Tuple
 
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont
 
+# 기존 서비스에서 사용하는 데이터 클래스 임포트 (경로는 기존 파일과 동일하게 유지)
 from src.rankcard.RankCardService import RankCardData
 
 logger = logging.getLogger(__name__)
 
 # ── 2배수 렌더링 스케일 ──
-S = 2  # 내부 렌더링 배율
+S = 2
 
 # ── 캔버스 설정 (논리 크기) ──
 OUTPUT_WIDTH = 860
 OUTPUT_HEIGHT = 280
 
-# 실제 렌더링 크기 (2배)
 CANVAS_WIDTH = OUTPUT_WIDTH * S    # 1720
 CANVAS_HEIGHT = OUTPUT_HEIGHT * S  # 560
 CORNER_RADIUS = 24 * S
 
-# ── 색상 정의 ──
-BG_COLOR = (15, 15, 19)              # #0f0f13
-TEXT_WHITE = (255, 255, 255)
-TEXT_LIGHT = (221, 221, 221)         # #dddddd
-TEXT_GRAY = (170, 170, 175)
-TEXT_DIM = (120, 120, 130)
+# ── 테마 색상 정의 (비몽책방 테마) ──
+BG_NAVY = (15, 20, 35, 255)          # 딥 네이비 (잉크)
+GLOW_BEIGE = (235, 215, 175)         # 웜 베이지 (종이 조명)
+RIBBON_RED = (140, 45, 55, 240)      # 딥 버건디 (책갈피)
 
-# 메인 프로그레스 바 배경
-MAIN_BAR_BG = (35, 35, 45)
+TEXT_TITLE = (245, 240, 230, 255)    # 아주 밝은 베이지 (주요 텍스트)
+TEXT_SUB = (160, 170, 190, 255)      # 은은한 블루 그레이 (서브 텍스트)
+TEXT_GOLD = (212, 175, 55, 255)      # 앤틱 골드 (강조 텍스트)
 
-# 글래스모피즘 색상
-GLASS_FILL = (255, 255, 255, 10)
-GLASS_STROKE = (255, 255, 255, 20)
-GLASS_BAR_BG = (0, 0, 0, 120)
-GLASS_BLUR_RADIUS = 12 * S
-
-# ── 역할별 테마 색상 ──
-ROLE_COLORS = {
-    'hub':      (74, 222, 128),       # #4ade80  초록
-    'dado':     (163, 230, 53),       # #a3e635  라임
-    'daho':     (244, 114, 182),      # #f472b6  핑크
-    'dakyung':  (251, 191, 36),       # #fbbf24  골드
-    'dahyang':  (129, 140, 248),      # #818cf8  보라
-}
-
-# ── 역할별 아이콘 경로 ──
-ICON_DIR = "assets/icons"
-ROLE_ICON_FILES = {
-    'hub':      'hub.png',
-    'dado':     'dado.png',
-    'daho':     'daho.png',
-    'dakyung':  'dakyung.png',
-    'dahyang':  'dahyang.png',
-}
-
-# ── 폰트 경로 ──
-FONT_BOLD_PATH = "assets/fonts/Pretendard-Bold.ttf"
-FONT_MEDIUM_PATH = "assets/fonts/Pretendard-Medium.ttf"
-
-
-def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont:
-    try:
-        return ImageFont.truetype(path, size)
-    except (IOError, OSError) as e:
-        logger.warning(f"폰트 로드 실패 ({path}, {size}px): {e}")
-        return ImageFont.load_default()
-
-
-def _load_role_icon(role: str, size: int = 18) -> Optional[Image.Image]:
-    filename = ROLE_ICON_FILES.get(role)
-    if not filename:
-        return None
-    path = os.path.join(ICON_DIR, filename)
-    try:
-        icon = Image.open(path).convert('RGBA')
-        icon = icon.resize((size, size), Image.LANCZOS)
-        return icon
-    except (IOError, OSError) as e:
-        logger.warning(f"아이콘 로드 실패 ({path}): {e}")
-        return None
-
-
-def _make_rounded_rect_mask(size: Tuple[int, int], radius: int) -> Image.Image:
-    mask = Image.new('L', size, 0)
-    draw = ImageDraw.Draw(mask)
-    draw.rounded_rectangle([(0, 0), (size[0] - 1, size[1] - 1)], radius, fill=255)
-    return mask
-
-
-def _make_circle_mask(diameter: int) -> Image.Image:
-    mask = Image.new('L', (diameter, diameter), 0)
-    draw = ImageDraw.Draw(mask)
-    draw.ellipse([(0, 0), (diameter - 1, diameter - 1)], fill=255)
-    return mask
+BAR_BG = (30, 35, 55, 180)           # 프로그레스 바 배경
+BAR_VOICE = (212, 175, 55, 255)      # 음성 바 (골드)
+BAR_CHAT = (130, 180, 220, 255)      # 채팅 바 (몽환적인 스카이블루)
 
 
 class RankCardGenerator:
     def __init__(self):
-        # 폰트 사이즈 (2배수 적용)
-        self.font_name = _load_font(FONT_BOLD_PATH, 34 * S)
-        self.font_exp_val = _load_font(FONT_BOLD_PATH, 22 * S)
-        self.font_exp_lbl = _load_font(FONT_MEDIUM_PATH, 16 * S)
-        self.font_level = _load_font(FONT_BOLD_PATH, 20 * S)
-        self.font_progress = _load_font(FONT_MEDIUM_PATH, 13 * S)
-        self.font_badge = _load_font(FONT_BOLD_PATH, 14 * S)
-        self.font_sub_label = _load_font(FONT_MEDIUM_PATH, 13 * S)
-        self.font_sub_val = _load_font(FONT_MEDIUM_PATH, 12 * S)
-        self.font_rank = _load_font(FONT_BOLD_PATH, 12 * S)
+        # 폰트 로드
+        # 기본 폰트가 밋밋하다면 'assets/fonts/KoPubBatangMedium.ttf' 등으로 변경하세요.
+        font_path_main = "assets/fonts/Pretendard-Medium.ttf"
+        font_path_bold = "assets/fonts/Pretendard-Bold.ttf"
+        
+        try:
+            self.font_name = ImageFont.truetype(font_path_bold, 56 * S)
+            self.font_role = ImageFont.truetype(font_path_main, 32 * S)
+            self.font_label = ImageFont.truetype(font_path_bold, 28 * S)
+            self.font_value = ImageFont.truetype(font_path_main, 24 * S)
+            self.font_level = ImageFont.truetype(font_path_bold, 40 * S)
+        except OSError:
+            logger.warning("지정된 폰트를 찾을 수 없어 기본 폰트를 사용합니다.")
+            self.font_name = ImageFont.load_default()
+            self.font_role = ImageFont.load_default()
+            self.font_label = ImageFont.load_default()
+            self.font_value = ImageFont.load_default()
+            self.font_level = ImageFont.load_default()
 
-    def generate(self, data: RankCardData, avatar_bytes: bytes) -> io.BytesIO:
-        role_color = ROLE_COLORS.get(data.current_role, ROLE_COLORS['hub'])
+    async def generate(self, data: 'RankCardData', avatar_bytes: Optional[bytes] = None) -> io.BytesIO:
+        """데이터를 바탕으로 비몽책방 테마 랭크카드 이미지를 생성합니다."""
+        
+        # 1. 배경 레이어 (딥 네이비)
+        base_img = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(base_img)
+        draw.rounded_rectangle((0, 0, CANVAS_WIDTH, CANVAS_HEIGHT), radius=CORNER_RADIUS, fill=BG_NAVY)
 
-        # ── 캔버스 생성 (2배 크기) ──
-        canvas = Image.new('RGBA', (CANVAS_WIDTH, CANVAS_HEIGHT), BG_COLOR + (255,))
+        # 2. 웜 베이지 조명 (Glow)
+        self._draw_soft_glow(base_img)
 
-        # ── 배경 앰비언트 글로우 ──
-        self._draw_ambient_glow(canvas, role_color)
+        # 3. 오픈북 워터마크
+        self._draw_book_watermark(base_img)
 
-        # ── 아바타 (원형 + 역할 테두리) ──
-        avatar_x, avatar_y = 36 * S, 30 * S
-        avatar_size = 140 * S
-        self._draw_avatar(canvas, avatar_bytes, avatar_x, avatar_y, avatar_size, role_color)
+        # 4. 별가루 (미세 스파클) - 유저 ID를 시드로 사용하여 항상 같은 별자리 유지
+        user_id_seed = getattr(data, 'user_id', 12345)
+        self._draw_sparkles(base_img, seed=user_id_seed) 
 
-        # ── 역할 배지 ──
-        badge_cx = avatar_x + avatar_size // 2
-        badge_y = avatar_y + avatar_size + 16 * S
-        self._draw_badge(canvas, badge_cx, badge_y, data.role_display, data.current_role, role_color)
+        # 메인 드로우 객체
+        main_draw = ImageDraw.Draw(base_img)
 
-        # ── 정보 영역 (오른쪽) ──
-        info_x = avatar_x + avatar_size + 48 * S
-        info_y = 36 * S
+        # 5. 오른쪽 상단 책갈피 (Ribbon)
+        self._draw_bookmark(main_draw)
 
-        draw = ImageDraw.Draw(canvas)
-
-        # 이름
-        draw.text((info_x, info_y), data.user_name, fill=TEXT_WHITE, font=self.font_name)
-        info_y += 42 * S
-
-        # 총 다공 (수치와 단위 폰트 분리하여 강조)
-        exp_val = f"{data.total_exp:,}"
-        exp_lbl = " 다공"
-        draw.text((info_x, info_y), exp_val, fill=role_color, font=self.font_exp_val)
-        val_bbox = draw.textbbox((0, 0), exp_val, font=self.font_exp_val)
-        val_w = val_bbox[2] - val_bbox[0]
-        draw.text((info_x + val_w, info_y + 4 * S), exp_lbl, fill=TEXT_GRAY, font=self.font_exp_lbl)
-        info_y += 36 * S
-
-        # 메인 진행 바 (얇게)
-        bar_width = CANVAS_WIDTH - info_x - 36 * S
-        if data.next_role_display:
-            progress_label = f"다음 경지 : {data.next_role_display}"
+        # 6. 아바타 렌더링 (아바타 주변 은은한 빛)
+        avatar_x = 60 * S
+        avatar_y = 60 * S
+        avatar_size = 160 * S
+        if avatar_bytes:
+            self._draw_avatar(base_img, avatar_bytes, avatar_x, avatar_y, avatar_size)
         else:
-            progress_label = "최고 경지 달성"
-        pct_text = f"{data.role_progress_pct:.1f}%"
+            # 아바타가 없을 경우 기본 자리표시자
+            main_draw.ellipse([avatar_x, avatar_y, avatar_x+avatar_size, avatar_y+avatar_size], fill=(40, 45, 60, 255))
 
-        draw.text((info_x, info_y), progress_label, fill=TEXT_DIM, font=self.font_progress)
-        pct_bbox = draw.textbbox((0, 0), pct_text, font=self.font_progress)
-        pct_w = pct_bbox[2] - pct_bbox[0]
-        draw.text(
-            (info_x + bar_width - pct_w, info_y),
-            pct_text, fill=role_color, font=self.font_progress
-        )
-        info_y += 20 * S
+        # 7. 텍스트 레이아웃 설정
+        text_start_x = avatar_x + avatar_size + 40 * S
+        
+        # 유저 이름
+        main_draw.text((text_start_x, avatar_y + 10 * S), getattr(data, 'name', 'Unknown'), fill=TEXT_TITLE, font=self.font_name)
+        
+        # 칭호/역할 (예: 다도, 다향 등)
+        role_display = getattr(data, 'role_display', '허브')
+        role_text = f"✨ 칭호 : {role_display}"
+        main_draw.text((text_start_x, avatar_y + 85 * S), role_text, fill=TEXT_GOLD, font=self.font_role)
 
-        # 메인 진행 바
-        self._draw_main_progress_bar(
-            draw, info_x, info_y, bar_width, 8 * S,
-            data.role_progress_pct, role_color
-        )
-
-        # ── 하단 글래스모피즘 박스 ──
-        sub_y = 186 * S
-        sub_box_width = (CANVAS_WIDTH - info_x - 36 * S - 16 * S) // 2
-
-        self._draw_glass_stat_box(
-            canvas, info_x, sub_y, sub_box_width,
-            "채팅 레벨", data.chat_level_info.level, data.chat_level_info.progress_pct,
-            data.chat_level_info.current_xp, data.chat_level_info.required_xp,
-            data.chat_level_info.total_xp,
-            role_color, data.chat_rank, data.chat_total_users
+        # 8. 진행 바 영역 (음성 & 채팅)
+        bar_x = text_start_x
+        bar_width = CANVAS_WIDTH - bar_x - (80 * S) # 책갈피 고려 여백
+        
+        # 음성 데이터
+        voice_y = avatar_y + 140 * S
+        self._draw_stat_section(
+            main_draw, "음성", 
+            getattr(data, 'voice_rank', None), getattr(data, 'total_users', 0), 
+            getattr(data, 'voice_level', 0), getattr(data, 'voice_curr_xp', 0), 
+            getattr(data, 'voice_req_xp', 1), getattr(data, 'voice_xp', 0), getattr(data, 'voice_prog', 0.0),
+            bar_x, voice_y, bar_width, BAR_VOICE
         )
 
-        self._draw_glass_stat_box(
-            canvas, info_x + sub_box_width + 16 * S, sub_y, sub_box_width,
-            "음성 레벨", data.voice_level_info.level, data.voice_level_info.progress_pct,
-            data.voice_level_info.current_xp, data.voice_level_info.required_xp,
-            data.voice_level_info.total_xp,
-            role_color, data.voice_rank, data.voice_total_users
+        # 채팅 데이터
+        chat_y = voice_y + 70 * S
+        self._draw_stat_section(
+            main_draw, "채팅", 
+            getattr(data, 'chat_rank', None), getattr(data, 'total_users', 0), 
+            getattr(data, 'chat_level', 0), getattr(data, 'chat_curr_xp', 0), 
+            getattr(data, 'chat_req_xp', 1), getattr(data, 'chat_xp', 0), getattr(data, 'chat_prog', 0.0),
+            bar_x, chat_y, bar_width, BAR_CHAT
         )
 
-        # ── 라운드 코너 적용 ──
-        output = self._apply_rounded_corners(canvas)
-
-        # ── 2배 → 원래 크기로 다운스케일 (LANCZOS) ──
-        output = output.resize((OUTPUT_WIDTH, OUTPUT_HEIGHT), Image.LANCZOS)
-
+        # 9. 최종 다운스케일링 및 반환
+        final_img = base_img.resize((OUTPUT_WIDTH, OUTPUT_HEIGHT), Image.Resampling.LANCZOS)
+        
         buffer = io.BytesIO()
-        output.save(buffer, format="PNG", quality=95)
+        final_img.save(buffer, format="PNG")
         buffer.seek(0)
         return buffer
 
-    # ────────────────────────────────────────────────
-    # 배경
-    # ────────────────────────────────────────────────
-    def _draw_ambient_glow(self, canvas: Image.Image, color: Tuple[int, int, int]):
-        """가장자리에 부드러운 빛 번짐(Glow) 효과를 줍니다."""
-        overlay = Image.new('RGBA', canvas.size, (0, 0, 0, 0))
-        draw_ov = ImageDraw.Draw(overlay)
+    def _draw_soft_glow(self, base_img: Image.Image):
+        """배경에 은은한 웜 베이지 조명을 추가합니다."""
+        glow_layer = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), (0, 0, 0, 0))
+        glow_draw = ImageDraw.Draw(glow_layer)
+        
+        # 아바타와 텍스트 뒷부분을 밝혀주는 타원형 조명
+        cx, cy = 400 * S, CANVAS_HEIGHT // 2
+        max_radius = 450 * S
+        
+        # 부드러운 그라데이션 원 그리기
+        for i in range(max_radius, 0, -5 * S):
+            alpha = int(15 * (1 - (i / max_radius))) # 최대 투명도 15 (매우 은은하게)
+            color = (*GLOW_BEIGE, alpha)
+            glow_draw.ellipse([cx - i, cy - i, cx + i, cy + i], fill=color)
+            
+        base_img.alpha_composite(glow_layer)
 
-        # 좌측 상단 큰 글로우
-        draw_ov.ellipse([(-150 * S, -150 * S), (350 * S, 350 * S)], fill=color + (30,))
-        # 우측 하단 큰 글로우
-        draw_ov.ellipse([(500 * S, 50 * S), (1000 * S, 450 * S)], fill=color + (20,))
+    def _draw_book_watermark(self, base_img: Image.Image):
+        """우측 배경에 펼쳐진 책 모양의 미니멀한 라인 워터마크를 그립니다."""
+        watermark_layer = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(watermark_layer)
+        
+        cx = CANVAS_WIDTH - 300 * S
+        cy = CANVAS_HEIGHT // 2 + 50 * S
+        w = 250 * S
+        h = 100 * S
+        
+        color = (*GLOW_BEIGE, 10) # 투명도 10
+        line_w = 3 * S
+        
+        # 왼쪽 페이지
+        draw.arc([cx - w, cy - h, cx, cy + h], 180, 270, fill=color, width=line_w)
+        draw.arc([cx - w, cy, cx, cy + h * 2], 180, 270, fill=color, width=line_w)
+        draw.line([cx - w, cy, cx - w, cy + h], fill=color, width=line_w)
+        
+        # 오른쪽 페이지
+        draw.arc([cx, cy - h, cx + w, cy + h], 270, 360, fill=color, width=line_w)
+        draw.arc([cx, cy, cx + w, cy + h * 2], 270, 360, fill=color, width=line_w)
+        draw.line([cx + w, cy, cx + w, cy + h], fill=color, width=line_w)
+        
+        # 책등(가운데 선)
+        draw.line([cx, cy - h, cx, cy + h], fill=color, width=line_w)
 
-        overlay = overlay.filter(ImageFilter.GaussianBlur(radius=80 * S))
-        canvas.paste(Image.alpha_composite(canvas, overlay))
+        base_img.alpha_composite(watermark_layer)
 
-    # ────────────────────────────────────────────────
-    # 아바타 & 배지
-    # ────────────────────────────────────────────────
-    def _draw_avatar(
-        self, canvas: Image.Image,
-        avatar_bytes: bytes, x: int, y: int, size: int,
-        role_color: Tuple[int, int, int]
-    ):
-        """아바타에 여백이 있는 프리미엄 테두리를 추가합니다."""
+    def _draw_sparkles(self, base_img: Image.Image, seed: int):
+        """별가루(스파클) 이펙트를 배경에 흩뿌립니다."""
+        sparkle_layer = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(sparkle_layer)
+        
+        # 안전한 시드 생성 (만약 string이면 hash로 변환)
+        safe_seed = hash(seed) if isinstance(seed, str) else seed
+        random.seed(safe_seed)
+        
+        for _ in range(35): # 별 갯수
+            x = random.randint(0, CANVAS_WIDTH)
+            y = random.randint(0, CANVAS_HEIGHT)
+            size = random.randint(1 * S, 3 * S)
+            alpha = random.randint(50, 150)
+            
+            # 십자가 형태의 반짝임
+            if random.random() > 0.5:
+                draw.line([x-size, y, x+size, y], fill=(*GLOW_BEIGE, alpha), width=1*S)
+                draw.line([x, y-size, x, y+size], fill=(*GLOW_BEIGE, alpha), width=1*S)
+            else:
+                draw.ellipse([x, y, x+size, y+size], fill=(*GLOW_BEIGE, alpha))
+                
+        base_img.alpha_composite(sparkle_layer)
+
+    def _draw_bookmark(self, draw: ImageDraw.ImageDraw):
+        """우측 상단에 엣지있는 책갈피(Ribbon) 포인트를 그립니다."""
+        ribbon_w = 60 * S
+        ribbon_h = 140 * S
+        x = CANVAS_WIDTH - 120 * S
+        y = 0
+        
+        points = [
+            (x, y),
+            (x + ribbon_w, y),
+            (x + ribbon_w, y + ribbon_h),
+            (x + ribbon_w // 2, y + ribbon_h - 25 * S),
+            (x, y + ribbon_h)
+        ]
+        draw.polygon(points, fill=RIBBON_RED)
+        
+        # 금색 스티치 포인트
+        draw.line([x + 10*S, y + ribbon_h - 30*S, x + ribbon_w // 2, y + ribbon_h - 45*S], fill=TEXT_GOLD, width=2*S)
+        draw.line([x + ribbon_w - 10*S, y + ribbon_h - 30*S, x + ribbon_w // 2, y + ribbon_h - 45*S], fill=TEXT_GOLD, width=2*S)
+
+    def _draw_avatar(self, base_img: Image.Image, avatar_bytes: bytes, x: int, y: int, size: int):
+        """아바타 이미지를 원형으로 마스킹하고 은은한 테두리를 적용합니다."""
         try:
-            avatar_img = Image.open(io.BytesIO(avatar_bytes)).convert('RGBA')
-            avatar_img = avatar_img.resize((size, size), Image.LANCZOS)
-            mask = _make_circle_mask(size)
-
-            draw = ImageDraw.Draw(canvas)
-            gap = 6 * S
-            stroke = 4 * S
-            outer_size = size + gap * 2 + stroke * 2
-
-            # 1. 역할 색상 바깥 테두리
-            ox = x - gap - stroke
-            oy = y - gap - stroke
-            draw.ellipse([(ox, oy), (ox + outer_size - 1, oy + outer_size - 1)], fill=role_color)
-
-            # 2. 배경색 이너 갭 (배경과 분리되는 효과)
-            ix = x - gap
-            iy = y - gap
-            inner_size = size + gap * 2
-            draw.ellipse([(ix, iy), (ix + inner_size - 1, iy + inner_size - 1)], fill=BG_COLOR)
-
-            # 3. 아바타 붙이기
-            canvas.paste(avatar_img, (x, y), mask)
-
+            avatar = Image.open(io.BytesIO(avatar_bytes)).convert("RGBA")
+            avatar = avatar.resize((size, size), Image.Resampling.LANCZOS)
+            
+            # 원형 마스크 생성
+            mask = Image.new("L", (size, size), 0)
+            mask_draw = ImageDraw.Draw(mask)
+            mask_draw.ellipse((0, 0, size, size), fill=255)
+            
+            # 아바타 테두리 글로우
+            glow_size = size + 10 * S
+            glow_x = x - 5 * S
+            glow_y = y - 5 * S
+            glow_layer = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), (0,0,0,0))
+            ImageDraw.Draw(glow_layer).ellipse([glow_x, glow_y, glow_x + glow_size, glow_y + glow_size], fill=(*GLOW_BEIGE, 60))
+            base_img.alpha_composite(glow_layer)
+            
+            # 아바타 합성
+            base_img.paste(avatar, (x, y), mask)
+            
+            # 아바타 외곽선
+            main_draw = ImageDraw.Draw(base_img)
+            main_draw.arc([x, y, x + size, y + size], 0, 360, fill=(*GLOW_BEIGE, 150), width=2*S)
+            
         except Exception as e:
-            logger.error(f"아바타 그리기 실패: {e}")
-            draw = ImageDraw.Draw(canvas)
-            draw.ellipse([(x, y), (x + size, y + size)], fill=(60, 60, 70))
+            logger.error(f"아바타 렌더링 실패: {e}")
 
-    def _draw_badge(
-        self, canvas: Image.Image,
-        cx: int, cy: int, role_name: str,
-        role_key: str, color: Tuple[int, int, int]
-    ):
-        badge_layer = Image.new('RGBA', canvas.size, (0, 0, 0, 0))
-        bd = ImageDraw.Draw(badge_layer)
-
-        icon_size = 18 * S
-        icon_img = _load_role_icon(role_key, icon_size)
-
-        text_bbox = bd.textbbox((0, 0), role_name, font=self.font_badge)
-        tw = text_bbox[2] - text_bbox[0]
-        th = text_bbox[3] - text_bbox[1]
-
-        icon_text_gap = 6 * S
-        pad_x = 16 * S
-        pad_y = 6 * S
-
-        content_w = (icon_size + icon_text_gap + tw) if icon_img else tw
-        bw = content_w + pad_x * 2
-        bh = max(th, icon_size) + pad_y * 2
-        bx, by = cx - bw // 2, cy
-
-        # 배경 필: 역할 색상의 20% 투명도로 은은하고 세련되게
-        bd.rounded_rectangle(
-            [(bx, by), (bx + bw, by + bh)],
-            radius=bh // 2,
-            fill=color + (40,)
-        )
-
-        content_x = bx + pad_x
-        content_cy = by + bh // 2
-
-        if icon_img:
-            icon_y = content_cy - icon_size // 2
-            badge_layer.paste(icon_img, (int(content_x), int(icon_y)), icon_img)
-            text_x = content_x + icon_size + icon_text_gap
-        else:
-            text_x = content_x
-
-        text_y = content_cy - th // 2 - 1
-        # 텍스트는 역할 색상 그대로 써서 일체감 부여
-        bd.text((int(text_x), int(text_y)), role_name, fill=color, font=self.font_badge)
-
-        canvas.paste(Image.alpha_composite(canvas, badge_layer))
-
-    # ────────────────────────────────────────────────
-    # 프로그레스 바
-    # ────────────────────────────────────────────────
-    @staticmethod
-    def _draw_main_progress_bar(
-        draw: ImageDraw.ImageDraw,
-        x: int, y: int, width: int, height: int,
-        progress: float, bar_color: Tuple[int, int, int]
-    ):
-        draw.rounded_rectangle([(x, y), (x + width, y + height)], height // 2, fill=MAIN_BAR_BG)
-        fill_width = max(int(width * (progress / 100.0)), height)
-        if progress > 0:
-            draw.rounded_rectangle([(x, y), (x + fill_width, y + height)], height // 2, fill=bar_color)
-
-    @staticmethod
-    def _draw_glass_progress_bar(
-        overlay_draw: ImageDraw.ImageDraw,
-        x: int, y: int, width: int, height: int,
-        progress: float, bar_color: Tuple[int, int, int]
-    ):
-        overlay_draw.rounded_rectangle([(x, y), (x + width, y + height)], height // 2, fill=GLASS_BAR_BG)
-        fill_width = max(int(width * (progress / 100.0)), height)
-        if progress > 0:
-            overlay_draw.rounded_rectangle([(x, y), (x + fill_width, y + height)], height // 2, fill=bar_color)
-
-    # ────────────────────────────────────────────────
-    # 글래스모피즘 서브 스탯 박스
-    # ────────────────────────────────────────────────
-    def _draw_glass_stat_box(
-        self, canvas: Image.Image,
-        x: int, y: int, width: int,
-        label: str, level: int, progress: float,
-        current_xp: int, required_xp: int, total_xp: int,
-        color: Tuple[int, int, int], rank: Optional[int], total_users: int
-    ):
-        box_height = 70 * S
-        box_radius = 12 * S
-
-        box_region = canvas.crop((x, y, x + width, y + box_height))
-        blurred = box_region.filter(ImageFilter.GaussianBlur(radius=GLASS_BLUR_RADIUS))
-
-        blur_mask = _make_rounded_rect_mask((width, box_height), box_radius)
-        blur_layer = Image.new('RGBA', (width, box_height), (0, 0, 0, 0))
-        blur_layer.paste(blurred, mask=blur_mask)
-        canvas.paste(
-            Image.alpha_composite(canvas.crop((x, y, x + width, y + box_height)), blur_layer),
-            (x, y)
-        )
-
-        overlay = Image.new('RGBA', canvas.size, (0, 0, 0, 0))
-        od = ImageDraw.Draw(overlay)
-
-        od.rounded_rectangle(
-            [(x, y), (x + width, y + box_height)],
-            box_radius, fill=GLASS_FILL, outline=GLASS_STROKE, width=1 * S,
-        )
-
-        pad_x = 16 * S
-
-        # 상단 왼쪽: 라벨 & 순위
-        od.text((x + pad_x, y + 14 * S), label, fill=TEXT_LIGHT, font=self.font_sub_label)
-        if rank is not None:
-            rank_text = f"{rank}등"
-            if total_users > 0:
-                rank_text += f" / 총 {total_users}명"
-            label_w = od.textbbox((0, 0), label, font=self.font_sub_label)[2]
-            od.text((x + pad_x + label_w + 6 * S, y + 15 * S), rank_text, fill=color, font=self.font_rank)
-
-        # 상단 오른쪽: 레벨
-        level_text = f"Lv. {level}"
-        level_w = od.textbbox((0, 0), level_text, font=self.font_level)[2]
-        od.text((x + width - pad_x - level_w, y + 12 * S), level_text, fill=TEXT_WHITE, font=self.font_level)
-
-        # 중앙: 진행 바
-        bar_y = y + 40 * S
-        bar_width = width - (pad_x * 2)
-        self._draw_glass_progress_bar(od, x + pad_x, bar_y, bar_width, 6 * S, progress, color)
-
-        # 하단: XP / 퍼센트
-        text_y = bar_y + 10 * S
-        xp_text = f"{current_xp:,} / {required_xp:,}  (총 {total_xp:,})"
-        od.text((x + pad_x, text_y), xp_text, fill=TEXT_DIM, font=self.font_sub_val)
-
-        pct_text = f"{progress:.1f}%"
-        pct_w = od.textbbox((0, 0), pct_text, font=self.font_sub_val)[2]
-        od.text((x + width - pad_x - pct_w, text_y), pct_text, fill=TEXT_GRAY, font=self.font_sub_val)
-
-        canvas.paste(Image.alpha_composite(canvas, overlay))
-
-    def _apply_rounded_corners(self, canvas: Image.Image) -> Image.Image:
-        mask = _make_rounded_rect_mask(canvas.size, CORNER_RADIUS)
-        output = Image.new('RGBA', canvas.size, (0, 0, 0, 0))
-        output.paste(canvas, mask=mask)
-        return output
-
-
-async def setup(bot):
-    pass
+    def _draw_stat_section(self, draw: ImageDraw.ImageDraw, label: str, rank: Optional[int], total_users: int, 
+                           level: int, curr_xp: int, req_xp: int, total_xp: int, progress: float, 
+                           x: int, y: int, width: int, color: Tuple[int, int, int, int]):
+        """음성/채팅 섹션 (텍스트 + 얇고 우아한 프로그레스 바)을 그립니다."""
+        
+        # 상단 텍스트 (타이틀 & 랭크)
+        rank_text = f"상위 {rank}위" if rank else "Unranked"
+        if total_users > 0 and rank:
+            rank_text += f" / {total_users}명"
+            
+        label_full = f"{label}  |  {rank_text}"
+        draw.text((x, y), label_full, fill=TEXT_SUB, font=self.font_label)
+        
+        # 레벨 텍스트 (우측 정렬)
+        level_text = f"Lv.{level}"
+        
+        # Pillow 버전에 따른 분기 처리 (textbbox 혹은 textsize)
+        try:
+            level_bbox = draw.textbbox((0, 0), level_text, font=self.font_level)
+            level_w = level_bbox[2] - level_bbox[0]
+        except AttributeError:
+            level_w, _ = draw.textsize(level_text, font=self.font_level)
+            
+        draw.text((x + width - level_w, y - 10 * S), level_text, fill=TEXT_TITLE, font=self.font_level)
+        
+        # 얇고 세련된 프로그레스 바 (선형)
+        bar_y = y + 45 * S
+        bar_height = 6 * S 
+        
+        # 바 배경
+        draw.rounded_rectangle([x, bar_y, x + width, bar_y + bar_height], radius=bar_height//2, fill=BAR_BG)
+        
+        # 바 채우기
+        fill_width = max(bar_height, int(width * (progress / 100)))
+        if fill_width > bar_height:
+            draw.rounded_rectangle([x, bar_y, x + fill_width, bar_y + bar_height], radius=bar_height//2, fill=color)
+            
+            # 프로그레스 바 끝부분 빛나는 포인트 (Glow dot)
+            dot_r = 5 * S
+            dot_x = x + fill_width
+            dot_y = bar_y + bar_height // 2
+            draw.ellipse([dot_x - dot_r, dot_y - dot_r, dot_x + dot_r, dot_y + dot_r], fill=(255, 255, 255, 255))
+        
+        # 하단 XP 텍스트 (총 XP 포함)
+        xp_text = f"{curr_xp:,} / {req_xp:,}  (총 {total_xp:,})"
+        
+        try:
+            xp_bbox = draw.textbbox((0, 0), xp_text, font=self.font_value)
+            xp_w = xp_bbox[2] - xp_bbox[0]
+        except AttributeError:
+            xp_w, _ = draw.textsize(xp_text, font=self.font_value)
+            
+        draw.text((x + width - xp_w, bar_y + 15 * S), xp_text, fill=TEXT_SUB, font=self.font_value)
