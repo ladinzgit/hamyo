@@ -202,6 +202,8 @@ class RankCardGenerator:
             label="채팅 레벨",
             level=data.chat_level_info.level,
             progress=data.chat_level_info.progress_pct,
+            current_xp=data.chat_level_info.current_xp,
+            required_xp=data.chat_level_info.required_xp,
             color=role_color,
             rank=data.chat_rank,
             total_users=data.chat_total_users,
@@ -216,6 +218,8 @@ class RankCardGenerator:
             label="음성 레벨",
             level=data.voice_level_info.level,
             progress=data.voice_level_info.progress_pct,
+            current_xp=data.voice_level_info.current_xp,
+            required_xp=data.voice_level_info.required_xp,
             color=role_color,
             rank=data.voice_rank,
             total_users=data.voice_total_users,
@@ -440,6 +444,7 @@ class RankCardGenerator:
         self, canvas: Image.Image,
         x: int, y: int, width: int,
         label: str, level: int, progress: float,
+        current_xp: int, required_xp: int,
         color: Tuple[int, int, int],
         rank: Optional[int] = None,
         total_users: int = 0,
@@ -518,7 +523,14 @@ class RankCardGenerator:
             progress, color, radius=5
         )
 
-        # 진행률 텍스트
+        # XP 텍스트 (왼쪽: 현재/필요)
+        xp_text = f"{current_xp:,} / {required_xp:,}"
+        od.text(
+            (x + 14, y + 53),
+            xp_text, fill=TEXT_DIM, font=self.font_sub_label
+        )
+
+        # 진행률 텍스트 (오른쪽)
         pct_text = f"{progress:.1f}%"
         pct_bbox = od.textbbox((0, 0), pct_text, font=self.font_sub_label)
         pct_w = pct_bbox[2] - pct_bbox[0]

@@ -195,7 +195,7 @@ class RankCardService:
         return None
 
     async def _get_voice_total(self, user_id: int) -> int:
-        """유저의 누적 음성 시간(초)을 반환합니다."""
+        """유저의 누적 음성 점수를 반환합니다. (1분당 2점, VoiceCommands.calculate_points와 동일)"""
         try:
             await self.voice_dm.ensure_initialized()
             base_date = datetime.now(KST)
@@ -203,7 +203,8 @@ class RankCardService:
             times, _, _ = await self.voice_dm.get_user_times(
                 user_id, '누적', base_date, tracked
             )
-            return sum(times.values()) if times else 0
+            total_seconds = sum(times.values()) if times else 0
+            return (total_seconds // 60) * 2
         except Exception:
             return 0
 
