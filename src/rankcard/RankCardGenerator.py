@@ -399,3 +399,7 @@ class RankCardGenerator:
         output = Image.new('RGBA', canvas.size, (0, 0, 0, 0))
         output.paste(canvas, mask=mask)
         return output
+
+
+async def setup(bot):
+    pass
