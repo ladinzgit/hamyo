@@ -114,7 +114,7 @@ class RankCardGenerator:
         
         # 이름
         name_y = int(CANVAS_HEIGHT * POS['name_y'])
-        draw.text((info_x - 10, name_y), data.user_name, fill=TEXT_WHITE, font=self.font_name)
+        draw.text((info_x - 20, name_y), data.user_name, fill=TEXT_WHITE, font=self.font_name)
 
         # 총 다공
         exp_y = int(CANVAS_HEIGHT * POS['exp_y'])
