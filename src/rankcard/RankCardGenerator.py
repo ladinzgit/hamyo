@@ -3,9 +3,10 @@
 Pillow를 사용하여 유저의 레벨/경지 정보를 시각화한 카드 이미지를 생성합니다.
 
 수정 사항:
-  - 역할별 색상/아이콘 제거 (단일 테마 적용)
-  - 텍스트 위주의 심플하고 클래식한 디자인
-  - 배경 이미지(rank_bg.png/jpg) 적용
+  - 캔버스 크기를 원본 배경 이미지(3:2 비율)에 맞춰 1200x800으로 확대 (찌그러짐 방지)
+  - 좌측 상단 파티클 원형 위치에 아바타 정밀 배치
+  - 우측 하단 마법서 그림을 가리지 않도록 레이아웃 최적화
+  - 역할별 색상/아이콘 제외, 골드 & 화이트 단일 테마 유지
 """
 
 import io
@@ -19,50 +20,42 @@ from src.rankcard.RankCardService import RankCardData
 
 logger = logging.getLogger(__name__)
 
-# ── 2배수 렌더링 스케일 (고화질) ──
-S = 2
-
-# ── 캔버스 설정 ──
-OUTPUT_WIDTH = 860
-OUTPUT_HEIGHT = 280
-
-CANVAS_WIDTH = OUTPUT_WIDTH * S
-CANVAS_HEIGHT = OUTPUT_HEIGHT * S
-CORNER_RADIUS = 24 * S
+# ── 캔버스 설정 (배경 이미지 원본 비율에 맞춘 1200x800) ──
+CANVAS_WIDTH = 1200
+CANVAS_HEIGHT = 800
+CORNER_RADIUS = 36
 
 # ── 배경 이미지 설정 ──
-# assets/images/ 폴더 내의 배경 파일명
 IMG_DIR = "assets/images"
-BG_IMAGE_NAME = "rank_bg.png"  # .jpg라면 수정하세요
+BG_IMAGE_NAME = "rank_bg.jpg"  # 원본 확장자에 맞게 변경 (jpg/png)
 
-# ── 좌표 설정 (배경 이미지의 '빛나는 원' 위치에 맞춤) ──
-AVATAR_CENTER_X = 220 * S
-AVATAR_CENTER_Y = 100 * S
-AVATAR_DIAMETER = 130 * S
+# ── 아바타 좌표 설정 (왼쪽 파티클 원의 중심점) ──
+AVATAR_CENTER_X = 220
+AVATAR_CENTER_Y = 310
+AVATAR_DIAMETER = 240   # 원 안에 쏙 들어가는 크기
 
-# ── 색상 정의 (단일 테마) ──
-# 배경과 어울리는 고급스러운 골드 톤을 메인 테마로 잡았습니다.
+# ── 색상 정의 (단일 테마 - 매직 골드) ──
 THEME_COLOR = (255, 210, 100)        # 파스텔 골드 (메인 강조색)
 TEXT_WHITE = (255, 255, 255)
 TEXT_LIGHT = (230, 230, 230)
-TEXT_GRAY = (170, 170, 175)
-TEXT_DIM = (130, 130, 140)
+TEXT_GRAY = (180, 180, 185)
+TEXT_DIM = (140, 140, 150)
 
-# 프로그레스 바 배경 (아주 어두운 갈색/검정)
+# 프로그레스 바 배경 (어두운 브라운/블랙)
 MAIN_BAR_BG = (40, 35, 30)
 
-# 글래스모피즘 색상
-GLASS_FILL = (0, 0, 0, 100)          # 박스 배경 (어둡게)
-GLASS_STROKE = (255, 210, 100, 50)   # 테두리 (은은한 골드)
-GLASS_BAR_BG = (0, 0, 0, 150)        # 바 배경
-GLASS_BLUR_RADIUS = 10 * S
+# 글래스모피즘 색상 (가독성을 위해 배경을 조금 더 어둡게 누름)
+GLASS_FILL = (0, 0, 0, 140)          
+GLASS_STROKE = (255, 210, 100, 60)   
+GLASS_BAR_BG = (0, 0, 0, 160)        
+GLASS_BLUR_RADIUS = 15
 
 # ── 파일 경로 설정 ──
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 FONT_DIR = os.path.join(BASE_DIR, "assets", "fonts")
 IMG_DIR = os.path.join(BASE_DIR, "assets", "images")
 
-# 폰트 파일 (Pretendard 유지)
+# 폰트 파일
 FONT_BOLD_PATH = os.path.join(FONT_DIR, "Pretendard-Bold.ttf")
 FONT_MEDIUM_PATH = os.path.join(FONT_DIR, "Pretendard-Medium.ttf")
 
@@ -89,106 +82,100 @@ def _make_circle_mask(diameter: int) -> Image.Image:
 
 class RankCardGenerator:
     def __init__(self):
-        # 폰트 로드
-        self.font_name = _load_font(FONT_BOLD_PATH, 36 * S)
-        self.font_exp_val = _load_font(FONT_BOLD_PATH, 22 * S)
-        self.font_exp_lbl = _load_font(FONT_MEDIUM_PATH, 16 * S)
-        self.font_level = _load_font(FONT_BOLD_PATH, 20 * S)
-        self.font_progress = _load_font(FONT_MEDIUM_PATH, 14 * S)
-        self.font_badge = _load_font(FONT_BOLD_PATH, 15 * S) # 배지 폰트
-        self.font_sub_label = _load_font(FONT_MEDIUM_PATH, 13 * S)
-        self.font_sub_val = _load_font(FONT_MEDIUM_PATH, 12 * S)
-        self.font_rank = _load_font(FONT_BOLD_PATH, 12 * S)
+        # 1200x800 해상도에 맞게 폰트 크기 대폭 상향
+        self.font_name = _load_font(FONT_BOLD_PATH, 52)
+        self.font_exp_val = _load_font(FONT_BOLD_PATH, 34)
+        self.font_exp_lbl = _load_font(FONT_MEDIUM_PATH, 24)
+        self.font_level = _load_font(FONT_BOLD_PATH, 32)
+        self.font_progress = _load_font(FONT_MEDIUM_PATH, 22)
+        self.font_badge = _load_font(FONT_BOLD_PATH, 22) 
+        self.font_sub_label = _load_font(FONT_MEDIUM_PATH, 20)
+        self.font_sub_val = _load_font(FONT_MEDIUM_PATH, 18)
+        self.font_rank = _load_font(FONT_BOLD_PATH, 18)
 
     def generate(self, data: RankCardData, avatar_bytes: bytes) -> io.BytesIO:
-        # ── 1. 배경 이미지 로드 ──
+        # ── 1. 배경 이미지 로드 및 핏 ──
         bg_path = os.path.join(IMG_DIR, BG_IMAGE_NAME)
         try:
             original_bg = Image.open(bg_path).convert('RGBA')
+            # 1200x800 비율에 꽉 차게 리사이즈 (찌그러짐 방지)
             canvas = ImageOps.fit(original_bg, (CANVAS_WIDTH, CANVAS_HEIGHT), method=Image.LANCZOS)
             
-            # 배경 딤처리 (텍스트 가독성 확보)
-            dim_overlay = Image.new('RGBA', canvas.size, (0, 0, 0, 30))
+            # 별빛이 텍스트를 가리지 않도록 전체적으로 아주 살짝만 어둡게 오버레이
+            dim_overlay = Image.new('RGBA', canvas.size, (0, 0, 0, 50))
             canvas = Image.alpha_composite(canvas, dim_overlay)
         except Exception as e:
             logger.error(f"배경 이미지 로드 실패: {e}")
             canvas = Image.new('RGBA', (CANVAS_WIDTH, CANVAS_HEIGHT), (30, 25, 20, 255))
 
-        # ── 2. 아바타 그리기 ──
+        # ── 2. 아바타 그리기 (파티클 원 위치) ──
         avatar_x = int(AVATAR_CENTER_X - AVATAR_DIAMETER // 2)
         avatar_y = int(AVATAR_CENTER_Y - AVATAR_DIAMETER // 2)
         self._draw_avatar(canvas, avatar_bytes, avatar_x, avatar_y, AVATAR_DIAMETER)
 
-        # ── 3. 역할 배지 (텍스트만 깔끔하게) ──
-        badge_cx = int(AVATAR_CENTER_X)
-        badge_y = avatar_y + AVATAR_DIAMETER + 16 * S
+        # ── 3. 역할 배지 (아바타 바로 밑) ──
+        badge_cx = AVATAR_CENTER_X
+        badge_y = avatar_y + AVATAR_DIAMETER + 25
         self._draw_simple_badge(canvas, badge_cx, badge_y, data.role_display)
 
-        # ── 4. 정보 영역 ──
-        info_x = int(AVATAR_CENTER_X + AVATAR_DIAMETER // 2 + 40 * S)
-        info_y = 45 * S
+        # ── 4. 정보 영역 (아바타 우측) ──
+        info_x = 450
+        info_y = 200
         draw = ImageDraw.Draw(canvas)
 
         # 이름
         draw.text((info_x, info_y), data.user_name, fill=TEXT_WHITE, font=self.font_name)
-        info_y += 44 * S
+        info_y += 75
 
-        # 총 다공 (테마 컬러 강조)
+        # 총 다공 
         exp_val = f"{data.total_exp:,}"
         exp_lbl = " 다공"
         draw.text((info_x, info_y), exp_val, fill=THEME_COLOR, font=self.font_exp_val)
         val_bbox = draw.textbbox((0, 0), exp_val, font=self.font_exp_val)
         val_w = val_bbox[2] - val_bbox[0]
-        draw.text((info_x + val_w, info_y + 4 * S), exp_lbl, fill=TEXT_GRAY, font=self.font_exp_lbl)
-        info_y += 38 * S
+        draw.text((info_x + val_w, info_y + 8), exp_lbl, fill=TEXT_GRAY, font=self.font_exp_lbl)
+        info_y += 65
 
-        # 메인 진행 바
-        bar_width = CANVAS_WIDTH - info_x - 60 * S
+        # 메인 진행 바 (상단)
+        bar_width = CANVAS_WIDTH - info_x - 120  # 우측 여백 확보 (리본 피하기)
         if data.next_role_display:
             progress_label = f"다음 경지 : {data.next_role_display}"
         else:
             progress_label = "최고 경지 달성"
         
-        # 라벨
+        # 라벨 & 퍼센트
         draw.text((info_x, info_y), progress_label, fill=TEXT_DIM, font=self.font_progress)
-        
-        # 퍼센트
         pct_text = f"{data.role_progress_pct:.1f}%"
         pct_bbox = draw.textbbox((0, 0), pct_text, font=self.font_progress)
         pct_w = pct_bbox[2] - pct_bbox[0]
-        draw.text(
-            (info_x + bar_width - pct_w, info_y),
-            pct_text, fill=THEME_COLOR, font=self.font_progress
-        )
-        info_y += 20 * S
+        draw.text((info_x + bar_width - pct_w, info_y), pct_text, fill=THEME_COLOR, font=self.font_progress)
+        
+        info_y += 35
+        # 진행 바 그리기
+        self._draw_bar(draw, info_x, info_y, bar_width, 12, MAIN_BAR_BG, data.role_progress_pct, THEME_COLOR)
 
-        # 진행 바 그리기 (단일 테마 컬러)
-        self._draw_bar(draw, info_x, info_y, bar_width, 8 * S, MAIN_BAR_BG, data.role_progress_pct, THEME_COLOR)
-
-        # ── 5. 하단 서브 스탯 (글래스 박스) ──
-        sub_y = 186 * S
-        available_width = CANVAS_WIDTH - info_x - 120 * S
-        sub_box_width = (available_width - 16 * S) // 2
-
-        # 채팅 레벨
+        # ── 5. 하단 서브 스탯 (우측 책을 가리지 않게 좌/중앙 배치) ──
+        sub_y = 580
+        box_width = 340
+        
+        # 채팅 레벨 (Box 1) - X: 150
         self._draw_glass_stat_box(
-            canvas, info_x, sub_y, sub_box_width,
+            canvas, 150, sub_y, box_width,
             "채팅 레벨", data.chat_level_info.level, data.chat_level_info.progress_pct,
             data.chat_level_info.current_xp, data.chat_level_info.required_xp,
             data.chat_rank
         )
 
-        # 음성 레벨
+        # 음성 레벨 (Box 2) - X: 520 (책 그림 시작 전인 860 부근에서 끝남)
         self._draw_glass_stat_box(
-            canvas, info_x + sub_box_width + 16 * S, sub_y, sub_box_width,
+            canvas, 520, sub_y, box_width,
             "음성 레벨", data.voice_level_info.level, data.voice_level_info.progress_pct,
             data.voice_level_info.current_xp, data.voice_level_info.required_xp,
             data.voice_rank
         )
 
-        # ── 6. 마무리 및 리사이즈 ──
+        # ── 6. 마무리 ──
         output = self._apply_rounded_corners(canvas)
-        output = output.resize((OUTPUT_WIDTH, OUTPUT_HEIGHT), Image.LANCZOS)
 
         buffer = io.BytesIO()
         output.save(buffer, format="PNG", quality=95)
@@ -200,19 +187,17 @@ class RankCardGenerator:
     # ────────────────────────────────────────────────
 
     def _draw_avatar(self, canvas, avatar_bytes, x, y, size):
-        """아바타를 원형으로 그리고, 테마색 테두리를 두릅니다."""
+        """아바타를 원형으로 그리고, 얇고 세련된 테마색 테두리를 두릅니다."""
         try:
             avatar_img = Image.open(io.BytesIO(avatar_bytes)).convert('RGBA')
             avatar_img = avatar_img.resize((size, size), Image.LANCZOS)
             mask = _make_circle_mask(size)
 
             draw = ImageDraw.Draw(canvas)
-            gap = 4 * S
-            stroke = 2 * S
+            stroke = 3
             
-            # 테두리 (Theme Color)
-            ox = x - stroke
-            oy = y - stroke
+            # 테두리
+            ox, oy = x - stroke, y - stroke
             outer_size = size + stroke * 2
             draw.ellipse([(ox, oy), (ox + outer_size - 1, oy + outer_size - 1)], fill=THEME_COLOR)
 
@@ -222,53 +207,47 @@ class RankCardGenerator:
             pass
 
     def _draw_simple_badge(self, canvas, cx, cy, text):
-        """아이콘 없이 텍스트만 있는 깔끔한 배지를 그립니다."""
-        # 임시 레이어
+        """배경에 잘 어울리는 클래식한 텍스트 배지"""
         badge_layer = Image.new('RGBA', canvas.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(badge_layer)
 
-        # 텍스트 크기 측정
         bbox = draw.textbbox((0, 0), text, font=self.font_badge)
         tw = bbox[2] - bbox[0]
         th = bbox[3] - bbox[1]
 
-        pad_x = 20 * S  # 좌우 여백 넉넉하게
-        pad_y = 6 * S
+        pad_x = 24
+        pad_y = 8
 
         bw = tw + pad_x * 2
         bh = th + pad_y * 2
-        
-        # 위치 (중앙 정렬)
         bx = cx - bw // 2
         by = cy
 
-        # 배경 (어두운 반투명 + 테마색 테두리)
         draw.rounded_rectangle(
             [(bx, by), (bx + bw, by + bh)],
             radius=bh // 2,
-            fill=(0, 0, 0, 160), 
+            fill=(0, 0, 0, 180), 
             outline=THEME_COLOR, 
             width=2
         )
 
-        # 텍스트 그리기 (중앙)
         text_x = bx + (bw - tw) // 2
-        text_y = by + (bh - th) // 2 - (2 * S) # 미세 높이 보정
+        text_y = by + (bh - th) // 2 - 3 
         draw.text((text_x, text_y), text, fill=THEME_COLOR, font=self.font_badge)
 
         canvas.paste(Image.alpha_composite(canvas, badge_layer))
 
     def _draw_bar(self, draw, x, y, w, h, bg_color, pct, fill_color):
-        """프로그레스 바 그리기 공통 함수"""
+        """진행 바 렌더링"""
         draw.rounded_rectangle([(x, y), (x + w, y + h)], h // 2, fill=bg_color)
         fill_w = max(int(w * (pct / 100.0)), h)
         if pct > 0:
             draw.rounded_rectangle([(x, y), (x + fill_w, y + h)], h // 2, fill=fill_color)
 
     def _draw_glass_stat_box(self, canvas, x, y, width, label, level, progress, curr_xp, req_xp, rank):
-        """하단 스탯 박스 (색상 인자 제거 -> 테마색 사용)"""
-        box_height = 70 * S
-        box_radius = 12 * S
+        """하단 스탯 박스"""
+        box_height = 130
+        box_radius = 20
 
         # 배경 블러
         box_region = canvas.crop((x, y, x + width, y + box_height))
@@ -278,35 +257,34 @@ class RankCardGenerator:
         blur_layer.paste(blurred, mask=blur_mask)
         canvas.paste(Image.alpha_composite(canvas.crop((x, y, x + width, y + box_height)), blur_layer), (x, y))
 
-        # 오버레이
+        # 오버레이 
         overlay = Image.new('RGBA', canvas.size, (0, 0, 0, 0))
         od = ImageDraw.Draw(overlay)
-        od.rounded_rectangle([(x, y), (x + width, y + box_height)], box_radius, fill=GLASS_FILL, outline=GLASS_STROKE, width=1 * S)
+        od.rounded_rectangle([(x, y), (x + width, y + box_height)], box_radius, fill=GLASS_FILL, outline=GLASS_STROKE, width=2)
 
-        pad_x = 16 * S
+        pad_x = 24
 
         # 라벨 & 순위
-        od.text((x + pad_x, y + 14 * S), label, fill=TEXT_LIGHT, font=self.font_sub_label)
+        od.text((x + pad_x, y + 24), label, fill=TEXT_LIGHT, font=self.font_sub_label)
         if rank:
             rank_text = f"{rank}위"
             lbl_w = od.textbbox((0, 0), label, font=self.font_sub_label)[2]
-            od.text((x + pad_x + lbl_w + 6 * S, y + 15 * S), rank_text, fill=THEME_COLOR, font=self.font_rank)
+            od.text((x + pad_x + lbl_w + 12, y + 26), rank_text, fill=THEME_COLOR, font=self.font_rank)
 
         # 레벨
         lv_text = f"Lv.{level}"
         lv_w = od.textbbox((0, 0), lv_text, font=self.font_level)[2]
-        od.text((x + width - pad_x - lv_w, y + 12 * S), lv_text, fill=TEXT_WHITE, font=self.font_level)
+        od.text((x + width - pad_x - lv_w, y + 20), lv_text, fill=TEXT_WHITE, font=self.font_level)
 
         # 바
-        bar_y = y + 40 * S
-        self._draw_bar(od, x + pad_x, bar_y, width - pad_x * 2, 6 * S, GLASS_BAR_BG, progress, THEME_COLOR)
+        bar_y = y + 75
+        self._draw_bar(od, x + pad_x, bar_y, width - pad_x * 2, 8, GLASS_BAR_BG, progress, THEME_COLOR)
 
-        # XP 텍스트
+        # XP / 퍼센트
         xp_text = f"{curr_xp:,}/{req_xp:,}"
-        text_y = bar_y + 10 * S
+        text_y = bar_y + 18
         od.text((x + pad_x, text_y), xp_text, fill=TEXT_DIM, font=self.font_sub_val)
 
-        # 퍼센트
         pct_text = f"{progress:.1f}%"
         pct_w = od.textbbox((0, 0), pct_text, font=self.font_sub_val)[2]
         od.text((x + width - pad_x - pct_w, text_y), pct_text, fill=TEXT_GRAY, font=self.font_sub_val)
