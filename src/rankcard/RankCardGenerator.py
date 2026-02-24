@@ -36,11 +36,11 @@ TEXT_GRAY = (150, 150, 150)
 TEXT_DARK_GOLD = (180, 140, 70)
 
 # ── 폰트 경로 ──
-FONT_BOLD_PATH = "assets/fonts/Pretendard-Bold.ttf"
-FONT_MEDIUM_PATH = "assets/fonts/Pretendard-Medium.ttf"
+# FONT_BOLD_PATH = "assets/fonts/Pretendard-Bold.ttf"
+# FONT_MEDIUM_PATH = "assets/fonts/Pretendard-Medium.ttf"
 
-# FONT_BOLD_PATH = "assets/fonts/NanumMyeongjoExtraBold.ttf"
-# FONT_MEDIUM_PATH = "assets/fonts/NanumMyeongjo.ttf"
+FONT_BOLD_PATH = "assets/fonts/NanumMyeongjoExtraBold.ttf"
+FONT_MEDIUM_PATH = "assets/fonts/NanumMyeongjoBold.ttf"
 
 def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont:
     try:
@@ -62,7 +62,7 @@ class RankCardGenerator:
         self.font_name = _load_font(FONT_BOLD_PATH, int(100 * self.base_font_scale))      # 42 -> 56
         self.font_exp_val = _load_font(FONT_MEDIUM_PATH, int(50 * self.base_font_scale)) # 22 -> 28
         self.font_exp_lbl = _load_font(FONT_MEDIUM_PATH, int(30 * self.base_font_scale)) # 22 -> 24
-        self.font_next_role = _load_font(FONT_MEDIUM_PATH, int(25 * self.base_font_scale)) # 18 -> 22
+        self.font_next_role = _load_font(FONT_MEDIUM_PATH, int(30 * self.base_font_scale)) # 18 -> 22
         
         self.font_badge = _load_font(FONT_BOLD_PATH, int(28 * self.base_font_scale))       # 18 -> 24
         
@@ -114,7 +114,7 @@ class RankCardGenerator:
         
         # 이름
         name_y = int(CANVAS_HEIGHT * POS['name_y'])
-        draw.text((info_x, name_y), data.user_name, fill=TEXT_WHITE, font=self.font_name)
+        draw.text((info_x - 10, name_y), data.user_name, fill=TEXT_WHITE, font=self.font_name)
 
         # 총 다공
         exp_y = int(CANVAS_HEIGHT * POS['exp_y'])
@@ -251,7 +251,7 @@ class RankCardGenerator:
         draw.text((x + pad_x, inner_y), label, fill=TEXT_LIGHT, font=self.font_box_label)
         
         if rank is not None:
-            rank_text = f"상위 {rank}등"
+            rank_text = f"{rank}등 / {total_users}명"
             label_w = draw.textbbox((0, 0), label, font=self.font_box_label)[2]
             draw.text((x + pad_x, inner_y + 40 * S), rank_text, fill=TEXT_DARK_GOLD, font=self.font_box_rank)
 
