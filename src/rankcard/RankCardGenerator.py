@@ -27,7 +27,7 @@ CORNER_RADIUS = 36
 
 # ── 배경 이미지 설정 ──
 IMG_DIR = "assets/images"
-BG_IMAGE_NAME = "rank_bg.jpg"  # 원본 확장자에 맞게 변경 (jpg/png)
+BG_IMAGE_NAME = "rank_bg.png"
 
 # ── 아바타 좌표 설정 (왼쪽 파티클 원의 중심점) ──
 AVATAR_CENTER_X = 220
