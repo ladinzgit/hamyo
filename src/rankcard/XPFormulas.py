@@ -28,7 +28,7 @@ class TieredLevelManager:
     VOICE_BASE = 70
 
     # 채팅 레벨 상수 (음성의 1/10 스케일)
-    CHAT_GROWTH = 13.9
+    CHAT_GROWTH = 3
     CHAT_BASE = 7
 
     @classmethod
