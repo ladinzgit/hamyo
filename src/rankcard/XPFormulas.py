@@ -4,7 +4,7 @@
 
 경험치 공식 (선형 증가):
   - 음성: (레벨 * 139) + 70
-  - 채팅: (레벨 * 69.5) + 35
+  - 채팅: (레벨 * 13.9) + 7  (음성의 1/10 스케일)
 """
 
 from dataclasses import dataclass
@@ -27,9 +27,9 @@ class TieredLevelManager:
     VOICE_GROWTH = 139
     VOICE_BASE = 70
 
-    # 채팅 레벨 상수
-    CHAT_GROWTH = 69.5
-    CHAT_BASE = 35
+    # 채팅 레벨 상수 (음성의 1/10 스케일)
+    CHAT_GROWTH = 13.9
+    CHAT_BASE = 7
 
     @classmethod
     def get_next_voice_xp(cls, level: int) -> int:

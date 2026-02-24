@@ -39,6 +39,9 @@ TEXT_DARK_GOLD = (180, 140, 70)
 FONT_BOLD_PATH = "assets/fonts/Pretendard-Bold.ttf"
 FONT_MEDIUM_PATH = "assets/fonts/Pretendard-Medium.ttf"
 
+# FONT_BOLD_PATH = "assets/fonts/NanumMyeongjoExtraBold.ttf"
+# FONT_MEDIUM_PATH = "assets/fonts/NanumMyeongjo.ttf"
+
 def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont:
     try:
         return ImageFont.truetype(path, size)
@@ -56,17 +59,17 @@ class RankCardGenerator:
     def __init__(self):
         # 폰트 사이즈 대폭 확대 적용
         self.base_font_scale = S
-        self.font_name = _load_font(FONT_BOLD_PATH, int(56 * self.base_font_scale))      # 42 -> 56
-        self.font_exp_val = _load_font(FONT_MEDIUM_PATH, int(28 * self.base_font_scale)) # 22 -> 28
-        self.font_exp_lbl = _load_font(FONT_MEDIUM_PATH, int(24 * self.base_font_scale)) # 22 -> 24
-        self.font_next_role = _load_font(FONT_MEDIUM_PATH, int(22 * self.base_font_scale)) # 18 -> 22
+        self.font_name = _load_font(FONT_BOLD_PATH, int(100 * self.base_font_scale))      # 42 -> 56
+        self.font_exp_val = _load_font(FONT_MEDIUM_PATH, int(50 * self.base_font_scale)) # 22 -> 28
+        self.font_exp_lbl = _load_font(FONT_MEDIUM_PATH, int(30 * self.base_font_scale)) # 22 -> 24
+        self.font_next_role = _load_font(FONT_MEDIUM_PATH, int(25 * self.base_font_scale)) # 18 -> 22
         
-        self.font_badge = _load_font(FONT_BOLD_PATH, int(24 * self.base_font_scale))       # 18 -> 24
+        self.font_badge = _load_font(FONT_BOLD_PATH, int(28 * self.base_font_scale))       # 18 -> 24
         
-        self.font_box_label = _load_font(FONT_MEDIUM_PATH, int(20 * self.base_font_scale)) # 18 -> 20
-        self.font_box_rank = _load_font(FONT_MEDIUM_PATH, int(18 * self.base_font_scale))  # 16 -> 18
+        self.font_box_label = _load_font(FONT_BOLD_PATH, int(30 * self.base_font_scale)) # 18 -> 20
+        self.font_box_rank = _load_font(FONT_MEDIUM_PATH, int(24 * self.base_font_scale))  # 16 -> 18
         self.font_box_level = _load_font(FONT_BOLD_PATH, int(36 * self.base_font_scale))   # 28 -> 36
-        self.font_box_val = _load_font(FONT_MEDIUM_PATH, int(18 * self.base_font_scale))   # 16 -> 18
+        self.font_box_val = _load_font(FONT_MEDIUM_PATH, int(24 * self.base_font_scale))   # 16 -> 18
 
     def generate(self, data: RankCardData, avatar_bytes: bytes) -> io.BytesIO:
         # 1. 원본 배경 이미지 로드 및 논리적/물리적 크기 설정
@@ -85,13 +88,13 @@ class RankCardGenerator:
 
         # ── 좌표 비율 정의 ──
         POS = {
-            'avatar_cx': 0.165,  'avatar_cy': 0.370,  'avatar_radius': 0.106,
-            'badge_y': 0.550,  # ← 기존 유지
-            'info_x': 0.305,
-            'name_y': 0.190,     'exp_y': 0.295,      'next_role_y': 0.370,
-            'main_bar_y': 0.450, 'main_bar_w': 0.590, 'main_bar_h': 0.060,
-            'box1_x': 0.305,     'box2_x': 0.615,     'box_y': 0.650,
-            'box_w': 0.285,      'box_h': 0.220
+            'avatar_cx': 0.156,  'avatar_cy': 0.358,  'avatar_radius': 0.098,
+            'badge_y': 0.500,
+            'info_x': 0.305,     
+            'name_y': 0.220,     'exp_y': 0.340,      'next_role_y': 0.430,
+            'main_bar_y': 0.470, 'main_bar_w': 0.600, 'main_bar_h': 0.025,
+            'box1_x': 0.295,     'box2_x': 0.615,     'box_y': 0.685,
+            'box_w': 0.300,      'box_h': 0.175
         }
 
         # ── 1. 아바타 ──
@@ -118,7 +121,7 @@ class RankCardGenerator:
         exp_val = f"{data.total_exp:,}"
         draw.text((info_x, exp_y), exp_val, fill=TEXT_LIGHT, font=self.font_exp_val)
         val_w = draw.textbbox((0, 0), exp_val, font=self.font_exp_val)[2]
-        draw.text((info_x + val_w + 8 * S, exp_y + 4 * S), "다공", fill=TEXT_GRAY, font=self.font_exp_lbl)
+        draw.text((info_x + val_w + 8 * S, exp_y + 18 * S), "다공", fill=TEXT_GRAY, font=self.font_exp_lbl)
 
         # 다음 경지
         next_y = int(CANVAS_HEIGHT * POS['next_role_y'])
@@ -134,7 +137,7 @@ class RankCardGenerator:
         pct_text = f"{data.role_progress_pct:.1f}%"
         pct_w = draw.textbbox((0, 0), pct_text, font=self.font_box_val)[2]
         draw.text(
-            (info_x + main_bar_w - pct_w, next_y), 
+            (info_x + main_bar_w - pct_w, main_bar_y - int(30 * S)), 
             pct_text, fill=THEME_COLOR_MAIN, font=self.font_box_val
         )
 
@@ -248,9 +251,9 @@ class RankCardGenerator:
         draw.text((x + pad_x, inner_y), label, fill=TEXT_LIGHT, font=self.font_box_label)
         
         if rank is not None:
-            rank_text = f"#{rank} / {total_users}"
+            rank_text = f"상위 {rank}등"
             label_w = draw.textbbox((0, 0), label, font=self.font_box_label)[2]
-            draw.text((x + pad_x + label_w + 12 * S, inner_y + 2 * S), rank_text, fill=TEXT_DARK_GOLD, font=self.font_box_rank)
+            draw.text((x + pad_x, inner_y + 40 * S), rank_text, fill=TEXT_DARK_GOLD, font=self.font_box_rank)
 
         # [상단 우측] 레벨
         level_text = f"Lv. {level}"
