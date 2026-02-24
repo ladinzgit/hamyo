@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 S = 2  # 내부 렌더링 배율
 
 # ── 배경 이미지 설정 ──
-BG_IMAGE_PATH = "assets/images/rank_bg.jpg" # 실제 배경 이미지 경로로 변경
+BG_IMAGE_PATH = "assets/images/rank_bg.png" # 실제 배경 이미지 경로로 변경
 
 # ── 색상 정의 ──
 THEME_COLOR_MAIN = (255, 180, 50)     # 시안에 맞춘 따뜻한 골드/오렌지
