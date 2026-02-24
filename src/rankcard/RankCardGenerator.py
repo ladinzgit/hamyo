@@ -30,8 +30,8 @@ IMG_DIR = "assets/images"
 BG_IMAGE_NAME = "rank_bg.png"
 
 # ── 아바타 좌표 설정 (왼쪽 파티클 원의 중심점) ──
-AVATAR_CENTER_X = 220
-AVATAR_CENTER_Y = 310
+AVATAR_CENTER_X = 200
+AVATAR_CENTER_Y = 290
 AVATAR_DIAMETER = 240   # 원 안에 쏙 들어가는 크기
 
 # ── 색상 정의 (단일 테마 - 매직 골드) ──
