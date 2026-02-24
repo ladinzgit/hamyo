@@ -85,13 +85,13 @@ class RankCardGenerator:
 
         # ── 좌표 비율 정의 ──
         POS = {
-            'avatar_cx': 0.165,  'avatar_cy': 0.360,  'avatar_radius': 0.106,
-            'badge_y': 0.550,
-            'info_x': 0.305,     
-            'name_y': 0.220,     'exp_y': 0.310,      'next_role_y': 0.370,
-            'main_bar_y': 0.430, 'main_bar_w': 0.600, 'main_bar_h': 0.025,
-            'box1_x': 0.305,     'box2_x': 0.615,     'box_y': 0.685,
-            'box_w': 0.290,      'box_h': 0.180
+            'avatar_cx': 0.165,  'avatar_cy': 0.320,  'avatar_radius': 0.106,
+            'badge_y': 0.500,
+            'info_x': 0.305,
+            'name_y': 0.170,     'exp_y': 0.260,      'next_role_y': 0.320,
+            'main_bar_y': 0.380, 'main_bar_w': 0.600, 'main_bar_h': 0.025,
+            'box1_x': 0.305,     'box2_x': 0.615,     'box_y': 0.620,
+            'box_w': 0.290,      'box_h': 0.230
         }
 
         # ── 1. 아바타 ──
@@ -134,7 +134,7 @@ class RankCardGenerator:
         pct_text = f"{data.role_progress_pct:.1f}%"
         pct_w = draw.textbbox((0, 0), pct_text, font=self.font_box_val)[2]
         draw.text(
-            (info_x + main_bar_w - pct_w, next_y), 
+            (info_x + main_bar_w - pct_w, main_bar_y - int(30 * S)), 
             pct_text, fill=THEME_COLOR_MAIN, font=self.font_box_val
         )
 
