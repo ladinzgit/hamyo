@@ -269,8 +269,8 @@ class FortuneConfig(commands.Cog):
         else:
             await ctx.reply("이미 목록에 없거나 못 찾겠다묘...")
 
-    @only_in_guild()
-    @commands.has_permissions(administrator=True)
+    @fortune_settings.command(name="채널")
+    @is_guild_admin()
     async def set_channel(self, ctx, channel: discord.TextChannel = None):
         """운세 안내를 멘션할 채널 설정/해제"""
         if channel:

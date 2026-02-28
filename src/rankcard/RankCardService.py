@@ -24,7 +24,7 @@ ALL_TIME_START = "2025-08-01 00:00:00"
 
 # 역할 승급 기준 (LevelSystem과 동일)
 ROLE_THRESHOLDS = {
-    'hub': 0,
+    'blank': 0,
     'dado': 400,
     'daho': 1800,
     'dakyung': 6000,
@@ -32,11 +32,11 @@ ROLE_THRESHOLDS = {
 }
 
 # 역할 순서
-ROLE_ORDER = ['hub', 'dado', 'daho', 'dakyung', 'dahyang']
+ROLE_ORDER = ['blank', 'dado', 'daho', 'dakyung', 'dahyang']
 
 # 역할 한글 표시명
 ROLE_DISPLAY = {
-    'hub': '허브',
+    'blank': '여백',
     'dado': '다도',
     'daho': '다호',
     'dakyung': '다경',
@@ -45,7 +45,7 @@ ROLE_DISPLAY = {
 
 # 역할별 이모지
 ROLE_EMOJI = {
-    'hub': '🌱',
+    'blank': '🌱',
     'dado': '🍵',
     'daho': '🌸',
     'dakyung': '⭐',
@@ -114,7 +114,7 @@ class RankCardService:
             current_role = level_data['current_role']
         else:
             total_exp = 0
-            current_role = 'hub'
+            current_role = 'blank'
 
         # 다음 경지 계산
         next_role, next_role_display, role_progress = self._calc_role_progress(
@@ -142,7 +142,7 @@ class RankCardService:
             user_name=display_name,
             avatar_url=avatar_url,
             current_role=current_role,
-            role_display=ROLE_DISPLAY.get(current_role, '허브'),
+            role_display=ROLE_DISPLAY.get(current_role, '여백'),
             role_emoji=ROLE_EMOJI.get(current_role, '🌱'),
             total_exp=total_exp,
             next_role=next_role,

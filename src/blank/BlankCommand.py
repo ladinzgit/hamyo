@@ -9,7 +9,7 @@ from typing import List
 from src.core.admin_utils import GUILD_IDS, only_in_guild
 
 
-class HerbCommand(commands.GroupCog, group_name="허브"):
+class BlankCommand(commands.GroupCog, group_name="여백"):
     def __init__(self, bot):
         self.bot = bot
         self.data_manager = DataManager()
@@ -386,4 +386,4 @@ class HerbCommand(commands.GroupCog, group_name="허브"):
                 await interaction.response.send_message("역할 순위 조회 중 오류가 발생했습니다.", ephemeral=True)
 
 async def setup(bot: commands.Bot):
-    await bot.add_cog(HerbCommand(bot))
+    await bot.add_cog(BlankCommand(bot))

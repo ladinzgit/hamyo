@@ -57,10 +57,10 @@ async def get_expanded_tracked_channels(
 
     return list(expanded_ids)
 
-async def get_herb_expanded_tracked_channels(
+async def get_blank_expanded_tracked_channels(
     bot: discord.Client,
     data_manager: DataManager,
-    source: str = "herb"
+    source: str = "blank"
 ) -> List[int]:
     """
     tracked_channels 테이블에 등록된 값(카테고리/채널 혼재)을

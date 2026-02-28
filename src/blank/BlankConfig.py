@@ -8,7 +8,7 @@ from src.core.DataManager import DataManager
 from src.core.admin_utils import GUILD_IDS, is_guild_admin
 
 
-class HerbConfig(commands.Cog):
+class BlankConfig(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.data_manager = DataManager()
@@ -28,14 +28,14 @@ class HerbConfig(commands.Cog):
     async def is_owner(self, ctx):
         return ctx.author.id in self.owner_ids
     
-    @commands.group(name="허브", invoke_without_command=True)
+    @commands.group(name="여백", invoke_without_command=True)
     @is_guild_admin()
     async def voice(self, ctx):      
         command_name = ctx.invoked_with
         
         embed = discord.Embed(
-            title="허브 관리자 명령어", 
-            description="허브 관리자 명령어 사용 방법입니다.\n[ *허브 ]로 접근 가능합니다.", 
+            title="여백 관리자 명령어", 
+            description="여백 관리자 명령어 사용 방법입니다.\n[ *여백 ]로 접근 가능합니다.", 
             colour=discord.Colour.from_rgb(253, 237, 134)
         )
         
@@ -87,7 +87,7 @@ class HerbConfig(commands.Cog):
                 await self.log(f"{ctx.author}({ctx.author.id})님에 의해 추적 채널/카테고리에 {ch.mention}({ch.id})를 등록 완료하였습니다.")
 
         if added:
-            await ctx.reply(f"다음 채널/카테고리를 허브 추적에 등록했습니다:\n{', '.join(added)}")
+            await ctx.reply(f"다음 채널/카테고리를 여백 추적에 등록했습니다:\n{', '.join(added)}")
         else:
             await ctx.reply("등록할 유효한 음성 채널이나 카테고리를 찾지 못했습니다.")
 
@@ -102,7 +102,7 @@ class HerbConfig(commands.Cog):
                 await self.log(f"{ctx.author}({ctx.author.id})님에 의해 {ch.mention}({ch.id})채널 추적을 중지하였습니다.")
 
         if removed:
-            await ctx.send(f"다음 채널/카테고리를 허브 추적에서 제거했습니다:\n{', '.join(removed)}")
+            await ctx.send(f"다음 채널/카테고리를 여백 추적에서 제거했습니다:\n{', '.join(removed)}")
         else:
             await ctx.send("제거할 유효한 채널을 찾지 못했습니다.")
 
@@ -122,4 +122,4 @@ class HerbConfig(commands.Cog):
         
         
 async def setup(bot: commands.Bot):
-    await bot.add_cog(HerbConfig(bot))
+    await bot.add_cog(BlankConfig(bot))
