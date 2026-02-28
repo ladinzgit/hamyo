@@ -14,6 +14,7 @@ import pytz
 
 from src.core.DataManager import DataManager
 from src.core.LevelDataManager import LevelDataManager
+from src.level.LevelConstants import ROLE_THRESHOLDS, ROLE_ORDER, ROLE_DISPLAY, ROLE_EMOJI
 from src.core.ChattingDataManager import ChattingDataManager
 from src.rankcard.XPFormulas import TieredLevelManager, LevelInfo
 
@@ -24,32 +25,32 @@ ALL_TIME_START = "2025-08-01 00:00:00"
 
 # 역할 승급 기준 (LevelSystem과 동일)
 ROLE_THRESHOLDS = {
-    'blank': 0,
-    'dado': 400,
-    'daho': 1800,
-    'dakyung': 6000,
-    'dahyang': 12000
+    'yeobaek': 0,
+    'goyo': 400,
+    'seoyu': 1800,
+    'seorim': 6000,
+    'seohyang': 12000
 }
 
 # 역할 순서
-ROLE_ORDER = ['blank', 'dado', 'daho', 'dakyung', 'dahyang']
+ROLE_ORDER = ['yeobaek', 'goyo', 'seoyu', 'seorim', 'seohyang']
 
 # 역할 한글 표시명
 ROLE_DISPLAY = {
-    'blank': '여백',
-    'dado': '다도',
-    'daho': '다호',
-    'dakyung': '다경',
-    'dahyang': '다향'
+    'yeobaek': '여백',
+    'goyo': '고요',
+    'seoyu': '서유',
+    'seorim': '서림',
+    'seohyang': '서향'
 }
 
 # 역할별 이모지
 ROLE_EMOJI = {
-    'blank': '🌱',
-    'dado': '🍵',
-    'daho': '🌸',
-    'dakyung': '⭐',
-    'dahyang': '🔮'
+    'yeobaek': '🌱',
+    'goyo': '�',
+    'seoyu': '🌸',
+    'seorim': '🌟',
+    'seohyang': '�'
 }
 
 
@@ -114,7 +115,7 @@ class RankCardService:
             current_role = level_data['current_role']
         else:
             total_exp = 0
-            current_role = 'blank'
+            current_role = 'yeobaek'
 
         # 다음 경지 계산
         next_role, next_role_display, role_progress = self._calc_role_progress(

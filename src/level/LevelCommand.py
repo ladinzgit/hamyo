@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from src.core.LevelDataManager import LevelDataManager
+from src.level.LevelConstants import ROLE_IDS, get_role_info, ROLE_ORDER
 from src.core.DataManager import DataManager
 from typing import Optional, Dict, Any, List
 import logging
@@ -15,13 +16,7 @@ KST = pytz.timezone("Asia/Seoul")
 import re
 
 from src.core.admin_utils import GUILD_IDS
-ROLE_IDS = {
-        'yeobaek': 1396829213172174890,
-        'goyo': 1396829213172174888,
-        'seoyu': 1398926065111662703,
-        'seorim': 1396829213172174891,
-        'seohyang': 1396829213172174892
-        }
+
     
 def extract_name(text: str) -> str:
     match = re.search(r"([가-힣A-Za-z0-9_]+)$", text or "")
@@ -67,16 +62,8 @@ class LevelCommands(commands.Cog):
         self._tracked_voice_cache = None
         self._tracked_voice_cache_at = 0  # epoch seconds
 
-        # 역할 정보
-        self.role_info = {
-            'yeobaek': {'name': '여백', 'threshold': 0, 'emoji': '🌱'},
-            'goyo': {'name': '고요', 'threshold': 400, 'emoji': '🍃'},
-            'seoyu': {'name': '서유', 'threshold': 1800, 'emoji': '🌸'},
-            'seorim': {'name': '서림', 'threshold': 6000, 'emoji': '🌟'},
-            'seohyang': {'name': '서향', 'threshold': 12000, 'emoji': '💫'}  # 추가
-        }
-        
-        self.role_order = ['yeobaek', 'goyo', 'seoyu', 'seorim', 'seohyang']
+        self.role_info = get_role_info()
+        self.role_order = ROLE_ORDER
     
     async def cog_load(self):
         """Cog 로드 시 데이터베이스 초기화"""

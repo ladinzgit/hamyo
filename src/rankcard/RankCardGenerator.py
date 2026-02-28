@@ -116,16 +116,16 @@ class RankCardGenerator:
         name_y = int(CANVAS_HEIGHT * POS['name_y'])
         draw.text((info_x - 20, name_y), data.user_name, fill=TEXT_WHITE, font=self.font_name)
 
-        # 총 다공
+        # 총 페이지(쪽)
         exp_y = int(CANVAS_HEIGHT * POS['exp_y'])
         exp_val = f"{data.total_exp:,}"
         draw.text((info_x, exp_y), exp_val, fill=TEXT_LIGHT, font=self.font_exp_val)
         val_w = draw.textbbox((0, 0), exp_val, font=self.font_exp_val)[2]
-        draw.text((info_x + val_w + 8 * S, exp_y + 18 * S), "다공", fill=TEXT_GRAY, font=self.font_exp_lbl)
+        draw.text((info_x + val_w + 8 * S, exp_y + 18 * S), "쪽", fill=TEXT_GRAY, font=self.font_exp_lbl)
 
-        # 다음 경지
+        # 다음 단계
         next_y = int(CANVAS_HEIGHT * POS['next_role_y'])
-        next_text = f"다음 경지 : {data.next_role_display}" if data.next_role_display else "최고 경지 달성"
+        next_text = f"다음 단계 : {data.next_role_display}" if data.next_role_display else "최고 단계 달성"
         draw.text((info_x, next_y), next_text, fill=TEXT_GRAY, font=self.font_next_role)
 
         # ── 4. 메인 진행 바 ──

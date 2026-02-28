@@ -2,6 +2,7 @@
 import discord
 from discord.ext import commands
 from src.core.LevelDataManager import LevelDataManager
+from src.level.LevelConstants import get_role_info
 from datetime import time, timezone, timedelta
 from src.core.admin_utils import GUILD_IDS, only_in_guild, is_guild_admin
 from typing import Optional, Dict, Any, List
