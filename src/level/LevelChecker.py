@@ -14,21 +14,15 @@ KST = pytz.timezone("Asia/Seoul")
 class LevelChecker(commands.Cog):
     # 퀘스트 완료 시 반응으로 달리는 이모지 풀
     REACTION_EMOJI_POOL = [
-        '<:BM_k_001:1399387536085880883>', '<:BM_k_002:1399387517668819065>',
-        '<:BM_k_003:1399387520135069770>', '<:BM_k_004:1399387524010606644>',
-        '<:BM_k_009:1399387531534930063>', '<:BM_k_010:1399387534101843978>',
-        '<:BM_l_001:1399386974292545636>', '<:BM_l_002:1399386968546345051>',
-        '<:BM_l_003:1399386959847227452>', '<:BM_l_004:1399386971511722037>',
-        '<:BM_l_005:1399386966306455644>', '<:BM_l_006:1399386963290751078>',
-        '<:BM_l_007:1399386951186124881>', '<:BM_l_008:1399386948971266078>'
+        '<a:BM_s_001:1477342346512437403>'
     ]
 
     def __init__(self, bot):
         self.bot = bot
         self.data_manager = LevelDataManager()
-        self.MAIN_CHAT_CHANNEL_ID = 1396829222978322608
-        self.QUEST_COMPLETION_CHANNEL_ID = 1400442713605668875
-        self.DIARY_CHANNEL_ID = 1396829222978322609
+        self.MAIN_CHAT_CHANNEL_ID = 1474014240896585880
+        self.QUEST_COMPLETION_CHANNEL_ID = 1474014239436836974
+        self.DIARY_CHANNEL_ID = 1474014240896585882
         
         # 퀘스트 경험치 설정
         self.quest_exp = {
