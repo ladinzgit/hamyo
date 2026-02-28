@@ -25,7 +25,7 @@ class OnAdminSettings(commands.Cog):
         except Exception as e:
             print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
 
-    @commands.group(name="설정", invoke_without_command=True)
+    @commands.group(name="온설정", invoke_without_command=True)
     @is_guild_admin()
     async def settings(self, ctx):
         """관리자 설정 명령어 그룹"""
