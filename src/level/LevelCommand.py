@@ -107,17 +107,6 @@ class LevelCommands(commands.Cog):
             total_exp = int(user_data.get("total_exp", 0)) if user_data else 0
             current_role_key = user_data.get("current_role", "yeobaek") if user_data else "yeobaek"
 
-            # 레거시 역할 키 매핑
-            legacy_role_mapping = {
-                'hub': 'yeobaek',
-                'dado': 'goyo',
-                'daho': 'seoyu',
-                'dakyung': 'seorim',
-                'dahyang': 'seohyang'
-            }
-            if current_role_key in legacy_role_mapping:
-                current_role_key = legacy_role_mapping[current_role_key]
-
             # 2) 역할(경지) 임계값/진행률 계산 (LevelChecker.role_thresholds 기반)
             role_thresholds = getattr(level_checker, "role_thresholds", {"yeobaek": 0, "goyo": 400, "seoyu": 1800, "seorim": 6000, "seohyang": 12000})
             role_order = getattr(level_checker, "role_order", ["yeobaek", "goyo", "seoyu", "seorim", "seohyang"])

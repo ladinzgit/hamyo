@@ -96,6 +96,7 @@ async def on_ready():
     await bot.change_presence(status=discord.Status.online, activity=activity)
 
     print("Syncing commands to all guilds...")
+
     for guild in bot.guilds:
         try:
             bot.tree.copy_global_to(guild=guild)
