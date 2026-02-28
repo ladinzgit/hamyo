@@ -113,6 +113,17 @@ class RankCardService:
         if level_data:
             total_exp = level_data['total_exp']
             current_role = level_data['current_role']
+            
+            # 레거시 키 변환
+            legacy_role_mapping = {
+                'hub': 'yeobaek',
+                'dado': 'goyo',
+                'daho': 'seoyu',
+                'dakyung': 'seorim',
+                'dahyang': 'seohyang'
+            }
+            if current_role in legacy_role_mapping:
+                current_role = legacy_role_mapping[current_role]
         else:
             total_exp = 0
             current_role = 'yeobaek'
