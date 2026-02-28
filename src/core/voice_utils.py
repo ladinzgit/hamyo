@@ -196,4 +196,13 @@ async def get_filtered_tracked_channels(
              if ch_id in allowed_all_special:
                  expanded_ids.add(ch_id)
 
-    return list(expanded_ids)
+    # 4) 특정 카테고리에 속한 채널은 집계에서 완전 제외 (예: 책방선율)
+    EXCLUDED_CATEGORIES = {1474014243052585126}
+    final_expanded = set()
+    for ch_id in expanded_ids:
+        ch = bot.get_channel(ch_id)
+        if ch and getattr(ch, "category_id", None) in EXCLUDED_CATEGORIES:
+            continue
+        final_expanded.add(ch_id)
+
+    return list(final_expanded)

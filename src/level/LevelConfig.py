@@ -85,11 +85,11 @@ class LevelConfig(commands.Cog):
     async def give_exp(self, ctx, member: discord.Member, amount: int, *, reason: str = "관리자 지급"):
         """경험치 지급"""
         if amount <= 0:
-            await ctx.send("❌ 다공은 1 이상이어야 합니다.")
+            await ctx.send("❌ 쪽은 1 이상이어야 합니다.")
             return
         
         if amount > 10000:
-            await ctx.send("❌ 한 번에 지급할 수 있는 다공은 10,000 이하입니다.")
+            await ctx.send("❌ 한 번에 지급할 수 있는 쪽은 10,000 이하입니다.")
             return
 
         # 결과 구조체 생성
@@ -104,7 +104,7 @@ class LevelConfig(commands.Cog):
         if success:
             result['success'] = True
             result['exp_gained'] = amount
-            result['messages'].append(f"관리자 지급: **+{amount:,} 다공**\n사유: {reason}")
+            result['messages'].append(f"관리자 지급: **+{amount:,} 쪽**\n사유: {reason}")
             
             # LevelChecker의 _finalize_quest_result 호출
             level_checker = self.bot.get_cog('LevelChecker')
@@ -113,20 +113,20 @@ class LevelConfig(commands.Cog):
             else:
                 await ctx.send("❌ 레벨 시스템을 찾을 수 없습니다.")
         else:
-            await ctx.send("❌ 다공 지급 중 오류가 발생했습니다.")
+            await ctx.send("❌ 쪽 지급 중 오류가 발생했습니다.")
 
     @exp_group.command(name='remove')
     @commands.has_permissions(administrator=True)
     async def remove_exp(self, ctx, member: discord.Member, amount: int, *, reason: str = "관리자 회수"):
         """경험치 회수"""
         if amount <= 0:
-            await ctx.send("❌ 다공은 1 이상이어야 합니다.")
+            await ctx.send("❌ 쪽은 1 이상이어야 합니다.")
             return
         
         # 현재 경험치 확인
         user_data = await self.data_manager.get_user_exp(member.id)
         if not user_data or user_data['total_exp'] == 0:
-            await ctx.send("❌ 해당 유저는 다공이 없습니다.")
+            await ctx.send("❌ 해당 유저는 쪽이 없습니다.")
             return
         
         current_exp = user_data['total_exp']
@@ -139,13 +139,13 @@ class LevelConfig(commands.Cog):
             result = {
                 'success': True,
                 'exp_gained': -will_remove,  # 음수로 표시
-                'messages': [f"관리자 회수: **-{will_remove:,} 다공**\n사유: {reason}"],
+                'messages': [f"관리자 회수: **-{will_remove:,} 쪽**\n사유: {reason}"],
                 'quest_completed': []
             }
 
-            # 남은 다공이 있는 경우 메시지 추가
+            # 남은 쪽이 있는 경우 메시지 추가
             if will_remove < amount:
-                result['messages'].append(f"⚠️ 보유 다공이 부족하여 {will_remove:,} 다공만 회수되었습니다.")
+                result['messages'].append(f"⚠️ 보유 쪽이 부족하여 {will_remove:,} 쪽만 회수되었습니다.")
             
             # LevelChecker의 _finalize_quest_result 호출 
             level_checker = self.bot.get_cog('LevelChecker')
@@ -154,7 +154,7 @@ class LevelConfig(commands.Cog):
             else:
                 await ctx.send("❌ 레벨 시스템을 찾을 수 없습니다.")
         else:
-            await ctx.send("❌ 다공 회수 중 오류가 발생했습니다.")
+            await ctx.send("❌ 쪽 회수 중 오류가 발생했습니다.")
     
     @exp_group.command(name='reset')
     @commands.has_permissions(administrator=True)
@@ -174,7 +174,7 @@ class LevelConfig(commands.Cog):
         )
         embed.add_field(
             name="현재 데이터",
-            value=f"다공: {user_data['total_exp']:,} 다공\n역할: {user_data['current_role']}",
+            value=f"쪽: {user_data['total_exp']:,} 쪽\n역할: {user_data['current_role']}",
             inline=False
         )
         embed.add_field(name="⚠️ 주의", value="이 작업은 되돌릴 수 없습니다!", inline=False)
@@ -235,7 +235,7 @@ class LevelConfig(commands.Cog):
         )
         embed.add_field(
             name="삭제될 데이터",
-            value="• 모든 유저의 다공\n• 모든 퀘스트 기록\n• 모든 일회성 퀘스트 완료 기록",
+            value="• 모든 유저의 쪽\n• 모든 퀘스트 기록\n• 모든 일회성 퀘스트 완료 기록",
             inline=False
         )
         
@@ -362,11 +362,11 @@ class LevelConfig(commands.Cog):
         )
         embed.add_field(name="대상", value=member.mention, inline=True)
         embed.add_field(name="퀘스트", value=quest_type, inline=True)
-        embed.add_field(name="다공", value=f"{exp_amount} 다공", inline=True)
+        embed.add_field(name="쪽", value=f"{exp_amount} 쪽", inline=True)
         embed.add_field(name="사유", value=reason, inline=True)
 
         if result.get('success'):
-            embed.add_field(name="결과", value=f"+{result.get('exp_gained', 0):,} 다공", inline=False)
+            embed.add_field(name="결과", value=f"+{result.get('exp_gained', 0):,} 쪽", inline=False)
             if result.get('role_updated'):
                 embed.add_field(name="🎉 역할 승급", value=f"**{result.get('new_role')}** 역할로 승급!", inline=False)
             if result.get('quest_completed'):
@@ -384,7 +384,7 @@ class LevelConfig(commands.Cog):
     @quest_group.command(name='rank')
     @commands.has_permissions(administrator=True)
     async def certify_rank(self, ctx, member: discord.Member, chat_level: int = None, voice_level: int = None):
-        """보이스/채팅 랭크 인증 및 보상 지급 (*quest rank @유저 [채팅레벨] [보이스레벨])"""
+        """보이스/채팅 랭크 인증 및 보상 지급 (*quest rank @유저 [채팅레벨] [보이스레벨] - 자체 봇 레벨 시스템 기준 보이스/채팅 5레벨 달성 기준)"""
         if voice_level is None and chat_level is None:
             await ctx.send("❌ 보이스 또는 채팅 레벨 중 하나 이상을 입력하세요. 예: `*quest rank @유저 10 15`")
             return
@@ -450,7 +450,7 @@ class LevelConfig(commands.Cog):
         embed.add_field(name="대상", value=member.mention, inline=True)
         if updated_types:
             embed.add_field(name="인증 랭크", value=", ".join(updated_types), inline=True)
-            embed.add_field(name="획득 다공", value=f"+{total_exp:,} 다공", inline=True)
+            embed.add_field(name="획득 쪽", value=f"+{total_exp:,} 쪽", inline=True)
             if completed_quests:
                 display_quests = completed_quests[:10]
                 quest_text = "\n".join([f"• {q}" for q in display_quests])
@@ -463,8 +463,8 @@ class LevelConfig(commands.Cog):
         user_data = await level_checker.data_manager.get_user_exp(member.id)
         if user_data:
             embed.add_field(
-                name="총 다공",
-                value=f"{user_data['total_exp']:,} 다공",
+                name="총 쪽",
+                value=f"{user_data['total_exp']:,} 쪽",
                 inline=True
             )
 
@@ -566,11 +566,11 @@ class LevelConfig(commands.Cog):
         daily_quests = []
         for quest, exp in quest_exp['daily'].items():
             if quest == "call":
-                daily_quests.append(f"`{quest}` ({exp} 다공) - 통화하자(지정 채널에서 역할 멘션)")
+                daily_quests.append(f"`{quest}` ({exp} 쪽) - 통화하자(지정 채널에서 역할 멘션)")
             elif quest == "friend":
-                daily_quests.append(f"`{quest}` ({exp} 다공) - 친구하자(지정 채널에서 역할 멘션)")
+                daily_quests.append(f"`{quest}` ({exp} 쪽) - 친구하자(지정 채널에서 역할 멘션)")
             else:
-                daily_quests.append(f"`{quest}` ({exp} 다공)")
+                daily_quests.append(f"`{quest}` ({exp} 쪽)")
         embed.add_field(
             name="📅 일일 퀘스트",
             value="\n".join(daily_quests) if daily_quests else "없음",
@@ -580,7 +580,7 @@ class LevelConfig(commands.Cog):
         # 주간 퀘스트
         weekly_quests = []
         for quest, exp in quest_exp['weekly'].items():
-            weekly_quests.append(f"`{quest}` ({exp} 다공)")
+            weekly_quests.append(f"`{quest}` ({exp} 쪽)")
         embed.add_field(
             name="📊 주간 퀘스트",
             value="\n".join(weekly_quests) if weekly_quests else "없음",
@@ -590,7 +590,7 @@ class LevelConfig(commands.Cog):
         # 일회성 퀘스트
         one_time_quests = []
         for quest, exp in quest_exp['one_time'].items():
-            one_time_quests.append(f"`{quest}` ({exp} 다공)")
+            one_time_quests.append(f"`{quest}` ({exp} 쪽)")
         embed.add_field(
             name="✨ 일회성 퀘스트",
             value="\n".join(one_time_quests) if one_time_quests else "없음",
@@ -628,23 +628,22 @@ class LevelConfig(commands.Cog):
         quest_descriptions = {
             'attendance': '매일 서버에 출석하는 퀘스트',
             'diary': '다방일지 채널에 일기를 작성하는 퀘스트',
-            'voice_30min': '음성방에서 30분 이상 활동하는 퀘스트',
+            'voice_30min': '책방 음성 채널에서 30분 이상 머무르며 이야기를 나누는 퀘스트',
             'call': '특정 채널에서 역할을 멘션하는 통화하자 퀘스트',
             'friend': '특정 채널에서 역할을 멘션하는 친구하자 퀘스트',
             'recommend_3': '서버를 외부 사이트에 3회 추천하는 퀘스트',
             'shop_purchase': '비몽상점에서 상품을 구매하는 퀘스트',
             'board_participate': '비몽게시판에 참여하는 퀘스트',
             'ping_use': '다방삐삐를 사용하는 퀘스트',
-            'voice_5h': '주간 음성방 5시간 달성 퀘스트',
-            'voice_10h': '주간 음성방 10시간 달성 퀘스트',
-            'voice_20h': '주간 음성방 20시간 달성 퀘스트',
+            'voice_10h': '주간 책방 음성 채널 10시간 달성 퀘스트',
+            'voice_20h': '주간 책방 음성 채널 20시간 달성 퀘스트',
+            'voice_50h': '주간 책방 음성 채널 50시간 달성 퀘스트',
             'attendance_4': '주간 출석 4회 달성 시 자동 완료',
             'attendance_7': '주간 출석 7회 달성 시 자동 완료',
             'diary_4': '주간 다방일지 4회 달성 시 자동 완료',
             'diary_7': '주간 다방일지 7회 달성 시 자동 완료',
             'self_intro': '허브 카테고리에 자기소개 채널을 만드는 퀘스트',
-            'review': '디코올에 서버 후기를 작성하는 퀘스트',
-            'monthly_role': '이달의 역할을 구매하는 퀘스트'
+            'review': '디코올에 서버 후기를 작성하는 퀘스트'
         }
 
         category_names = {
@@ -659,7 +658,7 @@ class LevelConfig(commands.Cog):
         )
 
         embed.add_field(name="카테고리", value=category_names.get(quest_category, quest_category), inline=True)
-        embed.add_field(name="다공", value=f"{exp_amount} 다공", inline=True)
+        embed.add_field(name="쪽", value=f"{exp_amount} 쪽", inline=True)
         embed.add_field(name="설명", value=quest_descriptions.get(quest_type, "설명이 없습니다."), inline=False)
 
         # 특별 조건

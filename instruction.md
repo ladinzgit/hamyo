@@ -1,118 +1,111 @@
-Great. Since the performance (execution time) issue is resolved and you have provided the working code structure, this **new `instruction.md`** will focus entirely on **polishing the Visuals (UI/UX)** to match your design requirements (Flower pattern, Glassmorphism, Density).
+📖 비몽책방 '백지동화' 컨셉 리뉴얼 코딩 지시서
 
-It instructs the Coding Agent to **keep the logic** of `RankCardService` and `RankCardCog` (since they work) but **rewrite `RankCardGenerator`** to fix the design issues.
+본 문서는 디스코드 봇의 기존 '몽경수행(무협 컨셉)' 시스템을 '백지동화(책방/글쓰기 컨셉)' 시스템으로 리팩토링하기 위한 가이드입니다. 제공된 파이썬 파일들(LevelChecker.py, LevelCommand.py, LevelConfig.py, LevelSystem.py)을 아래 지시사항에 맞게 수정해 주세요.
 
-***
+1. 🌐 전역 변경 사항 (Global Replacements)
 
-# Instruction: Refine Visuals for "Kyungji" Rank Card
+코드 전반에 걸쳐 사용된 명칭과 단위를 다음 규칙에 따라 일괄 변경합니다.
 
-## 1. Project Status & Goal
-*   **Current Status:** The backend logic (Data fetching, XP calculation, Command handling) is **working correctly and fast**.
-*   **Goal:** The current image output is visually broken (text on background, opaque boxes). We need to **rewrite `RankCardGenerator.py`** to match the "Compact & Glassmorphism" design with a procedural flower background.
+시스템 명칭: 몽경수행 ➔ 백지동화 (또는 집필 현황, 문맥에 맞게 수정)
 
-## 2. Directory Structure
-*   **Work Directory:** `src/rankcard/`
-*   **Files:**
-    *   `RankCardGenerator.py` **(TARGET FOR REWRITE)**
-    *   `RankCardService.py` (Keep existing logic)
-    *   `RankCardCog.py` (Keep existing logic)
-    *   `XPFormulas.py` (Keep existing logic)
+경험치 단위: 다공 ➔ 쪽 (예: "10 다공" ➔ "10 쪽")
 
-## 3. Visual Design Specifications (RankCardGenerator.py)
+역할/경지 명칭 및 키값:
 
-You must rewrite `RankCardGenerator.py` to implement the following specific design details.
+hub (허브) ➔ yeobaek (여백) / ID: 1396829213172174890
 
-### A. Canvas & Theme
-*   **Size:** `860px` (W) x `280px` (H).
-*   **Background Color:** `#0f0f13` (Dark).
-*   **Corners:** Rounded (`24px`).
-*   **Fonts:**
-    *   Bold: `assets/fonts/Pretendard-Bold.ttf`
-    *   Medium: `assets/fonts/Pretendard-Medium.ttf`
+dado (다도) ➔ goyo (고요) / ID: 1396829213172174888
 
-### B. Background Decoration (The Flower)
-*   **Requirement:** Remove the existing `_draw_deco_character` (Text). Replace it with a **Procedural Flower Pattern**.
-*   **Logic:** Draw 5 overlapping circles arranged in a circle to mimic a flower shape.
-*   **Style:**
-    *   **Color:** Role Theme Color.
-    *   **Opacity:** Very Low (**10%** / Alpha ~25). It must be subtle.
-    *   **Position:** Right side of the card, partially cut off, serving as a wallpaper.
-*   **Snippet for Generator:**
-    ```python
-    def _draw_flower_pattern(self, canvas, draw, color):
-        # Center coordinates for the flower (Right side)
-        cx, cy = 720, 100
-        radius = 120 
-        # 5 petals
-        offsets = [
-            (0, -1), (0.95, -0.31), (0.59, 0.81), (-0.59, 0.81), (-0.95, -0.31)
-        ]
-        # Use a separate layer for transparency
-        overlay = Image.new('RGBA', canvas.size, (0,0,0,0))
-        d = ImageDraw.Draw(overlay)
-        
-        petal_color = color + (25,) # Low Alpha (approx 10%)
-        
-        for dx, dy in offsets:
-            x = cx + dx * (radius * 0.6)
-            y = cy + dy * (radius * 0.6)
-            # Draw petal (circle)
-            d.ellipse(
-                [(x - radius, y - radius), (x + radius, y + radius)],
-                fill=petal_color
-            )
-        
-        # Composite
-        canvas.paste(Image.alpha_composite(canvas, overlay), (0,0))
-    ```
+daho (다호) ➔ seoyu (서유) / ID: 1398926065111662703
 
-### C. Sub-Stat Boxes (Glassmorphism)
-*   **Requirement:** The current boxes are too dark/opaque. They need to look like **Glass**.
-*   **Style:**
-    *   **Fill:** White with extremely low opacity (`255, 255, 255, 15`). **Do not use Gray/Black.**
-    *   **Stroke (Border):** White with low opacity (`255, 255, 255, 40`), 1px width.
-    *   **Text Colors inside box:**
-        *   Labels: Light Gray (`#dddddd`).
-        *   Values (Lv): Pure White (`#ffffff`).
-    *   **Progress Bar inside box:**
-        *   Track (Background): Black with low opacity (`0, 0, 0, 80`).
-        *   Fill: Specific Role/Stat Color.
+dakyung (다경) ➔ seorim (서림) / ID: 1396829213172174891
 
-### D. Layout Adjustments
-1.  **Avatar:** Keep the circular crop and badge logic. Ensure `Image.LANCZOS` is used for high-quality resizing.
-2.  **Badge:** Ensure the text is centered and the pill shape has the Role Color.
-3.  **Main Progress Bar:**
-    *   Label: `다음 경지 : [Next Role]` (Left) | `[XX.X]%` (Right).
-    *   Track: Dark Gray (`#282832`).
-    *   Fill: Gradient or Solid Role Color.
+dahyang (다향) ➔ seohyang (서향) / ID: 1396829213172174892
 
-## 4. Logic & Data Preservation
+2. 📝 파일별 상세 수정 지시사항
 
-### A. `RankCardService.py`
-*   **Keep the provided code.** It correctly fetches data and calculates the Tiered XP.
-*   **Reminder:** It uses `TieredLevelManager` from `XPFormulas.py`.
+🛠️ 1) LevelSystem.py
 
-### B. `XPFormulas.py`
-*   **Keep the provided code.**
-*   **Formula Check:**
-    *   `Multiplier = 1 + (Level // 10) * 0.5`
-    *   Voice: `((Lv * 139) + 70) * Multiplier`
-    *   Chat: `((Lv * 69.5) + 35) * Multiplier`
+딕셔너리 및 리스트 업데이트:
 
-### C. `RankCardCog.py`
-*   **Keep the provided code.**
-*   It handles the `discord.File` sending and error logging correctly.
+self.role_thresholds, self.role_order, self.ROLE_IDS, self.ROLE_DISPLAY 의 키값을 hub, dado... 에서 yeobaek, goyo... 로 모두 변경하세요.
 
-## 5. Implementation Steps for Coding Agent
+값(한글명)도 '여백', '고요', '서유', '서림', '서향'으로 변경하세요.
 
-1.  **Analyze** the provided `RankCardGenerator.py` code.
-2.  **Modify** `RankCardGenerator.py`:
-    *   Remove `ROLE_DECO_CHAR` mapping and `_draw_deco_character`.
-    *   Add `_draw_flower_pattern` method.
-    *   Update `_draw_sub_stat_box` to use the **Glassmorphism** colors (White transparent fill) instead of the current dark fill.
-    *   Update `_draw_background_gradient` to be subtle.
-3.  **Verify** that `RankCardService` and `XPFormulas` are imported correctly.
-4.  **Final Check:** Ensure no English labels exist on the card canvas (Use '다공', '레벨', '경지').
+send_role_upgrade_message 함수 수정:
 
-***
-*End of Instruction*
+무협풍의 ASCII 아트와 텍스트를 '책/글쓰기' 감성에 맞게 전면 수정하세요.
+
+(예: "차향이 스며든 꿈의 첫 단계" ➔ "차분한 침묵 속에서 나만의 이야기가 비로소 태동하기 시작합니다.")
+
+기타 텍스트 (서버 감성에 맞춘 텍스트 디자인 적용):
+
+send_quest_completion_message 의 메시지 출력 포맷을 비몽다방 서버의 아기자기한 감성에 맞춰 꾸며주세요 (특수 이모지, 띄어쓰기 등 활용).
+
+변경 예시:
+
+임베드 타이틀: ✨ 몽경수행 - 수행 완료 ➔ <:BM_a_000:1399387512945774672> 백지동화､ 당신의 이야기가 한 장 적혔어요 <a:slg12:1378567364844453938>
+
+항목 이름 1: 🌙 완료한 수행 ➔ <a:BM_n_012:1439957502643933337> 방금 적어내린 문장들
+
+항목 이름 2: 💫 획득한 다공 ➔ <a:Moon4:1378710431664836615> 새롭게 기록한 페이지
+
+메시지 내용 중 작은 텍스트가 필요한 경우 디스코드 마크다운(-# ◟.  등)을 적절히 혼합하여 예쁘게 디자인해 주세요.
+
+일반적인 텍스트 내의 "수행" ➔ "집필", "다공" ➔ "쪽" 치환도 잊지 마세요.
+
+🛠️ 2) LevelCommand.py
+
+초기 설정 업데이트:
+
+상단 ROLE_IDS 및 self.role_info, self.role_order 를 새 명칭(yeobaek, goyo 등)으로 업데이트하세요.
+
+my_info (내정보) 임베드 수정:
+
+"경지 확인" ➔ "집필 단계 확인"
+
+모든 다공 출력을 쪽으로 변경.
+
+주간 음성 퀘스트 진행률 로직 수정:
+
+기존 5시간(18000초), 10시간(36000초), 20시간(72000초) 기준을 **10시간(36000초), 20시간(72000초), 50시간(180000초)**으로 상향 조정하세요.
+
+🛠️ 3) LevelChecker.py
+
+self.quest_exp 딕셔너리 수정:
+
+weekly: voice_5h, voice_10h, voice_20h ➔ voice_10h, voice_20h, voice_50h 로 변경하고 경험치(쪽)를 적절히 배치하세요.
+
+one_time: monthly_role (이달의 역할 구매) 항목을 완전히 삭제하세요.
+
+출력 메시지 수정:
+
+모든 messages.append() 내용에서 "다공" ➔ "쪽"으로 변경.
+
+"수행 완료" ➔ "기록 완료" 또는 "집필 완료".
+
+process_voice_weekly 로직 수정:
+
+quest_map = {5: 'voice_5h', 10: 'voice_10h', 20: 'voice_20h'} 부분을 새로운 시간(10, 20, 50)에 맞게 매핑을 수정하세요.
+
+🛠️ 4) LevelConfig.py
+
+관리자 명령어 텍스트 변경:
+
+give_exp, remove_exp 등에서 사용되는 "다공" ➔ "쪽" 일괄 치환.
+
+quest_info 세부 텍스트 수정:
+
+quest_descriptions 내의 텍스트를 책방 컨셉으로 수정 (예: "음성방에서 30분 이상 활동하는 퀘스트" ➔ "책방 음성 채널에서 30분 이상 머무르며 이야기를 나누는 퀘스트").
+
+monthly_role 관련 내용 삭제.
+
+voice_5h, 10h, 20h 설명을 10h, 20h, 50h 로 수정.
+
+보이스/채팅 5렙 증가 설명에 "ProBot 기준 ➔ 자체 봇 기준" 임을 명시하는 텍스트로 수정하세요. (예: "자체 봇 레벨 시스템 기준 보이스/채팅 5레벨 달성")
+
+🛠️ 5) voice_utils.py (참고용 지시사항)
+
+이 파일은 현재 컨텍스트에 없으나 봇 소스코드 내에 존재합니다.
+
+get_filtered_tracked_channels 함수가 존재한다면, 음성 채널 활동 시간 집계 시 '책방선율' 카테고리(카테고리 ID: 1474014243052585126)에 속한 음성 채널은 집계 대상에서 제외(continue 또는 filter 처리) 하도록 로직을 추가해야 합니다.

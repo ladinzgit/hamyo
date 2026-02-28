@@ -16,11 +16,11 @@ import re
 
 from src.core.admin_utils import GUILD_IDS
 ROLE_IDS = {
-        'hub': 1396829213172174890,
-        'dado': 1396829213172174888,
-        'daho': 1398926065111662703,
-        'dakyung': 1396829213172174891,
-        'dahyang': 1396829213172174892
+        'yeobaek': 1396829213172174890,
+        'goyo': 1396829213172174888,
+        'seoyu': 1398926065111662703,
+        'seorim': 1396829213172174891,
+        'seohyang': 1396829213172174892
         }
     
 def extract_name(text: str) -> str:
@@ -69,14 +69,14 @@ class LevelCommands(commands.Cog):
 
         # 역할 정보
         self.role_info = {
-            'hub': {'name': '허브', 'threshold': 0, 'emoji': '🌱'},
-            'dado': {'name': '다도', 'threshold': 400, 'emoji': '🍃'},
-            'daho': {'name': '다호', 'threshold': 1800, 'emoji': '🌸'},
-            'dakyung': {'name': '다경', 'threshold': 6000, 'emoji': '🌟'},
-            'dahyang': {'name': '다향', 'threshold': 12000, 'emoji': '💫'}  # 추가
+            'yeobaek': {'name': '여백', 'threshold': 0, 'emoji': '🌱'},
+            'goyo': {'name': '고요', 'threshold': 400, 'emoji': '🍃'},
+            'seoyu': {'name': '서유', 'threshold': 1800, 'emoji': '🌸'},
+            'seorim': {'name': '서림', 'threshold': 6000, 'emoji': '🌟'},
+            'seohyang': {'name': '서향', 'threshold': 12000, 'emoji': '💫'}  # 추가
         }
         
-        self.role_order = ['hub', 'dado', 'daho', 'dakyung', 'dahyang']
+        self.role_order = ['yeobaek', 'goyo', 'seoyu', 'seorim', 'seohyang']
     
     async def cog_load(self):
         """Cog 로드 시 데이터베이스 초기화"""
@@ -118,12 +118,12 @@ class LevelCommands(commands.Cog):
             # 1) 기본 유저 데이터 (총 다공/현재 경지)
             user_data = await data_manager.get_user_exp(user_id) if hasattr(data_manager, "get_user_exp") else None
             total_exp = int(user_data.get("total_exp", 0)) if user_data else 0
-            current_role_key = user_data.get("current_role", "hub") if user_data else "hub"
+            current_role_key = user_data.get("current_role", "yeobaek") if user_data else "yeobaek"
 
             # 2) 역할(경지) 임계값/진행률 계산 (LevelChecker.role_thresholds 기반)
-            role_thresholds = getattr(level_checker, "role_thresholds", {"hub": 0, "dado": 400, "daho": 1800, "dakyung": 6000, "dahyang": 12000})
-            role_order = getattr(level_checker, "role_order", ["hub", "dado", "daho", "dakyung", "dahyang"])
-            role_display = getattr(level_checker, "ROLE_DISPLAY", {"hub": "허브", "dado": "다도", "daho": "다호", "dakyung": "다경", "dahyang": "다향"})
+            role_thresholds = getattr(level_checker, "role_thresholds", {"yeobaek": 0, "goyo": 400, "seoyu": 1800, "seorim": 6000, "seohyang": 12000})
+            role_order = getattr(level_checker, "role_order", ["yeobaek", "goyo", "seoyu", "seorim", "seohyang"])
+            role_display = getattr(level_checker, "ROLE_DISPLAY", {"yeobaek": "여백", "goyo": "고요", "seoyu": "서유", "seorim": "서림", "seohyang": "서향"})
 
             role_obj = ctx.guild.get_role(ROLE_IDS[current_role_key])
             current_role_mention = role_obj.mention if role_obj else role_display.get(current_role_key, current_role_key)
@@ -204,12 +204,12 @@ class LevelCommands(commands.Cog):
                 voice_sec_week = sum(week_result.values()) if week_result else 0
                 
             next_step = ""    
-            if voice_sec_week < 18000:
-                next_step = "5시간 00분"
-            elif voice_sec_week < 36000:
+            if voice_sec_week < 36000:
                 next_step = "10시간 00분"
             elif voice_sec_week < 72000:
                 next_step = "20시간 00분"
+            elif voice_sec_week < 180000:
+                next_step = "50시간 00분"
             else:
                 next_step = "모든 퀘스트를 달성했습니다!"
 
@@ -235,7 +235,7 @@ class LevelCommands(commands.Cog):
 
             # 8) 임베드 구성
             embed = discord.Embed(
-                title=f"🌙 、{extract_name(member.display_name)} 님의 수행⠀",
+                title=f"🌙 、{extract_name(member.display_name)} 님의 집필 현황⠀",
                 color=await level_checker._get_role_color(current_role_key, ctx.guild) if hasattr(level_checker, "_get_role_color") else discord.Color.blue()
             )
 
@@ -245,11 +245,11 @@ class LevelCommands(commands.Cog):
             bar = "▫️" * filled + "◾️" * (bar_len - filled)
 
             embed.add_field(
-                name="🪵◝. 경지 확인",
+                name="🪵◝. 집필 단계 확인",
                 value=(
-                    f"> {current_role_mention} ( {total_exp:,} 다공 ) \n"
+                    f"> {current_role_mention} ( {total_exp:,} 쪽 ) \n"
                     f"> ⠀{bar}: {percent:02d}%\n"
-                    f"> -# ⠀◟. 다음 경지까지 {need_to_next:,} 다공 필요"
+                    f"> -# ⠀◟. 다음 단계까지 {need_to_next:,} 쪽 필요"
                 ),
                 inline=False
             )
@@ -289,7 +289,7 @@ class LevelCommands(commands.Cog):
 
             embed.add_field(
                 name="˚‧ 🗓️ : 주간 퀘스트",
-                value="\n".join(weekly_lines) + f"\n\n이번 주 총 획득 : **{weekly_total:,} 다공** • 주간 **{weekly_rank}위** ",
+                value="\n".join(weekly_lines) + f"\n\n이번 주 총 획득 : **{weekly_total:,} 쪽** • 주간 **{weekly_rank}위** ",
                 inline=False
             )
 
@@ -379,7 +379,7 @@ class LevelCommands(commands.Cog):
                 else:
                     leaderboard_text += f"{rank_emojis[i-1]} **{i}.** {username}\n"
                 
-                leaderboard_text += f"   └ {exp:,} 다공 ({role_emoji} {role_name})\n\n"
+                leaderboard_text += f"   └ {exp:,} 쪽 ({role_emoji} {role_name})\n\n"
             except:
                 continue
         
@@ -389,7 +389,7 @@ class LevelCommands(commands.Cog):
         if user_rank and user_rank > 10:
             embed.add_field(
                 name="📍 내 순위",
-                value=f"**{user_rank}위** - {ctx.author.display_name} ({user_exp:,} 다공)",
+                value=f"**{user_rank}위** - {ctx.author.display_name} ({user_exp:,} 쪽)",
                 inline=False
             )
         

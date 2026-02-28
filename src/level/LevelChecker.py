@@ -46,18 +46,16 @@ class LevelChecker(commands.Cog):
                 'attendance_7': 50,
                 'diary_4': 10,
                 'diary_7': 30,
-                'voice_5h': 50,
                 'voice_10h': 70,
                 'voice_20h': 100,
+                'voice_50h': 150,
                 'shop_purchase': 30,
                 'board_participate': 25,
                 'ping_use': 25
             },
             'one_time': {
                 'self_intro': 50,
-                'review': 80,
-                'monthly_role': 100
-            }
+                'review': 80}
         }
     
     async def cog_load(self):
@@ -105,7 +103,7 @@ class LevelChecker(commands.Cog):
             result['success'] = True
             result['exp_gained'] = daily_exp
             result['quest_completed'].append('daily_attendance')
-            result['messages'].append(f"📅 출석 수행 완료! **+{daily_exp} 다공**")
+            result['messages'].append(f"📅 출석 기록 완료! **+{daily_exp} 쪽**")
             
             # 주간 출석 마일스톤 직접 확인
             current_count = await self.data_manager.get_quest_count(user_id, 'daily', 'attendance', 'week')
@@ -118,7 +116,7 @@ class LevelChecker(commands.Cog):
                     await self.data_manager.add_exp(user_id, bonus_exp_4, 'weekly', 'attendance_4')
                     result['exp_gained'] += bonus_exp_4
                     result['quest_completed'].append('weekly_attendance_4')
-                    result['messages'].append(f"🏆 주간 출석 4회 달성! **+{bonus_exp_4} 다공**")
+                    result['messages'].append(f"🏆 주간 출석 4회 달성! **+{bonus_exp_4} 쪽**")
             
             # 7회 달성 확인
             elif current_count == 7:
@@ -129,11 +127,11 @@ class LevelChecker(commands.Cog):
                     await self.data_manager.add_exp(user_id, bonus_exp_7, 'weekly', 'attendance_7')
                     result['exp_gained'] += bonus_exp_7
                     result['quest_completed'].append('weekly_attendance_7')
-                    result['messages'].append(f"🏆 주간 출석 7회 달성! **+{bonus_exp_7} 다공**")
+                    result['messages'].append(f"🏆 주간 출석 7회 달성! **+{bonus_exp_7} 쪽**")
             
         except Exception as e:
             await self.log(f"출석 퀘스트 처리 중 오류 발생: {e}")
-            result['messages'].append("출석 수행 처리 중 오류가 발생했습니다.")
+            result['messages'].append("출석 기록 처리 중 오류가 발생했습니다.")
         
         # 공통 후처리
         return await self._finalize_quest_result(user_id, result)
@@ -239,7 +237,7 @@ class LevelChecker(commands.Cog):
             result['success'] = True
             result['exp_gained'] = exp
             result['quest_completed'].append('daily_call')
-            result['messages'].append(f"📢 전화하자 퀘스트 완료! **+{exp} 다공**")
+            result['messages'].append(f"📢 전화하자 퀘스트 완료! **+{exp} 쪽**")
         except Exception as e:
             await self.log(f"전화하자 퀘스트 처리 중 오류: {e}")
             result['messages'].append("전화하자 퀘스트 처리 중 오류가 발생했습니다.")
@@ -269,7 +267,7 @@ class LevelChecker(commands.Cog):
             result['success'] = True
             result['exp_gained'] = exp
             result['quest_completed'].append('daily_friend')
-            result['messages'].append(f"📢 친구하자 퀘스트 완료! **+{exp} 다공**")
+            result['messages'].append(f"📢 친구하자 퀘스트 완료! **+{exp} 쪽**")
         except Exception as e:
             await self.log(f"친구하자 퀘스트 처리 중 오류: {e}")
             result['messages'].append("친구하자 퀘스트 처리 중 오류가 발생했습니다.")
@@ -294,7 +292,7 @@ class LevelChecker(commands.Cog):
             result['success'] = True
             result['exp_gained'] = daily_exp
             result['quest_completed'].append('daily_diary')
-            result['messages'].append(f"📝 일지 수행 완료! **+{daily_exp} 다공**")
+            result['messages'].append(f"📝 일지 기록 완료! **+{daily_exp} 쪽**")
             
             # 주간 다방일지 마일스톤 직접 확인
             current_count = await self.data_manager.get_quest_count(user_id, 'daily', 'diary', 'week')
@@ -307,7 +305,7 @@ class LevelChecker(commands.Cog):
                     await self.data_manager.add_exp(user_id, bonus_exp_4, 'weekly', 'diary_4')
                     result['exp_gained'] += bonus_exp_4
                     result['quest_completed'].append('weekly_diary_4')
-                    result['messages'].append(f"🏆 주간 일지 4회 달성! **+{bonus_exp_4} 다공**")
+                    result['messages'].append(f"🏆 주간 일지 4회 달성! **+{bonus_exp_4} 쪽**")
             
             # 7회 달성 확인
             elif current_count == 7:
@@ -318,7 +316,7 @@ class LevelChecker(commands.Cog):
                     await self.data_manager.add_exp(user_id, bonus_exp_4, 'weekly', 'diary_4')
                     result['exp_gained'] += bonus_exp_4
                     result['quest_completed'].append('weekly_diary_4')
-                    result['messages'].append(f"🏆 주간 일지 4회 달성! **+{bonus_exp_4} 다공**")
+                    result['messages'].append(f"🏆 주간 일지 4회 달성! **+{bonus_exp_4} 쪽**")
                 
                 # 7회 보상 지급
                 milestone_7_count = await self.data_manager.get_quest_count(user_id, 'weekly', 'diary_7', 'week')
@@ -327,7 +325,7 @@ class LevelChecker(commands.Cog):
                     await self.data_manager.add_exp(user_id, bonus_exp_7, 'weekly', 'diary_7')
                     result['exp_gained'] += bonus_exp_7
                     result['quest_completed'].append('weekly_diary_7')
-                    result['messages'].append(f"🏆 주간 일지 7회 달성! **+{bonus_exp_7} 다공**")
+                    result['messages'].append(f"🏆 주간 일지 7회 달성! **+{bonus_exp_7} 쪽**")
             
         except Exception as e:
             await self.log(f"다방일지 처리 중 오류 발생: {e}")
@@ -368,7 +366,7 @@ class LevelChecker(commands.Cog):
                 result['success'] = True
                 result['exp_gained'] = exp
                 result['quest_completed'].append('weekly_board_participate_3')
-                result['messages'].append(f"📝 주간 게시판 3회 작성 달성! **+{exp} 다공**")
+                result['messages'].append(f"📝 주간 게시판 3회 작성 달성! **+{exp} 쪽**")
                 # 공통 후처리(메시지, 승급 등)
                 return await self._finalize_quest_result(user_id, result)
         except Exception as e:
@@ -404,7 +402,7 @@ class LevelChecker(commands.Cog):
             result['success'] = True
             result['exp_gained'] = exp
             result['quest_completed'].append('daily_voice_30min')
-            result['messages'].append(f"🔊 음성방 30분 수행 완료! **+{exp} 다공**")
+            result['messages'].append(f"🔊 음성방 30분 기록 완료! **+{exp} 쪽**")
         except Exception as e:
             await self.log(f"음성 30분 퀘스트 처리 중 오류: {e}")
             result['messages'].append("음성 30분 퀘스트 처리 중 오류가 발생했습니다.")
@@ -412,8 +410,8 @@ class LevelChecker(commands.Cog):
         
     async def process_voice_weekly(self, user_id: int, hour: int) -> dict:
         """
-        음성방 주간 5/10/20시간 퀘스트 처리 (중복 지급 방지)
-        hour: 5, 10, 20 중 하나
+        음성방 주간 10/20/50시간 퀘스트 처리 (중복 지급 방지)
+        hour: 10, 20, 50 중 하나
         """
         result = {
             'success': False,
@@ -421,7 +419,7 @@ class LevelChecker(commands.Cog):
             'messages': [],
             'quest_completed': []
         }
-        quest_map = {5: 'voice_5h', 10: 'voice_10h', 20: 'voice_20h'}
+        quest_map = {10: 'voice_10h', 20: 'voice_20h', 50: 'voice_50h'}
         if hour not in quest_map:
             return result
         quest_subtype = quest_map[hour]
@@ -442,7 +440,7 @@ class LevelChecker(commands.Cog):
             result['success'] = True
             result['exp_gained'] = exp
             result['quest_completed'].append(f'weekly_{quest_subtype}')
-            result['messages'].append(f"🏆 음성방 {hour}시간(주간) 수행 완료! **+{exp} 다공**")
+            result['messages'].append(f"🏆 음성방 {hour}시간(주간) 기록 완료! **+{exp} 쪽**")
         except Exception as e:
             await self.log(f"음성 {hour}시간 퀘스트 처리 중 오류: {e}")
             result['messages'].append(f"음성 {hour}시간 퀘스트 처리 중 오류가 발생했습니다.")
@@ -483,7 +481,7 @@ class LevelChecker(commands.Cog):
                 result['success'] = True
                 result['exp_gained'] = exp
                 result['quest_completed'].append('weekly_recommend_3')
-                result['messages'].append(f"🌱 주간 추천 3회 달성! **+{exp} 다공**")
+                result['messages'].append(f"🌱 주간 추천 3회 달성! **+{exp} 쪽**")
                 # 공통 후처리(메시지, 승급 등)
                 return await self._finalize_quest_result(user_id, result)
         except Exception as e:
@@ -532,7 +530,7 @@ class LevelChecker(commands.Cog):
                 result['success'] = True
                 result['exp_gained'] = exp
                 result['quest_completed'].append(quest_type)
-                result['messages'].append(f"✨ {quest_type} 주간 퀘스트 완료! **+{exp} 다공**")
+                result['messages'].append(f"✨ {quest_type} 주간 퀘스트 완료! **+{exp} 쪽**")
                 return await self._finalize_quest_result(user_id, result)
             else:
                 # 그 외 weekly는 강제 완료 불가
@@ -560,7 +558,7 @@ class LevelChecker(commands.Cog):
             result['success'] = True
             result['exp_gained'] = exp
             result['quest_completed'].append(quest_type)
-            result['messages'].append(f"✨ {quest_type} 일회성 퀘스트 완료! **+{exp} 다공**")
+            result['messages'].append(f"✨ {quest_type} 일회성 퀘스트 완료! **+{exp} 쪽**")
             return await self._finalize_quest_result(user_id, result)
         elif quest_type.startswith("rank_voice_") or quest_type.startswith("rank_chat_"):
             # 보이스/채팅 랭크 인증 보상 (ex: rank_voice_8_15)
@@ -598,7 +596,7 @@ class LevelChecker(commands.Cog):
                     result['exp_gained'] += exp_per_reward
                     result['quest_completed'].append(quest_key)
                     result['messages'].append(
-                        f"{'보이스' if rank_type == 'voice' else '채팅'} {level}레벨 달성 보상! **+{exp_per_reward} 다공**"
+                        f"{'보이스' if rank_type == 'voice' else '채팅'} {level}레벨 달성 보상! **+{exp_per_reward} 쪽**"
                     )
             if result['exp_gained'] > 0:
                 result['success'] = True
@@ -633,7 +631,7 @@ class LevelChecker(commands.Cog):
             result['success'] = True
             result['exp_gained'] = exp_per_reward
             result['quest_completed'].append(quest_type)
-            result['messages'].append(f"랭크 {level}레벨 달성 보상! **+{exp_per_reward} 다공**")
+            result['messages'].append(f"랭크 {level}레벨 달성 보상! **+{exp_per_reward} 쪽**")
             return await self._finalize_quest_result(user_id, result)
         else:
             return {
