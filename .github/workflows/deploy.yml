@@ -20,7 +20,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            cd /home/hamyo/hamyo
+            cd /home/ladinz/hamyo
             git pull origin main
             sudo systemctl restart hamyo.service
 
