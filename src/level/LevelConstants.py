@@ -44,10 +44,7 @@ ROLE_THRESHOLDS = {
 # 역할 순서
 ROLE_ORDER = ['yeobaek', 'goyo', 'seoyu', 'seorim', 'seohyang']
 
-# 이전 역할을 유지해야 하는 경우 (new_role: [previous_roles])
-ROLE_KEEP_PREVIOUS = {
-    'seoyu': ['goyo']
-}
+
 
 # 역할 한글 표시명
 ROLE_DISPLAY = {

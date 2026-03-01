@@ -6,8 +6,7 @@ from src.level.LevelConstants import (
     MAIN_CHAT_CHANNEL_ID, QUEST_COMPLETION_CHANNEL_ID,
     ROLE_FALLBACK_COLORS, ROLE_UPGRADE_TEMPLATES,
     EMBED_QUEST_TITLE_EMOJI, EMBED_QUEST_TITLE_TRAIL,
-    EMBED_PAGE_EMOJI, EMBED_NEW_PAGE_EMOJI,
-    ROLE_KEEP_PREVIOUS
+    EMBED_PAGE_EMOJI, EMBED_NEW_PAGE_EMOJI
 )
 from typing import Optional, Dict, Any, List
 import logging
@@ -262,9 +261,9 @@ class LevelSystem(commands.Cog):
         규칙:
           1. yeobaek -> goyo: yeobaek 역할 제거 (기존 goyo 역할 추가)
           2. goyo -> seoyu: goyo 역할 유지, seoyu 역할 추가
-          3. seoyu -> seorim: seoyu 역할 제거, seorim 역할 추가
-          4. seorim -> seohyang: seorim 역할 제거, seohyang 역할 추가
-          - 이후 추가될 시, 3, 4번과 동일하게 작동(이전 역할 제거)
+          3. seoyu -> seorim: seoyu 역할 유지, seorim 역할 추가
+          4. seorim -> seohyang: seorim 역할 유지, seohyang 역할 추가
+          - 이후 추가될 시, 2, 3, 4번과 동일하게 작동(이전 역할 유지)
         """
         try:
             guild = await self._get_home_guild()
@@ -293,13 +292,11 @@ class LevelSystem(commands.Cog):
                     return False
 
             # 2. 이전 역할 제거 판별
-            # 기본 원칙: 이전 역할 제거
-            # 예외: ROLE_KEEP_PREVIOUS 설정에 정의된 경우는 유지
-            should_remove_previous = True
+            # 기본 원칙: 앞으로는 모든 역할을 유지 (단, 여백(yeobaek)만 제거)
+            should_remove_previous = False
             
-            keep_list = ROLE_KEEP_PREVIOUS.get(new_role_key, [])
-            if previous_role_key in keep_list:
-                should_remove_previous = False
+            if previous_role_key == 'yeobaek':
+                should_remove_previous = True
             
             if should_remove_previous and previous_role_key and previous_role_key in self.ROLE_IDS:
                 prev_role_id = self.ROLE_IDS.get(previous_role_key)
