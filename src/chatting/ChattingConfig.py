@@ -126,7 +126,7 @@ class ChattingConfig(commands.Cog):
             
             if channel:
                 channel_mentions.append(channel.mention)
-            else:
+            else: 
                 channel_mentions.append(f"삭제된 채널(ID: {channel_id})")
 
         if not channel_mentions:
