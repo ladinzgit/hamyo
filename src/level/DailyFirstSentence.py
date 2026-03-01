@@ -263,7 +263,7 @@ class DailyFirstSentence(commands.Cog):
         comment_formatted = "\n".join([f"> {line}" for line in lines])
         
         reply_msg = (
-            "> 💬 **하묘의 코멘트**\n"
+            "> <a:BM_moon_001:1378716907624202421> **하묘의 코멘트**\n"
             f"{comment_formatted}\n"
             f"> -# ◟. 집필 완료 ! `+{exp} 쪽`"
         )
