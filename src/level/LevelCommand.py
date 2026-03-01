@@ -87,54 +87,184 @@ class LevelCommands(commands.Cog):
         self._tracked_voice_cache_at = now_ts
         return ids
     
+    def _get_progress_info(self, total_exp: int, current_role_key: str) -> tuple:
+        """현재 역할에 따른 진행률, 다음 마일스톤 등 계산"""
+        role_thresholds = ROLE_THRESHOLDS
+        role_order = ROLE_ORDER
+        
+        current_idx = role_order.index(current_role_key) if current_role_key in role_order else 0
+        current_floor = role_thresholds.get(role_order[current_idx], 0)
+        next_idx = min(current_idx + 1, len(role_order) - 1)
+        next_key = role_order[next_idx]
+        next_floor = role_thresholds.get(next_key, current_floor)
+
+        if next_floor == current_floor:
+            percent = 100
+            need_to_next = 0
+        else:
+            gained_in_tier = max(0, total_exp - current_floor)
+            tier_span = max(1, next_floor - current_floor)
+            percent = int((gained_in_tier / tier_span) * 100)
+            need_to_next = max(0, next_floor - total_exp)
+
+        bar_len = 5
+        filled = min(bar_len, max(0, int(percent / (100 / bar_len))))
+        bar = "▫️" * filled + "◾️" * (bar_len - filled)
+        
+        return percent, need_to_next, bar
+
+    async def _get_quest_stats(self, user_id: int, tracked_channel_ids: set) -> dict:
+        """유저의 일일/주간 퀘스트, 음성 활동 정보를 집계하여 반환"""
+        level_checker = self.bot.get_cog("LevelChecker")
+        data_manager = getattr(self, "data_manager", None) or getattr(level_checker, "data_manager", None)
+        
+        async def _safe_get_quest(qtype, subtype, scope):
+            if hasattr(data_manager, "get_quest_count"):
+                return await data_manager.get_quest_count(user_id, qtype, subtype, scope)
+            return 0
+
+        stats = {}
+        # 일일 퀘스트
+        stats['att_daily'] = await _safe_get_quest('daily', 'attendance', 'day')
+        stats['diary_daily'] = await _safe_get_quest('daily', 'diary', 'day')
+        stats['call_daily'] = await _safe_get_quest('daily', 'call', 'day')
+        stats['friend_daily'] = await _safe_get_quest('daily', 'friend', 'day')
+        
+        # 주간 퀘스트
+        stats['att_week'] = await _safe_get_quest('daily', 'attendance', 'week')
+        stats['diary_week'] = await _safe_get_quest('daily', 'diary', 'week')
+        stats['recommend_week'] = await _safe_get_quest('weekly', 'recommend', 'week')
+        stats['board_week'] = await _safe_get_quest('weekly', 'board_participate', 'week')
+        stats['shop_week'] = await _safe_get_quest('weekly', 'shop_purchase', 'week')
+        
+        # 음성 활동
+        voice_sec_day = 0
+        voice_sec_week = 0
+        now = datetime.now(KST)
+        if hasattr(self.voice_data_manager, "get_user_times") and tracked_channel_ids:
+            day_result, _, _ = await self.voice_data_manager.get_user_times(
+                user_id = user_id, period='일간', base_date=now, channel_filter=list(tracked_channel_ids))
+            voice_sec_day = sum(day_result.values()) if day_result else 0
+            
+            week_result, _, _ = await self.voice_data_manager.get_user_times(
+                user_id = user_id, period='주간', base_date=now, channel_filter=list(tracked_channel_ids))
+            voice_sec_week = sum(week_result.values()) if week_result else 0
+            
+        stats['voice_sec_day'] = voice_sec_day
+        stats['voice_sec_week'] = voice_sec_week
+        stats['voice_min_daily'] = voice_sec_day // 60
+        stats['voice_min_week'] = voice_sec_week // 60
+        stats['voice_hour_week'] = stats['voice_min_week'] // 60
+        stats['voice_rem_min_week'] = stats['voice_min_week'] % 60
+        
+        # 주간 랭킹 / 획득
+        stats['weekly_total'] = await data_manager.get_user_period_exp(user_id, 'weekly')
+        stats['weekly_rank'] = await data_manager.get_user_period_rank(user_id, 'weekly')
+        
+        return stats
+
+    async def _build_myinfo_embed(self, ctx, member, user_data, ranks, stats, progress) -> discord.Embed:
+        """내정보 임베드 생성"""
+        total_exp = int(user_data.get("total_exp", 0)) if user_data else 0
+        current_role_key = user_data.get("current_role", "yeobaek") if user_data else "yeobaek"
+        
+        level_checker = self.bot.get_cog("LevelChecker")
+        role_obj = ctx.guild.get_role(ROLE_IDS.get(current_role_key, ROLE_IDS['yeobaek']))
+        current_role_mention = role_obj.mention if role_obj else ROLE_DISPLAY.get(current_role_key, current_role_key)
+        
+        percent, need_to_next, bar = progress
+        voice_lv, chat_lv = ranks
+        
+        next_voice_lv = ((voice_lv // 5) + 1) * 5 if voice_lv % 5 != 0 else voice_lv + 5
+        next_chat_lv = ((chat_lv // 5) + 1) * 5 if chat_lv % 5 != 0 else chat_lv + 5
+        
+        embed_color = await level_checker._get_role_color(current_role_key, ctx.guild) if hasattr(level_checker, "_get_role_color") else discord.Color.blue()
+        embed = discord.Embed(
+            title=f"🌙 、{extract_name(member.display_name)} 님의 집필 현황⠀",
+            color=embed_color
+        )
+        
+        embed.add_field(
+            name="🪵◝. 엮여가는 당신의 책갈피",
+            value=(
+                f"> {current_role_mention} ( {total_exp:,} 쪽 ) \n"
+                f"> ⠀{bar}: {percent:02d}%\n"
+                f"> -# ⠀◟. 다음 이야기가 펼쳐지기까지 {need_to_next:,} 쪽"
+            ),
+            inline=False
+        )
+        
+        embed.add_field(
+            name="⠀\n📜◝. 지난 발자취\n\n˚‧ 📔: 목소리와 활자의 깊이",
+            value=(
+                f"> 음성 : {voice_lv} Lv  \n"
+                f"> 채팅 : {chat_lv} Lv \n"
+                f"> -# ◟. 한 단계 더 깊어지기까지 보이스 {next_voice_lv - voice_lv} Lv / 채팅 {next_chat_lv - chat_lv} Lv "
+            ),
+            inline=False
+        )
+        
+        ox = lambda done: ":o:" if done else ":x:"
+        
+        embed.add_field(
+            name="˚‧ 📆 : 오늘 그려낸 구절들",
+            value=(
+                f"> 출석체크 : {ox(stats['att_daily'] >= 1)} \n"
+                f"> 다방일지 : {ox(stats['diary_daily'] >= 1)} \n"
+                f"> 통화하자 : {ox(stats['call_daily'] >= 1)}\n"
+                f"> 친구하자 : {ox(stats['friend_daily'] >= 1)}\n"
+                f"> 음성활동 : {stats['voice_min_daily']}분 / 30분 ({ox(stats['voice_min_daily'] >= 30)})"
+            ),
+            inline=False
+        )
+        
+        next_step = "모든 퀘스트를 달성했습니다!"
+        for threshold_sec, threshold_label in VOICE_WEEKLY_THRESHOLDS:
+            if stats['voice_sec_week'] < threshold_sec:
+                next_step = threshold_label
+                break
+                
+        weekly_lines = [
+            f"> 출석체크 : {stats['att_week']} / 7",
+            f"> 비몽추천 : {stats['recommend_week']} / 3",
+            f"> 다방일지 : {stats['diary_week']} / 7",
+            f"> 음성활동 : {stats['voice_hour_week']}시간 {stats['voice_rem_min_week']}분 / {next_step}",
+            f"> 상점구매 : {stats['shop_week']} / 1",
+            f"> 게시판이용 : {stats['board_week']} / 3"
+        ]
+        
+        embed.add_field(
+            name="˚‧ 🗓️ : 이번 주 엮어낸 페이지",
+            value="\n".join(weekly_lines) + f"\n\n이번 주 쓰인 이야기: **{stats['weekly_total']:,} 쪽** • 마음의 온기 **{stats['weekly_rank']}위** ",
+            inline=False
+        )
+        
+        embed.set_thumbnail(url=member.display_avatar.url)
+        embed.set_footer(text=f"요청자: {ctx.author}", icon_url=ctx.author.display_avatar.url)
+        embed.timestamp = ctx.message.created_at
+        
+        return embed
+
     @commands.command(name='내정보', aliases=['myinfo', '정보'])
     @in_myinfo_allowed_channel()
     async def my_info(self, ctx, member: discord.Member = None):
         """내 경험치 및 퀘스트 정보 조회 (또는 @유저로 타인 조회)"""
         try:
-            # ===== my_info 내용 시작: 여기부터 기존 임베드 구성 부분을 통째로 교체 =====
             member = member or ctx.author
             user_id = member.id
 
-            # 0) 도우미 핸들/데이터 접근
-            level_checker = ctx.bot.get_cog("LevelChecker")  # quest_exp, role_thresholds 참조
+            level_checker = ctx.bot.get_cog("LevelChecker")
             data_manager = getattr(self, "data_manager", None) or getattr(level_checker, "data_manager", None)
             if data_manager is None or level_checker is None:
                 return await ctx.reply("설정이 아직 준비되지 않았어요. 잠시 후 다시 시도해 주세요.")
 
-            # 1) 기본 유저 데이터 (총 다공/현재 경지)
             user_data = await data_manager.get_user_exp(user_id) if hasattr(data_manager, "get_user_exp") else None
             total_exp = int(user_data.get("total_exp", 0)) if user_data else 0
             current_role_key = user_data.get("current_role", "yeobaek") if user_data else "yeobaek"
 
-            # 2) 역할(경지) 임계값/진행률 계산 (LevelChecker.role_thresholds 기반)
-            role_thresholds = ROLE_THRESHOLDS
-            role_order = ROLE_ORDER
-            role_display = ROLE_DISPLAY
+            progress = self._get_progress_info(total_exp, current_role_key)
 
-            role_obj = ctx.guild.get_role(ROLE_IDS.get(current_role_key, ROLE_IDS['yeobaek']))
-            current_role_mention = role_obj.mention if role_obj else role_display.get(current_role_key, current_role_key)
-
-            # 현재/다음 경지 경계 파악
-            current_idx = role_order.index(current_role_key) if current_role_key in role_order else 0
-            current_floor = role_thresholds.get(role_order[current_idx], 0)
-            next_idx = min(current_idx + 1, len(role_order) - 1)
-            next_key = role_order[next_idx]
-            next_floor = role_thresholds.get(next_key, current_floor)
-
-            # 최상위 경지면 진행률 100%로 고정
-            if next_floor == current_floor:
-                percent = 100
-                need_to_next = 0
-            else:
-                gained_in_tier = max(0, total_exp - current_floor)
-                tier_span = max(1, next_floor - current_floor)
-                percent = int((gained_in_tier / tier_span) * 100)
-                need_to_next = max(0, next_floor - total_exp)
-
-            # 3) 인증 랭크(보이스/채팅) — 저장소에 없으면 0 처리
-            voice_lv = 0
-            chat_lv = 0
+            voice_lv, chat_lv = 0, 0
             if hasattr(data_manager, "get_all_certified_ranks"):
                 try:
                     cert = await data_manager.get_all_certified_ranks(user_id)
@@ -142,149 +272,20 @@ class LevelCommands(commands.Cog):
                     chat_lv = int(cert.get("chat", 0))
                 except Exception:
                     pass
-            
-            next_voice_lv = ((voice_lv // 5) + 1) * 5 if voice_lv % 5 != 0 else voice_lv + 5
-            next_chat_lv = ((chat_lv // 5) + 1) * 5 if chat_lv % 5 != 0 else chat_lv + 5
+            ranks = (voice_lv, chat_lv)
 
-            # 4) 일일/주간 집계 값 가져오기
-            # 일일: 출석/일지/삐삐(카운트), 음성 분
-            def _safe_get_quest(user, qtype, subtype, scope):
-                if hasattr(data_manager, "get_quest_count"):
-                    return data_manager.get_quest_count(user, qtype, subtype, scope)
-                return None
-
-            att_daily = await _safe_get_quest(user_id, 'daily', 'attendance', 'day') or 0
-            diary_daily = await _safe_get_quest(user_id, 'daily', 'diary', 'day') or 0
-            call_daily = await _safe_get_quest(user_id, 'daily', 'call', 'day') or 0
-            friend_daily = await _safe_get_quest(user_id, 'daily', 'friend', 'day') or 0
-            
-            # 추적 채널 목록 확보 (캐시가 있으면 사용, 없으면 유틸 함수로 확장)
             try:
                 tracked_channel_ids = set(await self._get_tracked_voice_ids_cached())
             except AttributeError:
-                # 캐시 헬퍼가 없는 경우 폴백
                 from src.core.voice_utils import get_filtered_tracked_channels
                 tracked_channel_ids = set(await get_filtered_tracked_channels(self.bot, self.data_manager, "voice"))
-                
+
             if not tracked_channel_ids:
                 return
 
-            # 음성 데이터는 self.voice_data_manager.get_user_times로 가져옴
-            voice_sec_day = 0
-            voice_sec_week = 0
-            now = datetime.now(KST)
+            stats = await self._get_quest_stats(user_id, tracked_channel_ids)
+            embed = await self._build_myinfo_embed(ctx, member, user_data, ranks, stats, progress)
             
-            if hasattr(self.voice_data_manager, "get_user_times"):
-                # 일간
-                day_result, _, _ = await self.voice_data_manager.get_user_times(
-                    user_id = user_id, 
-                    period='일간',
-                    base_date=now,
-                    channel_filter=list(tracked_channel_ids))
-                voice_sec_day = sum(day_result.values()) if day_result else 0
-                # 주간
-                week_result, _, _ = await self.voice_data_manager.get_user_times(
-                    user_id = user_id, 
-                    period='주간',
-                    base_date=now,
-                    channel_filter=list(tracked_channel_ids))
-                voice_sec_week = sum(week_result.values()) if week_result else 0
-                
-            next_step = ""
-            # VOICE_WEEKLY_THRESHOLDS 기준으로 다음 단계 판단
-            found = False
-            for threshold_sec, threshold_label in VOICE_WEEKLY_THRESHOLDS:
-                if voice_sec_week < threshold_sec:
-                    next_step = threshold_label
-                    found = True
-                    break
-            if not found:
-                next_step = "모든 퀘스트를 달성했습니다!"
-
-            voice_min_daily = voice_sec_day // 60
-            voice_min_week = voice_sec_week // 60
-            voice_hour_week = voice_min_week // 60
-            voice_rem_min_week = voice_min_week % 60
-
-            # 주간: 출석/일지/추천/게시판/상점 카운트
-            att_week = await _safe_get_quest(user_id, 'daily', 'attendance', 'week') or 0
-            diary_week = await _safe_get_quest(user_id, 'daily', 'diary', 'week') or 0
-            recommend_week = await _safe_get_quest(user_id, 'weekly', 'recommend', 'week') or 0
-            board_week = await _safe_get_quest(user_id, 'weekly', 'board_participate', 'week') or 0
-            shop_week = await _safe_get_quest(user_id, 'weekly', 'shop_purchase', 'week') or 0
-
-            # 5) 아이콘 유틸
-            def ox(done: bool) -> str:
-                return ":o:" if done else ":x:"
-
-            # 7) 이번 주 총 획득 다공 및 순위
-            weekly_total = await self.data_manager.get_user_period_exp(user_id, 'weekly')
-            weekly_rank = await self.data_manager.get_user_period_rank(user_id, 'weekly')
-
-            # 8) 임베드 구성
-            embed = discord.Embed(
-                title=f"🌙 、{extract_name(member.display_name)} 님의 집필 현황⠀",
-                color=await level_checker._get_role_color(current_role_key, ctx.guild) if hasattr(level_checker, "_get_role_color") else discord.Color.blue()
-            )
-
-            # 경지 진행 바 (5칸)
-            bar_len = 5
-            filled = min(bar_len, max(0, int(percent / (100 / bar_len))))
-            bar = "▫️" * filled + "◾️" * (bar_len - filled)
-
-            embed.add_field(
-                name="🪵◝. 집필 단계 확인",
-                value=(
-                    f"> {current_role_mention} ( {total_exp:,} 쪽 ) \n"
-                    f"> ⠀{bar}: {percent:02d}%\n"
-                    f"> -# ⠀◟. 다음 단계까지 {need_to_next:,} 쪽 필요"
-                ),
-                inline=False
-            )
-
-            # 인증된 랭크
-            embed.add_field(
-                name="⠀\n📜◝. 퀘스트 현황\n\n˚‧ 📔: 인증된 랭크",
-                value=(
-                    f"> 음성 : {voice_lv} Lv  \n"
-                    f"> 채팅 : {chat_lv} Lv \n"
-                    f"> -# ◟. 다음 인증까지 보이스 {next_voice_lv - voice_lv} Lv / 채팅 {next_chat_lv - chat_lv} Lv "
-                ),
-                inline=False
-            )
-
-            # 일일 퀘스트
-            embed.add_field(
-                name="˚‧ 📆 : 일일 퀘스트",
-                value=(
-                    f"> 출석체크 : {ox(att_daily >= 1)} \n"
-                    f"> 다방일지 : {ox(diary_daily >= 1)} \n"
-                    f"> 통화하자 : {ox(call_daily >= 1)}\n"
-                    f"> 친구하자 : {ox(friend_daily >= 1)}\n"
-                    f"> 음성활동 : {voice_min_daily}분 / 30분 ({ox(voice_min_daily >= 30)})"
-                ),
-                inline=False
-            )
-
-            # 주간 퀘스트 (🌸/🌿)
-            weekly_lines = []
-            weekly_lines.append(f"> 출석체크 : {att_week} / 7")
-            weekly_lines.append(f"> 비몽추천 : {recommend_week} / 3")
-            weekly_lines.append(f"> 다방일지 : {diary_week} / 7")
-            weekly_lines.append(f"> 음성활동 : {voice_hour_week}시간 {voice_rem_min_week}분 / {next_step}")
-            weekly_lines.append(f"> 상점구매 : {shop_week} / 1")
-            weekly_lines.append(f"> 게시판이용 : {board_week} / 3")
-
-            embed.add_field(
-                name="˚‧ 🗓️ : 주간 퀘스트",
-                value="\n".join(weekly_lines) + f"\n\n이번 주 총 획득 : **{weekly_total:,} 쪽** • 주간 **{weekly_rank}위** ",
-                inline=False
-            )
-
-            embed.set_thumbnail(url=member.display_avatar.url)
-            embed.set_footer(text=f"요청자: {ctx.author}", icon_url=ctx.author.display_avatar.url)
-            embed.timestamp = ctx.message.created_at
-
             await ctx.reply(embed=embed)
         except Exception as e:
             await ctx.reply("명령어 처리 중 오류가 발생했습니다. 관리자에게 문의해 주세요.")

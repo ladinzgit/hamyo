@@ -6,7 +6,8 @@ from src.level.LevelConstants import (
     MAIN_CHAT_CHANNEL_ID, QUEST_COMPLETION_CHANNEL_ID,
     ROLE_FALLBACK_COLORS, ROLE_UPGRADE_TEMPLATES,
     EMBED_QUEST_TITLE_EMOJI, EMBED_QUEST_TITLE_TRAIL,
-    EMBED_PAGE_EMOJI, EMBED_NEW_PAGE_EMOJI
+    EMBED_PAGE_EMOJI, EMBED_NEW_PAGE_EMOJI,
+    ROLE_KEEP_PREVIOUS
 )
 from typing import Optional, Dict, Any, List
 import logging
@@ -284,10 +285,11 @@ class LevelSystem(commands.Cog):
 
             # 2. 이전 역할 제거 판별
             # 기본 원칙: 이전 역할 제거
-            # 예외: goyo -> seoyu 갈 때는 goyo 유지
+            # 예외: ROLE_KEEP_PREVIOUS 설정에 정의된 경우는 유지
             should_remove_previous = True
             
-            if previous_role_key == 'goyo' and new_role_key == 'seoyu':
+            keep_list = ROLE_KEEP_PREVIOUS.get(new_role_key, [])
+            if previous_role_key in keep_list:
                 should_remove_previous = False
             
             if should_remove_previous and previous_role_key and previous_role_key in self.ROLE_IDS:

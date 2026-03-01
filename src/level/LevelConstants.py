@@ -42,6 +42,11 @@ ROLE_THRESHOLDS = {
 # 역할 순서
 ROLE_ORDER = ['yeobaek', 'goyo', 'seoyu', 'seorim', 'seohyang']
 
+# 이전 역할을 유지해야 하는 경우 (new_role: [previous_roles])
+ROLE_KEEP_PREVIOUS = {
+    'seoyu': ['goyo']
+}
+
 # 역할 한글 표시명
 ROLE_DISPLAY = {
     'yeobaek': '여백',
@@ -222,9 +227,9 @@ QUEST_DESCRIPTIONS = {
 }
 
 QUEST_CATEGORY_NAMES = {
-    'daily': '📅 일일 퀘스트',
-    'weekly': '📊 주간 퀘스트',
-    'one_time': '✨ 일회성 퀘스트'
+    'daily': '📅 매일 스며드는 잉크',
+    'weekly': '📊 일주일을 엮은 책장',
+    'one_time': '✨ 단 한 번 피어나는 구절'
 }
 
 # ===========================================
