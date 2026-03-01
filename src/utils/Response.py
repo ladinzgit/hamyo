@@ -74,7 +74,7 @@ class Response(commands.Cog):
         user_pattern = r"<@(\d+)>"
         user_matches = re.findall(user_pattern, message.content)
 
-        if "느긋한 시간을 보내시길 바랍니다" in message.content and user_matches:
+        if "꿈과 현실 사이, 책내음이 나는 곳" in message.content and user_matches:
             mentioned_users = []
             
             # 모든 멘션된 유저를 찾아서 리스트에 추가
