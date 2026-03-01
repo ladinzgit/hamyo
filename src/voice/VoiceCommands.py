@@ -70,8 +70,10 @@ class TimeSummaryView(discord.ui.View):
 
     def render_embed(self) -> discord.Embed:
         def extract_name(text: str) -> str:
-            match = re.search(r"([가-힣A-Za-z0-9_]+)$", text or "")
-            return match.group(1) if match else text
+            if not text: return ""
+            name = re.sub(r"^[《『][^》』]+[》』]\s*", "", text)
+            name = re.sub(r"^[&!]\s*", "", name)
+            return name.strip() or text
 
         display_label = extract_name(self.user.display_name)
         title = f"<:BM_k_003:1399387520135069770>､ {display_label}님의 음성 기록"

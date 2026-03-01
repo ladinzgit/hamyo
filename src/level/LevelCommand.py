@@ -19,8 +19,10 @@ from src.core.admin_utils import GUILD_IDS
 
     
 def extract_name(text: str) -> str:
-    match = re.search(r"([가-힣A-Za-z0-9_]+)$", text or "")
-    return match.group(1) if match else text
+    if not text: return ""
+    name = re.sub(r"^[《『][^》』]+[》』]\s*", "", text)
+    name = re.sub(r"^[&!]\s*", "", name)
+    return name.strip() or text
     
 def _load_levelcfg():
     if not os.path.exists(CONFIG_PATH):

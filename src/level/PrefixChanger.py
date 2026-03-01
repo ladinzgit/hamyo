@@ -11,10 +11,9 @@ CONFIG_PATH = "config/prefix_config.json"
 
 def extract_name(text: str) -> Optional[str]:
     """
-    닉네임에서 칭호(『 ... 』) 부분을 추출합니다.
-    칭호를 찾으면 칭호 내용을 반환하고, 없으면 None을 반환합니다.
+    닉네임에서 칭호(《 ... 》 또는 『 ... 』) 부분을 추출합니다.
     """
-    match = re.search(r"『\s*([^』]+)\s*』", text or "")
+    match = re.search(r"[《『]\s*([^》』]+)\s*[》』]", text or "")
     return match.group(1).strip() if match else None
 
 class PrefixChanger(commands.Cog):
@@ -62,16 +61,15 @@ class PrefixChanger(commands.Cog):
 
     def _get_pure_name(self, display_name: str) -> str:
         """
-        닉네임에서 칭호(『 ... 』)나 관리자 접두어(& )를 제거한 순수 이름을 추출합니다.
+        닉네임에서 칭호나 접두어를 제거한 순수 이름을 추출합니다.
         """
-        # 정규식으로 『 ... 』 제거 (공백 포함)
-        name = re.sub(r"『[^』]+』", "", display_name).strip()
+        # 1. 칭호 《 ... 》 또는 『 ... 』 제거
+        name = re.sub(r"^[《『][^》』]+[》』]\s*", "", display_name)
         
-        # 관리자/예외 접두어 & 제거
-        if name.startswith("&"):
-            name = name.lstrip("&").strip()
+        # 2. 접두어 &, ! 등 제거
+        name = re.sub(r"^[&!]\s*", "", name)
             
-        return name
+        return name.strip() or display_name
 
     @commands.Cog.listener()
     async def on_member_update(self, before: discord.Member, after: discord.Member):
@@ -107,10 +105,10 @@ class PrefixChanger(commands.Cog):
         # 4단계: 닉네임 업데이트
         if current_title != target_title:
             pure_name = self._get_pure_name(after.display_name)
-            new_nick = f"『 {target_title} 』 {pure_name}"
+            new_nick = f"《 {target_title} 》 {pure_name}"
             
             try:
-                await after.edit(nick=new_nick, reason="칭호 규칙 자동 변경")
+                await after.edit(nick=new_nick[:32], reason="칭호 규칙 자동 변경")
                 msg = f"📝 {after}({after.id}) 닉네임 변경: {after.display_name} -> {new_nick}"
                 print(msg)
                 await self.log(msg)
@@ -143,8 +141,8 @@ class PrefixChanger(commands.Cog):
             "role_name": role.name
         })
         self._save_config()
-        await ctx.reply(f"✅ 규칙 추가됨: {role.mention} -> 『 {title} 』 (우선순위: {len(self.rules)})")
-        await self.log(f"{ctx.author}({ctx.author.id})가 칭호 규칙 추가: {role.name}({role.id}) -> 『 {title} 』 [우선순위: {len(self.rules)}]")
+        await ctx.reply(f"✅ 규칙 추가됨: {role.mention} -> 《 {title} 》 (우선순위: {len(self.rules)})")
+        await self.log(f"{ctx.author}({ctx.author.id})가 칭호 규칙 추가: {role.name}({role.id}) -> 《 {title} 》 [우선순위: {len(self.rules)}]")
 
     @prefix_rules.command(name="예외추가")
     @is_guild_admin()
@@ -176,7 +174,7 @@ class PrefixChanger(commands.Cog):
         if self.rules:
             for i, rule in enumerate(self.rules, 1):
                 role_mention = f"<@&{rule['role_id']}>"
-                rules_text += f"{i}. {role_mention} → 『 {rule['title']} 』\n"
+                rules_text += f"{i}. {role_mention} → 《 {rule['title']} 》\n"
         else:
             rules_text = "등록된 규칙이 없습니다."
         
