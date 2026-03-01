@@ -7,8 +7,9 @@ from datetime import datetime
 import pytz
 import aiosqlite
 from openai import AsyncOpenAI
+import random
 
-from src.level.LevelConstants import FIRST_SENTENCE_ROLE_ID, FIRST_SENTENCE_FORUM_ID, QUEST_EXP
+from src.level.LevelConstants import FIRST_SENTENCE_ROLE_ID, FIRST_SENTENCE_FORUM_ID, QUEST_EXP, REACTION_EMOJI_POOL
 from src.core.admin_utils import is_guild_admin
 
 KST = pytz.timezone("Asia/Seoul")
@@ -241,6 +242,10 @@ class DailyFirstSentence(commands.Cog):
                 f"> -# ◟. 집필 완료 ! `+{exp} 쪽`"
             )
             await message.reply(reply_msg, mention_author=True)
+            try:
+                await message.add_reaction(random.choice(REACTION_EMOJI_POOL))
+            except Exception as e:
+                await self.log(f"반응 추가 중 오류: {e}")
             return
 
         try:
@@ -268,6 +273,10 @@ class DailyFirstSentence(commands.Cog):
             f"> -# ◟. 집필 완료 ! `+{exp} 쪽`"
         )
         await message.reply(reply_msg, mention_author=True)
+        try:
+            await message.add_reaction(random.choice(REACTION_EMOJI_POOL))
+        except Exception as e:
+            await self.log(f"반응 추가 중 오류: {e}")
 
 
     @commands.command(name="첫문장테스트")
