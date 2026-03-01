@@ -97,7 +97,7 @@ QUEST_EXP = {
         'bbibbi': 5,
         'call': 3,
         'friend': 3,
-        'first_sentence': 50,
+        'first_sentence': 25,
         'story_piece': 20
     },
     'weekly': {

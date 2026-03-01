@@ -141,13 +141,13 @@ class DailyFirstSentence(commands.Cog):
         
         # 멘션 역할 가져오기 (문자열로 직접 넣어도 됨)
         content = (
-            f"# <:BM_a_000:1399387512945774672> 하묘가 건네는 첫 문장 ､ {date_str} <a:slg12:1378567364844453938>\n"
-            "-# *<a:Moon4:1378710431664836615>_오늘의 빈칸을 채워주세요*\n"
+            f"# <:BM_a_000:1477525641623502950> 하묘가 건네는 첫 문장 ､ {date_str} <a:slg12:1378567364844453938>\n"
+            "-# *<a:BM_moon_001:1378716907624202421>_오늘의 빈칸을 채워주세요*\n"
             "⠀\n"
             ". ᘏ▸◂ᘏ \n"
             "꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱ 다들 오늘 하루도 따뜻하게 보냈냐묘 ?\n\n"
             f"> **Q. {question}**\n\n"
-            "-# ◟. 이 스레드에 답변을 남겨주시면, 하묘가 짧은 답장과 함께 `50 쪽`을 드려요 !\n"
+            "-# ◟. 이 스레드에 답변을 남겨주시면, 하묘가 짧은 답장과 함께 `25 쪽`을 드려요 !\n"
             f"<@&{FIRST_SENTENCE_ROLE_ID}>"
         )
         
@@ -222,7 +222,7 @@ class DailyFirstSentence(commands.Cog):
             await self.log(f"❌ 유저 답변 DB 기록 오류: {e}")
 
         # 보상 지급
-        exp = QUEST_EXP['daily'].get('first_sentence', 50)
+        exp = QUEST_EXP['daily'].get('first_sentence', 25)
         await level_checker.data_manager.add_exp(user_id, exp, 'daily', 'first_sentence')
         result = {
             'success': True,
@@ -236,7 +236,7 @@ class DailyFirstSentence(commands.Cog):
         self._ensure_client()
         if not self.client:
             reply_msg = (
-                "> 💬 **하묘의 코멘트**\n"
+                "> <a:BM_moon_001:1378716907624202421> **하묘의 코멘트**\n"
                 "> 당신의 이야기를 들려줘서 고맙다묘!\n"
                 f"> -# ◟. 집필 완료 ! `+{exp} 쪽`"
             )
