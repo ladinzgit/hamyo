@@ -9,6 +9,8 @@ from discord.ext import commands
 import aiohttp
 import traceback
 import io
+import os
+import json
 
 from src.rankcard.RankCardService import RankCardService
 from src.rankcard.RankCardGenerator import RankCardGenerator
@@ -21,6 +23,25 @@ class RankCardCog(commands.Cog):
         self.bot = bot
         self.service = RankCardService(bot)
         self.generator = RankCardGenerator()
+        self.config_path = "config/rank_config.json"
+        self.allowed_channels = self._load_config()
+
+    def _load_config(self) -> list:
+        if os.path.exists(self.config_path):
+            try:
+                with open(self.config_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    return data.get("allowed_channels", [])
+            except Exception as e:
+                print(f"[RankCardCog] 설정 파일 로드 실패: {e}")
+        return []
+
+    def _save_config(self):
+        try:
+            with open(self.config_path, "w", encoding="utf-8") as f:
+                json.dump({"allowed_channels": self.allowed_channels}, f, indent=4)
+        except Exception as e:
+            print(f"[RankCardCog] 설정 파일 저장 실패: {e}")
 
     async def cog_load(self):
         await self.log("RankCardCog 로드됨")
@@ -52,6 +73,15 @@ class RankCardCog(commands.Cog):
         4. 결과 전송
         """
         loading_msg = None
+
+        # 채널 검사: 허용된 채널 목록이 있고 현재 채널이 그곳에 포함되지 않으면 실행 제한
+        if self.allowed_channels and ctx_or_interaction.channel.id not in self.allowed_channels:
+            error_msg = "❌ 이 채널에서는 랭크 카드를 확인할 수 없습니다."
+            if is_slash:
+                await ctx_or_interaction.response.send_message(error_msg, ephemeral=True)
+            else:
+                await ctx_or_interaction.send(error_msg, delete_after=5)
+            return
 
         try:
             # 로딩 메시지
@@ -152,6 +182,67 @@ class RankCardCog(commands.Cog):
         """랭크 카드를 확인하는 슬래시 명령어"""
         user = user or interaction.user
         await self._generate_and_send(interaction, user, is_slash=True)
+
+    # ── 설정 명령어: *랭크설정 ──
+    @commands.group(name="랭크설정", invoke_without_command=True)
+    @commands.has_permissions(administrator=True)
+    async def rank_config(self, ctx: commands.Context):
+        """랭크 명령어 사용 채널을 설정합니다. (관리자 전용)
+        명령어: *랭크설정 [채널추가|채널제거|채널목록]
+        """
+        await ctx.send("명령어를 올바르게 입력해주세요: `*랭크설정 채널추가`, `*랭크설정 채널제거`, `*랭크설정 채널목록`")
+
+    @rank_config.command(name="채널추가")
+    @commands.has_permissions(administrator=True)
+    async def config_add_channel(self, ctx: commands.Context, channel: discord.TextChannel = None):
+        """특정 채널을 랭크 명령어 허용 채널로 추가합니다."""
+        channel = channel or ctx.channel
+        if channel.id in self.allowed_channels:
+            await ctx.send(f"⚠️ 이미 허용된 채널입니다: {channel.mention}")
+            return
+
+        self.allowed_channels.append(channel.id)
+        self._save_config()
+        await ctx.send(f"✅ 랭크 명령어 허용 채널로 추가되었습니다: {channel.mention}")
+        await self.log(f"랭크 명령어 허용 채널 추가됨: {channel.name} ({channel.id}) by {ctx.author}")
+
+    @rank_config.command(name="채널제거")
+    @commands.has_permissions(administrator=True)
+    async def config_remove_channel(self, ctx: commands.Context, channel: discord.TextChannel = None):
+        """특정 채널을 랭크 명령어 허용 채널에서 제거합니다."""
+        channel = channel or ctx.channel
+        if channel.id not in self.allowed_channels:
+            await ctx.send(f"⚠️ 허용 목록에 없는 채널입니다: {channel.mention}")
+            return
+
+        self.allowed_channels.remove(channel.id)
+        self._save_config()
+        await ctx.send(f"✅ 랭크 명령어 허용 채널에서 제거되었습니다: {channel.mention}")
+        await self.log(f"랭크 명령어 허용 채널 제거됨: {channel.name} ({channel.id}) by {ctx.author}")
+
+    @rank_config.command(name="채널목록")
+    @commands.has_permissions(administrator=True)
+    async def config_list_channels(self, ctx: commands.Context):
+        """현재 랭크 명령어가 허용된 채널 목록을 보여줍니다."""
+        if not self.allowed_channels:
+            await ctx.send("ℹ️ 허용된 채널이 없습니다. **모든 채널에서 사용 가능**합니다.")
+            return
+
+        channels_mentions = []
+        for ch_id in self.allowed_channels:
+            ch = self.bot.get_channel(ch_id)
+            if ch:
+                channels_mentions.append(ch.mention)
+            else:
+                channels_mentions.append(f"(알 수 없는 채널: {ch_id})")
+
+        mentions_str = "\n".join(channels_mentions)
+        embed = discord.Embed(
+            title="랭크 명령어 허용 채널 목록",
+            description=mentions_str,
+            color=discord.Color.blue()
+        )
+        await ctx.send(embed=embed)
 
 
 async def setup(bot: commands.Bot):
