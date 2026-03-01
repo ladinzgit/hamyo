@@ -113,7 +113,7 @@ class DailyFirstSentence(commands.Cog):
         date_str = today.strftime("%y.%m.%d")
 
         try:
-            prompt = "디스코드 감성 서버의 유저들에게 던질 따뜻하고 동화 같은 질문 1개를 생성해 줘. 20자 이내의 짧은 요약(주제)과, 2~3줄의 질문 본문으로 나누어 JSON 형식으로 반환해 줘. {\"summary\": \"...\", \"question\": \"...\"}"
+            prompt = "디스코드 감성 서버의 유저들에게 던질 따뜻하고 동화 같은 질문 1개를 생성해 줘. 너무 무겁거나 철학적이고 난해한 질문은 피하고, 누구나 일상 속에서 쉽게 대답할 수 있는 가벼운 질문으로 만들어 줘. (예: 가장 좋아하는 간식, 오늘 본 예쁜 풍경 등) 20자 이내의 짧은 요약(주제)과, 2~3줄의 질문 본문으로 나누어 JSON 형식으로 반환해 줘. {\"summary\": \"...\", \"question\": \"...\"}"
             
             completion = await self.client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -286,7 +286,7 @@ class DailyFirstSentence(commands.Cog):
             await ctx.send("❌ API 키가 없습니다.")
             return
 
-        prompt = "디스코드 감성 서버의 유저들에게 던질 따뜻하고 동화 같은 질문 1개를 생성해 줘. 20자 이내의 짧은 요약(주제)과, 2~3줄의 질문 본문으로 나누어 JSON 형식으로 반환해 줘. {\"summary\": \"...\", \"question\": \"...\"}"
+        prompt = "디스코드 감성 서버의 유저들에게 던질 따뜻하고 동화 같은 질문 1개를 생성해 줘. 너무 무겁거나 철학적이고 난해한 질문은 피하고, 누구나 일상 속에서 쉽게 대답할 수 있는 가벼운 질문으로 만들어 줘. (예: 가장 좋아하는 간식, 오늘 본 예쁜 풍경 등) 20자 이내의 짧은 요약(주제)과, 2~3줄의 질문 본문으로 나누어 JSON 형식으로 반환해 줘. {\"summary\": \"...\", \"question\": \"...\"}"
         
         try:
             completion = await self.client.chat.completions.create(

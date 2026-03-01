@@ -15,6 +15,7 @@ import asyncio
 import datetime
 from datetime import datetime
 import pytz
+import random
 import re
 
 KST = pytz.timezone("Asia/Seoul")
@@ -90,8 +91,15 @@ class LevelSystem(commands.Cog):
             embed_color = await self._get_role_color(current_role, quest_channel.guild)
             
             # 백지동화 컨셉에 맞는 임베드
+            titles = [
+                f"{EMBED_QUEST_TITLE_EMOJI} 백지동화､ 당신의 이야기가 한 장 적혔어요 {EMBED_QUEST_TITLE_TRAIL}",
+                f"{EMBED_QUEST_TITLE_EMOJI} 백지동화､ 조용한 잉크방울이 스며들었어요 {EMBED_QUEST_TITLE_TRAIL}",
+                f"{EMBED_QUEST_TITLE_EMOJI} 백지동화､ 새로운 페이지가 차박차박 넘어가요 {EMBED_QUEST_TITLE_TRAIL}",
+                f"{EMBED_QUEST_TITLE_EMOJI} 백지동화､ 당신만의 문장이 반짝이며 새겨졌어요 {EMBED_QUEST_TITLE_TRAIL}",
+                f"{EMBED_QUEST_TITLE_EMOJI} 백지동화､ 포근한 이야기가 또 하나 쌓였어요 {EMBED_QUEST_TITLE_TRAIL}"
+            ]
             embed = discord.Embed(
-                title=f"{EMBED_QUEST_TITLE_EMOJI} 백지동화､ 당신의 이야기가 한 장 적혔어요 {EMBED_QUEST_TITLE_TRAIL}",
+                title=random.choice(titles),
                 color=embed_color
             )
             
