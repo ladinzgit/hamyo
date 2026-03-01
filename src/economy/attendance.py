@@ -3,6 +3,7 @@ from discord.ext import commands
 import aiosqlite
 from datetime import datetime, timedelta
 import pytz
+import asyncio
 from src.core.balance_data_manager import balance_manager  # 추가
 
 DB_PATH = 'data/attendance.db'
@@ -223,13 +224,13 @@ class AttendanceCog(commands.Cog):
         await self.log(f"{ctx.author}({ctx.author.id})가 출석 순위 조회 [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
     # 출석 허용 채널 관리 명령어 (관리자만)
-    @commands.group(name="출석채널", invoke_without_command=True)
+    @commands.group(name="출석설정", invoke_without_command=True)
     @is_guild_admin()
     async def attendance_channel(self, ctx):
         """출석 명령어 허용 채널 관리"""
-        await ctx.send("`추가`, `제거`, `목록` 하위 명령어를 사용하세요.")
+        await ctx.send("`출석채널추가`, `출석채널제거`, `출석채널목록`, `유저초기화`, `완전초기화` 하위 명령어를 사용하세요.")
 
-    @attendance_channel.command(name="추가")
+    @attendance_channel.command(name="출석채널추가")
     @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def add_attendance_channel(self, ctx, channel: discord.TextChannel = None):
@@ -240,7 +241,7 @@ class AttendanceCog(commands.Cog):
         await ctx.send(f"{channel.mention} 채널이 출석 명령어 허용 채널로 추가되었습니다.")
         await self.log(f"{ctx.author}({ctx.author.id})가 출석 허용 채널 추가: {channel.name}({channel.id}) [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
-    @attendance_channel.command(name="제거")
+    @attendance_channel.command(name="출석채널제거")
     @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def remove_attendance_channel(self, ctx, channel: discord.TextChannel = None):
@@ -251,7 +252,7 @@ class AttendanceCog(commands.Cog):
         await ctx.send(f"{channel.mention} 채널이 출석 명령어 허용 채널에서 제거되었습니다.")
         await self.log(f"{ctx.author}({ctx.author.id})가 출석 허용 채널 제거: {channel.name}({channel.id}) [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
-    @attendance_channel.command(name="목록")
+    @attendance_channel.command(name="출석채널목록")
     @only_in_guild()
     @commands.has_permissions(administrator=True)
     async def list_attendance_channels(self, ctx):
@@ -310,6 +311,29 @@ class AttendanceCog(commands.Cog):
                 f"출석 횟수가 {count}회 → {new_count}회로 조정되었고, 지급된 100온도 회수되었습니다."
             )
             await self.log(f"{ctx.author}({ctx.author.id})가 {user}({user.id}) 출석 초기화 [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
+
+    @attendance_channel.command(name="완전초기화")
+    @only_in_guild()
+    @commands.has_permissions(administrator=True)
+    async def reset_all_attendance(self, ctx):
+        """모든 유저의 출석 정보를 완전히 초기화합니다. (관리자 전용)"""
+        await ctx.send("⚠️ 경고: 데이터베이스의 **모든 출석 정보**가 삭제됩니다.\n정말로 초기화하시겠습니까? 진행하려면 `확인`이라고 입력해주세요. (15초 이내)")
+        
+        def check(m):
+            return m.author == ctx.author and m.channel == ctx.channel and m.content == "확인"
+            
+        try:
+            await self.bot.wait_for('message', check=check, timeout=15.0)
+        except asyncio.TimeoutError:
+            await ctx.send("⏳ 시간 초과로 완전초기화가 취소되었습니다.")
+            return
+
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute("DELETE FROM attendance")
+            await db.commit()
+            
+        await ctx.send("✅ 모든 출석 정보가 성공적으로 초기화되었습니다.")
+        await self.log(f"🚨 {ctx.author}({ctx.author.id})가 모든 출석 정보(완전초기화)를 초기화했습니다. [길드: {ctx.guild.name}({ctx.guild.id}), 채널: {ctx.channel.name}({ctx.channel.id})]")
 
 async def setup(bot):
     await bot.add_cog(AttendanceCog(bot))
