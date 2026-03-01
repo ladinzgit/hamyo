@@ -37,8 +37,8 @@ ROLE_THRESHOLDS = {
     'yeobaek': 0,
     'goyo': 600,
     'seoyu': 3000,
-    'seorim': 15000,
-    'seohyang': 40000
+    'seorim': 20000,
+    'seohyang': 50000
 }
 
 # 역할 순서

@@ -76,7 +76,29 @@ class DailyFirstSentence(commands.Cog):
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS daily_sentence_questions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    question TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
             await db.commit()
+
+    async def _get_recent_questions(self, limit: int = 10) -> list[str]:
+        """최근 작성된 첫 문장 질문 목록을 가져옵니다."""
+        questions = []
+        try:
+            async with aiosqlite.connect(DB_PATH) as db:
+                cursor = await db.execute(
+                    "SELECT question FROM daily_sentence_questions ORDER BY id DESC LIMIT ?", 
+                    (limit,)
+                )
+                rows = await cursor.fetchall()
+                questions = [row[0] for row in rows]
+        except Exception as e:
+            await self.log(f"최근 질문 조회 중 오류: {e}")
+        return questions
 
     def _ensure_client(self):
         current_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("CHATGPT_API_KEY")
@@ -113,8 +135,13 @@ class DailyFirstSentence(commands.Cog):
         korean_date = get_korean_date_string(days_diff)
         date_str = today.strftime("%y.%m.%d")
 
+        recent_questions = await self._get_recent_questions(limit=30)
+        recent_context = ""
+        if recent_questions:
+            recent_context = "\n[최근에 했던 질문 목록 (다음 주제들은 반드시 피해서 다른 새로운 주제로 만들어줘)]\n" + "\n".join(f"- {q}" for q in recent_questions)
+
         try:
-            prompt = "디스코드 감성 서버의 유저들에게 던질 따뜻하고 동화 같은 질문 1개를 생성해 줘. 너무 무겁거나 철학적이고 난해한 질문은 피하고, 누구나 일상 속에서 쉽게 대답할 수 있는 가벼운 질문으로 만들어 줘. (예: 가장 좋아하는 간식, 오늘 본 예쁜 풍경 등) 20자 이내의 짧은 요약(주제)과, 2~3줄의 질문 본문으로 나누어 JSON 형식으로 반환해 줘. {\"summary\": \"...\", \"question\": \"...\"}"
+            prompt = f"디스코드 감성 서버의 유저들에게 던질 따뜻하고 동화 같은 질문 1개를 생성해 줘. 너무 무겁거나 철학적이고 난해한 질문은 피하고, 누구나 일상 속에서 쉽게 대답할 수 있는 가벼운 질문으로 만들어 줘. (예: 가장 좋아하는 간식, 오늘 본 예쁜 풍경 등){recent_context}\n\n20자 이내의 짧은 요약(주제)과, 2~3줄의 질문 본문으로 나누어 JSON 형식으로 반환해 줘. {{\"summary\": \"...\", \"question\": \"...\"}}"
             
             completion = await self.client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -132,7 +159,16 @@ class DailyFirstSentence(commands.Cog):
             response_text = completion.choices[0].message.content.strip()
             data = json.loads(response_text)
             summary = data.get("summary", "오늘의 조용한 질문")
-            question = data.get("question", "오늘 하루는 어떤 색깔이었냐묘?")
+            question = data.get("question", "오늘 하루는 어떤 느낌이었냐묘?")
+            
+            # DB에 새로 생성한 질문 저장
+            try:
+                async with aiosqlite.connect(DB_PATH) as db:
+                    await db.execute("INSERT INTO daily_sentence_questions (question) VALUES (?)", (question,))
+                    await db.commit()
+            except Exception as e:
+                await self.log(f"질문 DB 저장 오류: {e}")
+
         except Exception as e:
             await self.log(f"❌ 첫 문장 GPT 생성 중 오류: {e}")
             summary = "오늘의 질문"
@@ -295,9 +331,14 @@ class DailyFirstSentence(commands.Cog):
             await ctx.send("❌ API 키가 없습니다.")
             return
 
-        prompt = "디스코드 감성 서버의 유저들에게 던질 따뜻하고 동화 같은 질문 1개를 생성해 줘. 너무 무겁거나 철학적이고 난해한 질문은 피하고, 누구나 일상 속에서 쉽게 대답할 수 있는 가벼운 질문으로 만들어 줘. (예: 가장 좋아하는 간식, 오늘 본 예쁜 풍경 등) 20자 이내의 짧은 요약(주제)과, 2~3줄의 질문 본문으로 나누어 JSON 형식으로 반환해 줘. {\"summary\": \"...\", \"question\": \"...\"}"
-        
+        recent_questions = await self._get_recent_questions(limit=30)
+        recent_context = ""
+        if recent_questions:
+            recent_context = "\n[최근에 했던 질문 목록 (다음 주제들은 반드시 피해서 다른 새로운 주제로 만들어줘)]\n" + "\n".join(f"- {q}" for q in recent_questions)
+
         try:
+            prompt = f"디스코드 감성 서버의 유저들에게 던질 따뜻하고 동화 같은 질문 1개를 생성해 줘. 너무 무겁거나 철학적이고 난해한 질문은 피하고, 누구나 일상 속에서 쉽게 대답할 수 있는 가벼운 질문으로 만들어 줘. (예: 가장 좋아하는 간식, 오늘 본 예쁜 풍경 등){recent_context}\n\n20자 이내의 짧은 요약(주제)과, 2~3줄의 질문 본문으로 나누어 JSON 형식으로 반환해 줘. {{\"summary\": \"...\", \"question\": \"...\"}}"
+            
             completion = await self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[

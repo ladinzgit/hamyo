@@ -23,36 +23,7 @@ KST = pytz.timezone("Asia/Seoul")
 # 누적 기간 시작일 (서버 오픈일)
 ALL_TIME_START = "2025-08-01 00:00:00"
 
-# 역할 승급 기준 (LevelSystem과 동일)
-ROLE_THRESHOLDS = {
-    'yeobaek': 0,
-    'goyo': 400,
-    'seoyu': 1800,
-    'seorim': 6000,
-    'seohyang': 12000
-}
-
-# 역할 순서
-ROLE_ORDER = ['yeobaek', 'goyo', 'seoyu', 'seorim', 'seohyang']
-
-# 역할 한글 표시명
-ROLE_DISPLAY = {
-    'yeobaek': '여백',
-    'goyo': '고요',
-    'seoyu': '서유',
-    'seorim': '서림',
-    'seohyang': '서향'
-}
-
-# 역할별 이모지
-ROLE_EMOJI = {
-    'yeobaek': '🌱',
-    'goyo': '�',
-    'seoyu': '🌸',
-    'seorim': '🌟',
-    'seohyang': '�'
-}
-
+# 역할 승급 기준 등급표는 LevelConstants에서 import하여 사용합니다.
 
 @dataclass
 class RankCardData:
