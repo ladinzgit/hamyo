@@ -189,6 +189,18 @@ class DailyFirstSentence(commands.Cog):
         )
         
         try:
+            # 기존 열려있는 스레드 마감 처리 (이전 날짜 질문 닫기)
+            for thread in forum.threads:
+                if not thread.archived and not thread.locked:
+                    try:
+                        await thread.edit(archived=True, locked=True, reason="새로운 첫 문장 질문 생성으로 인한 마감")
+                        await self.log(f"이전 첫 문장 스레드를 마감했습니다: {thread.name}")
+                    except Exception as e:
+                        pass
+        except Exception as e:
+            await self.log(f"기존 스레드 마감 중 오류: {e}")
+
+        try:
             thread_with_message = await forum.create_thread(
                 name=thread_name,
                 content=content,
