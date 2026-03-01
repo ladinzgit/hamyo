@@ -126,7 +126,7 @@ class PrefixChanger(commands.Cog):
     @is_guild_admin()
     async def prefix_rules(self, ctx):
         """칭호 변경 규칙을 관리합니다."""
-        await ctx.send("`추가`, `예외추가`, `확인`, `일괄제거` 하위 명령어를 사용하세요.")
+        await ctx.send("`추가`, `예외추가`, `예외제거`, `확인`, `일괄제거` 하위 명령어를 사용하세요.")
 
     @prefix_rules.command(name="추가")
     @is_guild_admin()
@@ -158,6 +158,21 @@ class PrefixChanger(commands.Cog):
             await self.log(f"{ctx.author}({ctx.author.id})가 칭호 예외 역할 추가: {role.name}({role.id})")
         else:
             await ctx.reply("이미 예외 목록에 있는 역할입니다.")
+
+    @prefix_rules.command(name="예외제거")
+    @is_guild_admin()
+    async def remove_exception(self, ctx, role: discord.Role):
+        """
+        예외 역할을 제거합니다.
+        사용법: *칭호규칙 예외제거 @역할
+        """
+        if role.id in self.exceptions:
+            self.exceptions.remove(role.id)
+            self._save_config()
+            await ctx.reply(f"✅ 예외 역할 제거됨: {role.mention}")
+            await self.log(f"{ctx.author}({ctx.author.id})가 칭호 예외 역할 제거: {role.name}({role.id})")
+        else:
+            await ctx.reply("예외 목록에 없는 역할입니다.")
 
     @prefix_rules.command(name="확인")
     @is_guild_admin()
