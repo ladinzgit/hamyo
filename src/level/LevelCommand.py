@@ -280,9 +280,6 @@ class LevelCommands(commands.Cog):
                 from src.core.voice_utils import get_filtered_tracked_channels
                 tracked_channel_ids = set(await get_filtered_tracked_channels(self.bot, self.data_manager, "voice"))
 
-            if not tracked_channel_ids:
-                return
-
             stats = await self._get_quest_stats(user_id, tracked_channel_ids)
             embed = await self._build_myinfo_embed(ctx, member, user_data, ranks, stats, progress)
             
