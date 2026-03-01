@@ -94,17 +94,6 @@ async def on_ready():
     
     activity = discord.CustomActivity(name="오늘의 차를 우리고 있어요...")
     await bot.change_presence(status=discord.Status.online, activity=activity)
-
-    print("Syncing commands to all guilds...")
-
-    for guild in bot.guilds:
-        try:
-            bot.tree.copy_global_to(guild=guild)
-            await bot.tree.sync(guild=guild)
-
-            print(f"Synced to {guild.name} ({guild.id})")
-        except Exception as e:
-            print(f"Failed to sync to {guild.name}: {e}")
     
  # slash command sync
 
