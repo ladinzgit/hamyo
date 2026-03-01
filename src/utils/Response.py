@@ -5,7 +5,7 @@ import random
 import discord
 from discord.ext import commands
 
-MAIN_CHANNEL_ID = 1396829222978322608
+MAIN_CHANNEL_ID = 1474014240896585880
 
 class Response(commands.Cog):
     def __init__(self, bot):
