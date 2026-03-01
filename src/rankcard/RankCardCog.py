@@ -89,7 +89,7 @@ class RankCardCog(commands.Cog):
                 await ctx_or_interaction.response.defer()
             else:
                 loading_embed = discord.Embed(
-                    description="<a:loading:1396829217521844316> 랭크 카드를 생성하고 있어요...",
+                    description="랭크 카드를 생성하고 있어요...",
                     color=discord.Color.from_str("#0f0f13")
                 )
                 loading_msg = await ctx_or_interaction.send(embed=loading_embed)
@@ -171,7 +171,7 @@ class RankCardCog(commands.Cog):
     @commands.guild_only()
     async def rank_prefix(self, ctx: commands.Context, user: discord.Member = None):
         """랭크 카드를 확인합니다."""
-        user = user or ctx.author
+        user = user or ctx.author   
         await self._generate_and_send(ctx, user, is_slash=False)
 
     # ── 슬래시 명령어: /rank ──
