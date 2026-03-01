@@ -38,6 +38,22 @@ class LevelChecker(commands.Cog):
                 await logger.log(message)
         except Exception as e:
             print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
+
+    @commands.Cog.listener()
+    async def on_quest_attendance(self, user_id: int):
+        await self.process_attendance(user_id)
+
+    @commands.Cog.listener()
+    async def on_quest_recommend(self, user_id: int, count: int):
+        await self.process_recommend_quest(user_id, count)
+
+    @commands.Cog.listener()
+    async def on_quest_voice_30min(self, user_id: int):
+        await self.process_voice_30min(user_id)
+
+    @commands.Cog.listener()
+    async def on_quest_voice_weekly(self, user_id: int, hours: int):
+        await self.process_voice_weekly(user_id, hours)
         
     # ===========================================
     # 공통 부분 처리

@@ -117,14 +117,8 @@ class AttendanceCog(commands.Cog):
                 # 잔액 조회
                 balance = await balance_manager.get_balance(str(user_id))
                         
-                # 퀘스트 처리 (별도 채널에 메시지 전송)
-                level_checker = self.bot.get_cog('LevelChecker')
-                if level_checker:
-                    try:
-                        result = await level_checker.process_attendance(user_id)
-                        # 메시지는 LevelChecker 내부에서 자동으로 전송됨
-                    except Exception as e:
-                        print(f"몽경수행 처리 중 오류: {e}")
+                # 퀘스트 처리 (이벤트 발생으로 분리)
+                self.bot.dispatch("quest_attendance", user_id)
 
                 embed = discord.Embed(
                     title=f"출석 ₍ᐢ..ᐢ₎",

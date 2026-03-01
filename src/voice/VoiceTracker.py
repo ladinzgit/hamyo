@@ -104,11 +104,8 @@ class VoiceTracker(commands.Cog):
 
     async def process_voice_quests(self):
         """
-        음성방 30분(일일), 5/10/20시간(주간) 퀘스트 경험치 지급
+        음성방 30분(일일), 5/10/20시간(주간) 퀘스트 경험치 지급 이벤트를 발생시킵니다.
         """
-        level_checker = self.bot.get_cog('LevelChecker')
-        if not level_checker:
-            return
 
         # 추적 채널 목록 확보 (캐시가 있으면 사용, 없으면 유틸 함수로 확장)
         try:
@@ -136,8 +133,8 @@ class VoiceTracker(commands.Cog):
                 daily_secs = sum(day_map.values()) if day_map else 0
 
                 if daily_secs >= 30 * 60:
-                    # 일일 30분 달성 → 중복 여부는 LevelChecker가 내부적으로 판단
-                    await level_checker.process_voice_30min(uid)
+                    # 일일 30분 달성 → 중복 여부는 LevelChecker가 내부적으로 판단하게 이벤트를 발생시킴
+                    self.bot.dispatch("quest_voice_30min", uid)
 
                 # 일일 1시간 달성
                 now_str = now.strftime("%Y-%m-%d")
@@ -158,10 +155,10 @@ class VoiceTracker(commands.Cog):
                 )
                 weekly_secs = sum(week_map.values()) if week_map else 0
 
-                # 주간 5/10/20h 달성도 순차 검사 (중복 방지는 LevelChecker가 처리)
+                # 주간 5/10/20h 달성도 순차 검사 (중복 방지는 LevelChecker가 이벤트 수신 후 처리)
                 for h in (5, 10, 20):
                     if weekly_secs >= h * 3600:
-                        await level_checker.process_voice_weekly(uid, h)
+                        self.bot.dispatch("quest_voice_weekly", uid, h)
             except Exception as e:
                 # 한 유저에서 에러가 나도 다른 유저 진행은 계속
                 try:
@@ -171,13 +168,9 @@ class VoiceTracker(commands.Cog):
                         
     async def process_voice_quests_for_users(self, user_ids: set[int]):
         """
-        음성방 30분(일일), 5/10/20시간(주간) 퀘스트 경험치 지급
+        음성방 30분(일일), 5/10/20시간(주간) 퀘스트 경험치 지급 이벤트를 발생시킵니다.
         """
         if not user_ids:
-            return
-        
-        level_checker = self.bot.get_cog('LevelChecker')
-        if not level_checker:
             return
 
         # 추적 채널 목록 확보 (캐시가 있으면 사용, 없으면 유틸 함수로 확장)
@@ -204,8 +197,8 @@ class VoiceTracker(commands.Cog):
                 daily_secs = sum(day_map.values()) if day_map else 0
 
                 if daily_secs >= 30 * 60:
-                    # 일일 30분 달성 → 중복 여부는 LevelChecker가 내부적으로 판단
-                    await level_checker.process_voice_30min(uid)
+                    # 일일 30분 달성 → 중복 여부는 LevelChecker가 처리
+                    self.bot.dispatch("quest_voice_30min", uid)
 
                 # === 주간 누적 초 ===
                 week_map, _, _ = await self.data_manager.get_user_times(
@@ -219,7 +212,7 @@ class VoiceTracker(commands.Cog):
                 # 주간 5/10/20h 달성도 순차 검사 (중복 방지는 LevelChecker가 처리)
                 for h in (5, 10, 20):
                     if weekly_secs >= h * 3600:
-                        await level_checker.process_voice_weekly(uid, h)
+                        self.bot.dispatch("quest_voice_weekly", uid, h)
             except Exception as e:
                 # 한 유저에서 에러가 나도 다른 유저 진행은 계속
                 try:

@@ -445,14 +445,9 @@ class Economy(commands.Cog):
         await balance_manager.give(str(member.id), total)
 
         # --- 추천 인증 시 LevelChecker에 주간 퀘스트 트리거 ---
-        # --- 추천/업/지인초대 인증 시 LevelChecker에 퀘스트 트리거 ---
+        # --- 추천/업/지인초대 인증 시 이벤트를 방출하여 퀘스트 트리거 ---
         if condition == "추천":
-            level_checker = self.bot.get_cog('LevelChecker')
-            if level_checker:
-                try:
-                    await level_checker.process_recommend_quest(member.id, count)
-                except Exception as e:
-                    print(f"LevelChecker {condition} 퀘스트 처리 오류: {e}")
+            self.bot.dispatch("quest_recommend", member.id, count)
 
         unit = await self.get_currency_unit()
         new_balance = await balance_manager.get_balance(str(member.id))
