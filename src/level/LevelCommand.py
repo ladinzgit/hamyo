@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from src.core.LevelDataManager import LevelDataManager
-from src.level.LevelConstants import ROLE_IDS, get_role_info, ROLE_ORDER
+from src.level.LevelConstants import ROLE_IDS, ROLE_THRESHOLDS, ROLE_ORDER, ROLE_DISPLAY, VOICE_WEEKLY_THRESHOLDS, get_role_info
 from src.core.DataManager import DataManager
 from typing import Optional, Dict, Any, List
 import logging
@@ -108,9 +108,9 @@ class LevelCommands(commands.Cog):
             current_role_key = user_data.get("current_role", "yeobaek") if user_data else "yeobaek"
 
             # 2) 역할(경지) 임계값/진행률 계산 (LevelChecker.role_thresholds 기반)
-            role_thresholds = getattr(level_checker, "role_thresholds", {"yeobaek": 0, "goyo": 400, "seoyu": 1800, "seorim": 6000, "seohyang": 12000})
-            role_order = getattr(level_checker, "role_order", ["yeobaek", "goyo", "seoyu", "seorim", "seohyang"])
-            role_display = getattr(level_checker, "ROLE_DISPLAY", {"yeobaek": "여백", "goyo": "고요", "seoyu": "서유", "seorim": "서림", "seohyang": "서향"})
+            role_thresholds = ROLE_THRESHOLDS
+            role_order = ROLE_ORDER
+            role_display = ROLE_DISPLAY
 
             role_obj = ctx.guild.get_role(ROLE_IDS.get(current_role_key, ROLE_IDS['yeobaek']))
             current_role_mention = role_obj.mention if role_obj else role_display.get(current_role_key, current_role_key)
@@ -190,14 +190,15 @@ class LevelCommands(commands.Cog):
                     channel_filter=list(tracked_channel_ids))
                 voice_sec_week = sum(week_result.values()) if week_result else 0
                 
-            next_step = ""    
-            if voice_sec_week < 36000:
-                next_step = "10시간 00분"
-            elif voice_sec_week < 72000:
-                next_step = "20시간 00분"
-            elif voice_sec_week < 180000:
-                next_step = "50시간 00분"
-            else:
+            next_step = ""
+            # VOICE_WEEKLY_THRESHOLDS 기준으로 다음 단계 판단
+            found = False
+            for threshold_sec, threshold_label in VOICE_WEEKLY_THRESHOLDS:
+                if voice_sec_week < threshold_sec:
+                    next_step = threshold_label
+                    found = True
+                    break
+            if not found:
                 next_step = "모든 퀘스트를 달성했습니다!"
 
             voice_min_daily = voice_sec_day // 60

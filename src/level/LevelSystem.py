@@ -1,7 +1,13 @@
 import discord
 from discord.ext import commands
 from src.core.LevelDataManager import LevelDataManager
-from src.level.LevelConstants import ROLE_THRESHOLDS, ROLE_ORDER, ROLE_IDS, ROLE_DISPLAY
+from src.level.LevelConstants import (
+    ROLE_THRESHOLDS, ROLE_ORDER, ROLE_IDS, ROLE_DISPLAY,
+    MAIN_CHAT_CHANNEL_ID, QUEST_COMPLETION_CHANNEL_ID,
+    ROLE_FALLBACK_COLORS, ROLE_UPGRADE_TEMPLATES,
+    EMBED_QUEST_TITLE_EMOJI, EMBED_QUEST_TITLE_TRAIL,
+    EMBED_PAGE_EMOJI, EMBED_NEW_PAGE_EMOJI
+)
 from typing import Optional, Dict, Any, List
 import logging
 import asyncio
@@ -21,10 +27,8 @@ class LevelSystem(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.data_manager = LevelDataManager()
-        self.MAIN_CHAT_CHANNEL_ID = 1396829222978322608
-        self.QUEST_COMPLETION_CHANNEL_ID = 1400442713605668875
         
-        # 설정 불러오기
+        # LevelConstants에서 불러온 설정
         self.role_thresholds = ROLE_THRESHOLDS
         self.role_order = ROLE_ORDER
         self.ROLE_IDS = ROLE_IDS
@@ -63,7 +67,7 @@ class LevelSystem(commands.Cog):
         if not result.get('success') or not result.get('messages'):
             return
         
-        quest_channel = self.bot.get_channel(self.QUEST_COMPLETION_CHANNEL_ID)
+        quest_channel = self.bot.get_channel(QUEST_COMPLETION_CHANNEL_ID)
         if not quest_channel:
             return
         
@@ -85,7 +89,7 @@ class LevelSystem(commands.Cog):
             
             # 백지동화 컨셉에 맞는 임베드
             embed = discord.Embed(
-                title="<:BM_a_000:1399387512945774672> 백지동화､ 당신의 이야기가 한 장 적혔어요 <a:slg12:1378567364844453938>",
+                title=f"{EMBED_QUEST_TITLE_EMOJI} 백지동화､ 당신의 이야기가 한 장 적혔어요 {EMBED_QUEST_TITLE_TRAIL}",
                 color=embed_color
             )
             
@@ -106,7 +110,7 @@ class LevelSystem(commands.Cog):
             
             if quest_text:  # 승급 메시지 제외 후에도 내용이 있는 경우만
                 embed.add_field(
-                    name="<a:BM_n_012:1439957502643933337> 방금 적어내린 문장들",
+                    name=f"{EMBED_PAGE_EMOJI} 방금 적어내린 문장들",
                     value=quest_text,
                     inline=False
                 )
@@ -114,7 +118,7 @@ class LevelSystem(commands.Cog):
                 # 총 획득 쪽수
                 if result.get('exp_gained', 0) > 0:
                     embed.add_field(
-                        name="<a:Moon4:1378710431664836615> 새롭게 기록한 페이지",
+                        name=f"{EMBED_NEW_PAGE_EMOJI} 새롭게 기록한 페이지",
                         value=f"**+{result['exp_gained']:,} 쪽**",
                         inline=True
                     )
@@ -135,7 +139,7 @@ class LevelSystem(commands.Cog):
         - dado/daho/dakyung/dahyang 별 전용 문구 전송
         """
         try:
-            channel = self.bot.get_channel(self.MAIN_CHAT_CHANNEL_ID)
+            channel = self.bot.get_channel(MAIN_CHAT_CHANNEL_ID)
             if channel is None:
                 await self.log("메인 채널을 찾을 수 없어 승급 메시지 전송 실패")
                 return
@@ -145,53 +149,8 @@ class LevelSystem(commands.Cog):
                 await self.log(f"승급 메시지: 유저 캐시/페치 실패 (user_id={user_id})")
                 return
 
-            # 역할별 메시지 템플릿
-            templates = {
-                "goyo": (
-                    ".  ◜◝--◜◝\n"
-                    "꒰   ˶ ´  ତ ` ˶꒱\n"
-                    "✦ ╮ {mention} 님, 고요로 승급했어요 !\n"
-                    "│\n"
-                    "│ ⠀차분한 침묵 속에서 나만의 이야기가 비로소 태동하기 시작합니다 ˎˊ˗ \n"
-                    "│ ⠀하얀 종이 위로 스며드는 잉크처럼\n"
-                    "│    새로운 글쓰기의 여정이 시작되었습니다 <:BM_k_005:1399387515626197092>\n"
-                    "│\n"
-                    " ╰ ⊱ ─ · ─ · ─ · ─ ·  ─ · ─ · ─ · ─ · ─ · ─ · ─ "
-                ),
-                "seoyu": (
-                    ".  ◜◝--◜◝\n"
-                    "꒰   ˶ ´  ତ ` ˶꒱\n"
-                    "✦ ╮  {mention} 님, 서유로 승급했어요 !\n"
-                    "│\n"
-                    "│ ⠀상상과 활자 사이를 쉼 없이 자유롭게 누비는 글쓴이가 되었어요 ˎˊ˗ \n"
-                    "│ ⠀펼쳐지는 책장마다 피어나는 이야기 속에서\n"
-                    "│    더 깊은 영감의 세계가 펼쳐집니다 <:BM_k_002:1399387517668819065>\n"
-                    "│\n"
-                    " ╰ ⊱ ─ · ─ · ─ · ─ ·  ─ · ─ · ─ · ─ · ─ · ─ · ─"
-                ),
-                "seorim": (
-                    ".  ◜◝--◜◝\n"
-                    "꒰   ˶ ´  ତ ` ˶꒱\n"
-                    "✦ ╮ {mention} 님, 서림으로 승급했어요 !\n"
-                    "│\n"
-                    "│ ⠀문장이 울창하게 우거진 지혜의 숲을 이룬 멋진 작가가 되었어요 ˎˊ˗ \n"
-                    "│ ⠀깊이 있는 문체로 엮은 책갈피 하나가\n"
-                    "│    수많은 이들을 동화 속으로 안내합니다 <:BM_k_003:1399387520135069770>\n"
-                    "│\n"
-                    " ╰ ⊱ ─ · ─ · ─ · ─ ·  ─ · ─ · ─ · ─ · ─ · ─ · ─"
-                ),
-                "seohyang": (
-                    ".   ◜◝--◜◝\n"
-                    "꒰   ˶ ´  ତ ` ˶꒱\n"
-                    "✦ ╮ {mention} 님, 서향으로 승급했어요 !\n"
-                    "│\n"
-                    "│ ⠀마음을 울리는 글의 향기가, 온 세상에 닿는 명필이 되었어요 ˎˊ˗ \n"
-                    "│ ⠀정성스레 눌러쓴 한 줄의 다정한 문장이\n"
-                    "│    모든 경계를 넘어 남는 깊은 울림의 경지입니다 <:BM_k_004:1399387524010606644>\n"
-                    "│\n"
-                    " ╰ ⊱ ─ · ─ · ─ · ─ ·  ─ · ─ · ─ · ─ · ─ · ─ · ─"
-                ),
-            }
+            # LevelConstants에서 승급 메시지 템플릿 사용
+            templates = ROLE_UPGRADE_TEMPLATES
 
             template = templates.get(new_role_key)
             if template is None:
@@ -212,13 +171,7 @@ class LevelSystem(commands.Cog):
     async def _get_role_color(self, role_name: str, guild) -> discord.Color:
         """역할 색상 가져오기""" 
         # 기본 색상 (역할별)
-        fallback_colors = {
-            'yeobaek': discord.Color.green(),
-            'goyo': discord.Color.from_rgb(144, 238, 144),  # 연한 초록
-            'seoyu': discord.Color.from_rgb(255, 182, 193),  # 연한 분홍
-            'seorim': discord.Color.from_rgb(255, 215, 0),  # 금색
-            'seohyang': discord.Color.from_rgb(80, 105, 215)
-        }
+        fallback_colors = ROLE_FALLBACK_COLORS
         
         try:
             if role_name in self.ROLE_IDS and guild:
@@ -270,11 +223,11 @@ class LevelSystem(commands.Cog):
     async def _get_home_guild(self):
         """메시지를 보낼 메인 길드 탐색(메인채널→퀘채널→첫 길드)"""
         guild = None
-        ch = self.bot.get_channel(self.MAIN_CHAT_CHANNEL_ID)
+        ch = self.bot.get_channel(MAIN_CHAT_CHANNEL_ID)
         if ch and ch.guild:
             guild = ch.guild
         if guild is None:
-            ch = self.bot.get_channel(self.QUEST_COMPLETION_CHANNEL_ID)
+            ch = self.bot.get_channel(QUEST_COMPLETION_CHANNEL_ID)
             if ch and ch.guild:
                 guild = ch.guild
         if guild is None and self.bot.guilds:

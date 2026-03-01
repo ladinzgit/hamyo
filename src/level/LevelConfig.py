@@ -2,7 +2,7 @@
 import discord
 from discord.ext import commands
 from src.core.LevelDataManager import LevelDataManager
-from src.level.LevelConstants import get_role_info
+from src.level.LevelConstants import get_role_info, QUEST_DESCRIPTIONS, QUEST_CATEGORY_NAMES
 from datetime import time, timezone, timedelta
 from src.core.admin_utils import GUILD_IDS, only_in_guild, is_guild_admin
 from typing import Optional, Dict, Any, List
@@ -34,14 +34,8 @@ class LevelConfig(commands.Cog):
         self.bot = bot
         self.data_manager = LevelDataManager()
         
-        # 역할 정보
-        self.role_info = {
-            'blank': {'name': '여백', 'threshold': 0, 'emoji': '🌱'},
-            'dado': {'name': '다도', 'threshold': 400, 'emoji': '🍃'},
-            'daho': {'name': '다호', 'threshold': 1800, 'emoji': '🌸'},
-            'dakyung': {'name': '다경', 'threshold': 6000, 'emoji': '🌟'},
-            'dahyang': {'name': '다향', 'threshold': 12000, 'emoji': '💫'}
-        }
+        # 역할 정보 (LevelConstants에서 통합 관리)
+        self.role_info = get_role_info()
     
     async def cog_load(self):
         """Cog 로드 시 데이터베이스 초기화"""
@@ -625,33 +619,9 @@ class LevelConfig(commands.Cog):
             await ctx.send(f"❌ '{quest_type}'는 존재하지 않는 퀘스트입니다. `!quest list`로 전체 목록을 확인하세요.")
             return
 
-        # 퀘스트 설명
-        quest_descriptions = {
-            'attendance': '매일 서버에 출석하는 퀘스트',
-            'diary': '다방일지 채널에 일기를 작성하는 퀘스트',
-            'voice_30min': '책방 음성 채널에서 30분 이상 머무르며 이야기를 나누는 퀘스트',
-            'call': '특정 채널에서 역할을 멘션하는 통화하자 퀘스트',
-            'friend': '특정 채널에서 역할을 멘션하는 친구하자 퀘스트',
-            'recommend_3': '서버를 외부 사이트에 3회 추천하는 퀘스트',
-            'shop_purchase': '비몽상점에서 상품을 구매하는 퀘스트',
-            'board_participate': '비몽게시판에 참여하는 퀘스트',
-            'ping_use': '다방삐삐를 사용하는 퀘스트',
-            'voice_10h': '주간 책방 음성 채널 10시간 달성 퀘스트',
-            'voice_20h': '주간 책방 음성 채널 20시간 달성 퀘스트',
-            'voice_50h': '주간 책방 음성 채널 50시간 달성 퀘스트',
-            'attendance_4': '주간 출석 4회 달성 시 자동 완료',
-            'attendance_7': '주간 출석 7회 달성 시 자동 완료',
-            'diary_4': '주간 다방일지 4회 달성 시 자동 완료',
-            'diary_7': '주간 다방일지 7회 달성 시 자동 완료',
-            'self_intro': '여백 카테고리에 자기소개 채널을 만드는 퀘스트',
-            'review': '디코올에 서버 후기를 작성하는 퀘스트'
-        }
-
-        category_names = {
-            'daily': '📅 일일 퀘스트',
-            'weekly': '📊 주간 퀘스트',
-            'one_time': '✨ 일회성 퀘스트'
-        }
+        # LevelConstants에서 import한 퀘스트 설명 및 카테고리명 사용
+        quest_descriptions = QUEST_DESCRIPTIONS
+        category_names = QUEST_CATEGORY_NAMES
 
         embed = discord.Embed(
             title=f"📝 {quest_type} 퀘스트 정보",

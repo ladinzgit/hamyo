@@ -1,6 +1,13 @@
 import discord
 from discord.ext import commands
 from src.core.LevelDataManager import LevelDataManager
+from src.level.LevelConstants import (
+    QUEST_EXP, REACTION_EMOJI_POOL,
+    DIARY_CHANNEL_ID, CALL_CHANNEL_ID, FRIEND_CHANNEL_ID,
+    CALL_ROLE_ID, FRIEND_ROLE_ID, BOARD_CATEGORY_ID,
+    DIARY_MIN_LENGTH, RANK_REWARD_EXP_PER_LEVEL, RANK_REWARD_LEVEL_INTERVAL,
+    VOICE_WEEKLY_QUEST_MAP
+)
 from typing import Optional, Dict, Any, List
 import logging
 import asyncio
@@ -12,45 +19,12 @@ import random
 KST = pytz.timezone("Asia/Seoul")
 
 class LevelChecker(commands.Cog):
-    # 퀘스트 완료 시 반응으로 달리는 이모지 풀
-    REACTION_EMOJI_POOL = [
-        '<a:BM_s_001:1477342346512437403>'
-    ]
-
     def __init__(self, bot):
         self.bot = bot
         self.data_manager = LevelDataManager()
-        self.MAIN_CHAT_CHANNEL_ID = 1474014240896585880
-        self.QUEST_COMPLETION_CHANNEL_ID = 1474014239436836974
-        self.DIARY_CHANNEL_ID = 1474014240896585882
         
-        # 퀘스트 경험치 설정
-        self.quest_exp = {
-            'daily': {
-                'attendance': 10,
-                'diary': 5,
-                'voice_30min': 15,
-                'bbibbi': 5,
-                'call': 3,
-                'friend': 3
-            },
-            'weekly': {
-                'recommend_3': 50,
-                'attendance_4': 20,
-                'attendance_7': 50,
-                'diary_4': 10,
-                'diary_7': 30,
-                'voice_10h': 70,
-                'voice_20h': 100,
-                'voice_50h': 150,
-                'shop_purchase': 30,
-                'board_participate': 25,
-                'ping_use': 25
-            },
-            'one_time': {
-                'self_intro': 50,
-                'review': 80}
-        }
+        # LevelConstants에서 불러온 퀘스트 경험치 설정
+        self.quest_exp = QUEST_EXP
     
     async def cog_load(self):
         """Cog 로드 시 데이터베이스 초기화"""
@@ -150,29 +124,26 @@ class LevelChecker(commands.Cog):
             return
 
         # --- 삐삐 퀘스트 감지 ---
-        CALL_CHANNEL_ID = 1453179899568324700
-        CALL_ROLE_ID = 1452283108979118196
-        FRIEND_CHANNEL_ID = 1453179765237223676
-        FRIEND_ROLE_ID = 1396829213163520021
+        # 채널/역할 ID는 LevelConstants에서 import됨
 
         if message.channel.id == CALL_CHANNEL_ID and any(role.id == CALL_ROLE_ID for role in message.role_mentions):
             user_id = message.author.id
             result = await self.process_call(user_id)
             if result.get('success'):
-                await message.add_reaction(random.choice(self.REACTION_EMOJI_POOL))
+                await message.add_reaction(random.choice(REACTION_EMOJI_POOL))
                 return
 
         if message.channel.id == FRIEND_CHANNEL_ID and any(role.id == FRIEND_ROLE_ID for role in message.role_mentions):
             user_id = message.author.id
             result = await self.process_friend(user_id)
             if result.get('success'):
-                await message.add_reaction(random.choice(self.REACTION_EMOJI_POOL))
+                await message.add_reaction(random.choice(REACTION_EMOJI_POOL))
                 return
         
         # --- 다방일지 퀘스트 감지 ---
-        if message.channel.id == self.DIARY_CHANNEL_ID:
-            # 최소 길이 체크 (5자 이상)
-            if len(message.content.strip()) >= 5:
+        if message.channel.id == DIARY_CHANNEL_ID:
+            # 최소 길이 체크
+            if len(message.content.strip()) >= DIARY_MIN_LENGTH:
                 user_id = message.author.id
 
                 try:
@@ -192,18 +163,18 @@ class LevelChecker(commands.Cog):
                     
                     # 성공 시 반응 추가
                     if result['success']:
-                        await message.add_reaction(random.choice(self.REACTION_EMOJI_POOL))
+                        await message.add_reaction(random.choice(REACTION_EMOJI_POOL))
                 except Exception as e:
                     await self.log(f"다방일지 처리 중 오류 발생: {e}")
 
         # --- 게시판 퀘스트 감지 ---
-        BOARD_CATEGORY_ID = 1396829223267598348
+        # BOARD_CATEGORY_ID는 LevelConstants에서 import됨
         
         if hasattr(message.channel, 'category_id') and message.channel.category_id == BOARD_CATEGORY_ID:
             try:
                 user_id = message.author.id
                 result = await self.process_board(user_id)
-                await message.add_reaction(random.choice(self.REACTION_EMOJI_POOL))
+                await message.add_reaction(random.choice(REACTION_EMOJI_POOL))
             except Exception as e:
                 await self.log(f"게시판 퀘스트 처리 중 오류 발생: {e}")
 
@@ -413,7 +384,7 @@ class LevelChecker(commands.Cog):
             'messages': [],
             'quest_completed': []
         }
-        quest_map = {10: 'voice_10h', 20: 'voice_20h', 50: 'voice_50h'}
+        quest_map = VOICE_WEEKLY_QUEST_MAP
         if hour not in quest_map:
             return result
         quest_subtype = quest_map[hour]
@@ -574,13 +545,13 @@ class LevelChecker(commands.Cog):
                 'messages': [],
                 'quest_completed': []
             }
-            # 5레벨 단위로 지급
+            # RANK_REWARD_LEVEL_INTERVAL 단위로 지급
             reward_levels = []
-            next_reward = ((old // 5) + 1) * 5
+            next_reward = ((old // RANK_REWARD_LEVEL_INTERVAL) + 1) * RANK_REWARD_LEVEL_INTERVAL
             while next_reward <= new:
                 reward_levels.append(next_reward)
-                next_reward += 5
-            exp_per_reward = 20
+                next_reward += RANK_REWARD_LEVEL_INTERVAL
+            exp_per_reward = RANK_REWARD_EXP_PER_LEVEL
             for level in reward_levels:
                 quest_key = f"rank_{rank_type}_{level}"
                 already_completed = await self.data_manager.is_one_time_quest_completed(user_id, quest_key)
@@ -619,7 +590,7 @@ class LevelChecker(commands.Cog):
             if already_completed:
                 result['messages'].append("이미 완료한 랭크 퀘스트입니다.")
                 return result
-            exp_per_reward = 20
+            exp_per_reward = RANK_REWARD_EXP_PER_LEVEL
             await self.data_manager.mark_one_time_quest_completed(user_id, quest_type)
             await self.data_manager.add_exp(user_id, exp_per_reward, 'one_time', quest_type)
             result['success'] = True
