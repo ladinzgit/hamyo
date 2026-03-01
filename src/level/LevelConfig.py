@@ -49,6 +49,19 @@ class LevelConfig(commands.Cog):
                 await logger.log(message)
         except Exception as e:
             print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
+            
+    # ===========================================
+    # 흩날리는 이야기 조각 설정
+    # ===========================================
+    
+    def get_story_piece_times(self) -> list:
+        cfg = _load_levelcfg()
+        return cfg.get("story_piece_times", [])
+
+    def set_story_piece_times(self, times: list):
+        cfg = _load_levelcfg()
+        cfg["story_piece_times"] = times
+        _save_levelcfg(cfg)
     
     # ===========================================
     # 경험치 관리 명령어들

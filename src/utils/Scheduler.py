@@ -36,10 +36,22 @@ class Scheduler(commands.Cog):
             "callback": callback,
             "hour": hour,
             "minute": minute,
-            "name": callback.__name__
+            "name": callback.__name__,
+            "type": "daily"
         }
         self.scheduled_tasks.append(task_info)
         print(f"📅 작업 등록됨: {callback.__name__} (매일 {hour:02d}:{minute:02d} KST)")
+
+    def schedule_once(self, callback: Callable, run_time: datetime):
+        """지정된 특정 시간에 한 번만 실행될 작업을 등록합니다. run_time은 KST 기준 datetime 객체여야 합니다."""
+        task_info = {
+            "callback": callback,
+            "run_time": run_time,
+            "name": callback.__name__,
+            "type": "once"
+        }
+        self.scheduled_tasks.append(task_info)
+        print(f"📅 단발성 작업 등록됨: {callback.__name__} ({run_time.strftime('%Y-%m-%d %H:%M:%S')} KST)")
 
     @tasks.loop(minutes=1)
     async def scheduler_loop(self):
@@ -50,10 +62,24 @@ class Scheduler(commands.Cog):
         current_hour = now.hour
         current_minute = now.minute
 
+        tasks_to_remove = []
+
         for task in self.scheduled_tasks:
-            if task["hour"] == current_hour and task["minute"] == current_minute:
-                # 비동기 실행을 위해 create_task 사용 (하나가 막혀도 다른 것은 실행되게)
-                asyncio.create_task(self._run_task(task))
+            task_type = task.get("type", "daily") # 기본적으로 daily 처리 (호환성)
+            
+            if task_type == "daily":
+                if task["hour"] == current_hour and task["minute"] == current_minute:
+                    # 비동기 실행을 위해 create_task 사용 (하나가 막혀도 다른 것은 실행되게)
+                    asyncio.create_task(self._run_task(task))
+            elif task_type == "once":
+                # 현재 시간이 run_time을 지났으면 실행
+                if task["run_time"] <= now:
+                    asyncio.create_task(self._run_task(task))
+                    tasks_to_remove.append(task)
+                    
+        for t in tasks_to_remove:
+            if t in self.scheduled_tasks:
+                self.scheduled_tasks.remove(t)
 
     async def _run_task(self, task):
         try:

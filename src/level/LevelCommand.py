@@ -212,9 +212,9 @@ class LevelCommands(commands.Cog):
             name="˚‧ 📆 : 오늘 그려낸 구절들",
             value=(
                 f"> 출석체크 : {ox(stats['att_daily'] >= 1)} \n"
-                f"> 다방일지 : {ox(stats['diary_daily'] >= 1)} \n"
-                f"> 통화하자 : {ox(stats['call_daily'] >= 1)}\n"
-                f"> 친구하자 : {ox(stats['friend_daily'] >= 1)}\n"
+                f"> 책방일지 : {ox(stats['diary_daily'] >= 1)} \n"
+                f"> 통화할래 : {ox(stats['call_daily'] >= 1)}\n"
+                f"> 친구할래 : {ox(stats['friend_daily'] >= 1)}\n"
                 f"> 음성활동 : {stats['voice_min_daily']}분 / 30분 ({ox(stats['voice_min_daily'] >= 30)})"
             ),
             inline=False
@@ -228,8 +228,8 @@ class LevelCommands(commands.Cog):
                 
         weekly_lines = [
             f"> 출석체크 : {stats['att_week']} / 7",
-            f"> 비몽추천 : {stats['recommend_week']} / 3",
-            f"> 다방일지 : {stats['diary_week']} / 7",
+            f"> 책방추천 : {stats['recommend_week']} / 3",
+            f"> 책방일지 : {stats['diary_week']} / 7",
             f"> 음성활동 : {stats['voice_hour_week']}시간 {stats['voice_rem_min_week']}분 / {next_step}",
             f"> 상점구매 : {stats['shop_week']} / 1",
             f"> 게시판이용 : {stats['board_week']} / 3"

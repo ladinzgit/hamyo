@@ -198,7 +198,7 @@ class BirthdayInterface(commands.Cog):
         message_parts = []
         
         # 1. 제목 (큰 글씨)
-        message_parts.append("（ <:BM_a_000:1399387512945774672> ）₊ **생일 달력**")
+        message_parts.append("（ <:BM_a_000:1477525641623502950> ）₊ **생일 달력**")
 
         # 오늘의 날짜
         message_parts.append(f"-# <:BM_inv:1384475516152582144> ୨ {now.year} . {now.month} . {now.day} ୧")
@@ -256,7 +256,7 @@ class BirthdayInterface(commands.Cog):
             message_parts.append("> 이번 달 생일이 없다묘...\n")
         
         # 푸터
-        message_parts.append("\n-# <a:BM_m_001:1399387800373301319> 매일 자정에 자동으로 업데이트 된다묘 .ᐟ.ᐟ <a:BM_m_002:1399387809772470342>")
+        message_parts.append("\n-# <a:BM_m_001:1477540758755086488> 매일 자정에 자동으로 업데이트 된다묘 .ᐟ.ᐟ <a:BM_m_002:1477540760386539612>")
         
         return "\n".join(message_parts)
     

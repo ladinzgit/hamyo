@@ -19,6 +19,7 @@ DIARY_CHANNEL_ID = 1474014240896585882            # 다방일지 채널
 CALL_CHANNEL_ID = 1474014240896585884             # 전화하자 채널
 FRIEND_CHANNEL_ID = 1474014240896585883           # 친구하자 채널
 BOARD_CATEGORY_ID = 1474014240896585886           # 게시판 카테고리
+FIRST_SENTENCE_FORUM_ID = 1477598199689773067     # 하묘가 건네는 첫 문장 포럼
 
 # ===========================================
 # 삐삐 퀘스트용 역할 ID
@@ -26,6 +27,7 @@ BOARD_CATEGORY_ID = 1474014240896585886           # 게시판 카테고리
 
 CALL_ROLE_ID = 1474014231069200445                # 전화하자 역할
 FRIEND_ROLE_ID = 1474014231069200446              # 친구하자 역할
+FIRST_SENTENCE_ROLE_ID = 1477597009392173056      # 첫 문장 역할
 
 # ===========================================
 # 역할(경지) 승급 기준 (다공 -> 쪽)
@@ -94,7 +96,9 @@ QUEST_EXP = {
         'voice_30min': 15,
         'bbibbi': 5,
         'call': 3,
-        'friend': 3
+        'friend': 3,
+        'first_sentence': 50,
+        'story_piece': 20
     },
     'weekly': {
         'recommend_3': 50,
@@ -223,7 +227,9 @@ QUEST_DESCRIPTIONS = {
     'diary_4': '주간 다방일지 4회 달성 시 자동 완료',
     'diary_7': '주간 다방일지 7회 달성 시 자동 완료',
     'self_intro': '여백 카테고리에 자기소개 채널을 만드는 퀘스트',
-    'review': '디코올에 서버 후기를 작성하는 퀘스트'
+    'review': '디코올에 서버 후기를 작성하는 퀘스트',
+    'first_sentence': '하묘가 건네는 첫 문장 질문에 다정한 답변을 남기는 퀘스트',
+    'story_piece': '바람에 흩날리는 이야기 조각을 빠르게 줍는 선착순 퀘스트'
 }
 
 QUEST_CATEGORY_NAMES = {
