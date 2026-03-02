@@ -80,7 +80,7 @@ class FortuneCommand(commands.Cog):
 
         birthday = await birthday_db.get_birthday(str(ctx.author.id))
         if not birthday:
-            await ctx.reply("생일 정보가 없다묘! <#1396829221741002796>에서 생일을 등록해달라묘.")
+            await ctx.reply("생일 정보가 없다묘! <#1474014240036749388>에서 생일을 등록해달라묘.")
             return
 
         birth_year = birthday.get("year")
