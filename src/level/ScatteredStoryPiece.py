@@ -55,7 +55,7 @@ class ClaimPieceView(discord.ui.View):
             f"꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱   .oO {interaction.user.mention}, 조각을 주워줘서 고맙다묘! `20 쪽`을 책에 끼워두겠다묘! ᝰꪑ\n"
             "( つ📖O        ╰◟◞     ◟◞     ◟◞     ◟◞     ◟◞╯"
         )
-        await interaction.response.send_message(success_msg, ephemeral=True)
+        await interaction.response.send_message(success_msg)
 
         if len(self.claimed_users) >= self.max_claims:
             button.disabled = True
