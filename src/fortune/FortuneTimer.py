@@ -131,8 +131,7 @@ class FortuneTimer(commands.Cog):
                 except Exception:
                     continue
 
-                target_dt = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-                if now < target_dt:
+                if now.hour != hour or now.minute != minute:
                     continue
 
                 if last_ping_dates.get(send_time) == today_str:
