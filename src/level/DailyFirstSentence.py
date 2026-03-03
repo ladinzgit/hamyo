@@ -227,7 +227,7 @@ class DailyFirstSentence(commands.Cog):
             await self.log(f"오늘의 첫 문장 스레드가 생성되었습니다: {thread_name}")
             
             # 자정 브로드캐스트 (메인 채팅에 어제 답변 리뷰 및 오늘 질문 홍보)
-            self.bot.loop.create_task(self.send_midnight_broadcast(question, old_thread, thread_with_message))
+            self.bot.loop.create_task(self.send_midnight_broadcast(question, old_thread, thread_with_message.thread))
 
             # 봇 메시지(질문) 자체도 DB에 잠깐 올려놓을 순 있지만, 
             # 질문 내용은 parent 메시지를 가져오거나 할 수 있으므로 굳이 필요없음.
@@ -488,6 +488,42 @@ class DailyFirstSentence(commands.Cog):
     @is_guild_admin()
     async def test_first_sentence(self, ctx):
         await self.generate_daily_thread()
+        await ctx.message.add_reaction("✅")
+        
+    @commands.command(name="자정브로드캐스트실행")
+    @is_guild_admin()
+    async def test_midnight_broadcast(self, ctx):
+        """테스트용 자정 브로드캐스트 강제 실행 (현재 가장 최근 질문을 기준으로 동작)"""
+        forum = self.bot.get_channel(FIRST_SENTENCE_FORUM_ID)
+        if not forum or not isinstance(forum, discord.ForumChannel):
+            await ctx.send("❌ 첫 문장 포럼을 찾을 수 없거나 포럼 채널이 아닙니다.")
+            return
+
+        threads = list(forum.threads)
+        if len(threads) < 2:
+            await ctx.send("❌ 비교할 이전 스레드가 충분하지 않습니다. (최소 2개의 스레드가 필요합니다)")
+            return
+
+        # 가장 최근 스레드 = 오늘의 질문, 그 다음 스레드 = 어제의 질문으로 간주
+        new_thread = threads[0]
+        old_thread = threads[1]
+
+        question_text = "알 수 없는 질문"
+        try:
+            starter_msg = await new_thread.fetch_message(new_thread.id)
+            if starter_msg:
+                lines = starter_msg.content.split('\n')
+                for line in lines:
+                    if line.startswith("> **Q."):
+                        question_text = line.replace("> **Q. ", "").replace("**", "").strip()
+                        break
+        except Exception:
+            pass
+
+        await ctx.send(f"자정 브로드캐스트를 실행합니다다묘... (오늘 질문: {question_text})")
+        
+        # 어제 스레드와 오늘 스레드를 넘겨주고 강제 브로드캐스트 실행
+        await self.send_midnight_broadcast(question_text, old_thread, new_thread)
         await ctx.message.add_reaction("✅")
 
 async def setup(bot):
