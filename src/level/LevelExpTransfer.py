@@ -51,7 +51,7 @@ class ExpTransferView(discord.ui.View):
         except Exception as e:
             logger = self.bot.get_cog("Logger")
             if logger:
-                await logger.log(f"쪽 이전 중 수령 기록 확인 오류: {e}")
+                await logger.log(f"쪽 이전 중 수령 기록 확인 오류: {e}", title="⭐ 레벨 시스템 로그", color=discord.Color.gold())
             await interaction.response.send_message("기록을 확인하는 중 오류가 발생했다묘.", ephemeral=True)
             return
 
@@ -77,7 +77,7 @@ class ExpTransferView(discord.ui.View):
         except Exception as e:
             logger = self.bot.get_cog("Logger")
             if logger:
-                await logger.log(f"쪽 이전 중 아카이브 DB 접근 오류: {e}")
+                await logger.log(f"쪽 이전 중 아카이브 DB 접근 오류: {e}", title="⭐ 레벨 시스템 로그", color=discord.Color.gold())
             await interaction.response.send_message("데이터베이스를 읽는 중 오류가 발생했다묘.", ephemeral=True)
             return
             
@@ -122,7 +122,7 @@ class ExpTransferView(discord.ui.View):
             
             logger = self.bot.get_cog("Logger")
             if logger:
-                await logger.log(f"쪽 이전 완료: {interaction.user}({user_id})에게 {new_exp} 쪽 지급 (기존 {old_exp})")
+                await logger.log(f"쪽 이전 완료: {interaction.user}({user_id})에게 {new_exp} 쪽 지급 (기존 {old_exp})", title="⭐ 레벨 시스템 로그", color=discord.Color.gold())
         else:
             await interaction.response.send_message("쪽 지급 중 알 수 없는 오류가 발생했다묘. 관리자에게 문의하라묘!", ephemeral=True)
 
@@ -142,7 +142,7 @@ class LevelExpTransfer(commands.Cog):
         try:
             logger = self.bot.get_cog("Logger")
             if logger:
-                await logger.log(message)
+                await logger.log(message, title="⭐ 레벨 시스템 로그", color=discord.Color.gold())
         except Exception as e:
             print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
 

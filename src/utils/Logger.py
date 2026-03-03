@@ -48,7 +48,7 @@ class Logger(commands.Cog):
         await ctx.send(f"로그 채널이 {channel.mention}로 설정되었습니다.")
         await self.log(f"로그 채널이 {channel.name} ({channel.id})로 설정되었습니다. [길드: {ctx.guild.name if ctx.guild else 'DM'}({ctx.guild.id if ctx.guild else 'N/A'}), 채널: {ctx.channel.name if hasattr(ctx.channel, 'name') else 'DM'}({ctx.channel.id})]")
     
-    async def log(self, message, file_name=None):
+    async def log(self, message=None, file_name=None, title="📝 시스템 로그", color=discord.Color.blue(), embed=None):
         """로그 메시지를 지정된 채널에 전송합니다."""
         if not self.log_channel_id:
             return
@@ -59,17 +59,35 @@ class Logger(commands.Cog):
             
         # 파일명이 지정되지 않은 경우 호출한 파일의 이름을 가져옵니다
         if file_name is None:
-            frame = inspect.currentframe().f_back
-            file_name = os.path.basename(frame.f_code.co_filename)
+            try:
+                frame = inspect.currentframe().f_back
+                file_name = os.path.basename(frame.f_code.co_filename)
+            except Exception:
+                file_name = "Unknown"
         
         # 한국 시간대로 변환
         kr_tz = pytz.timezone("Asia/Seoul")
         kr_time = datetime.datetime.now(kr_tz)
-        time_str = kr_time.strftime("%Y-%m-%d %H:%M:%S")
         
-        log_message = f"[{time_str}] [{file_name}] {message}"
+        if embed is None:
+            log_embed = discord.Embed(
+                title=title,
+                description=str(message) if message else "",
+                color=color,
+                timestamp=kr_time
+            )
+            log_embed.set_footer(text=f"모듈: {file_name}")
+        else:
+            log_embed = embed
+            if message and not log_embed.description:
+                log_embed.description = str(message)
+            if not log_embed.timestamp:
+                log_embed.timestamp = kr_time
+            if not log_embed.footer.text:
+                log_embed.set_footer(text=f"모듈: {file_name}")
+
         try:
-            await channel.send(log_message) 
+            await channel.send(embed=log_embed) 
         except Exception as e:
             print(f"로그 전송 중 오류 발생: {e}")
 

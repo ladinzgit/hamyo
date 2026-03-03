@@ -295,7 +295,7 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
         try:
             logger = self.bot.get_cog('Logger')
             if logger:
-                await logger.log(message)
+                await logger.log(message, title="🎙️ 음성 시스템 로그", color=discord.Color.blue())
         except Exception as e:
             print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
             

@@ -46,7 +46,7 @@ class LevelConfig(commands.Cog):
         try:
             logger = self.bot.get_cog('Logger')
             if logger:
-                await logger.log(message)
+                await logger.log(message, title="⭐ 레벨 시스템 로그", color=discord.Color.gold())
         except Exception as e:
             print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
             

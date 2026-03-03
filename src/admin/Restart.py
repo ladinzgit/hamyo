@@ -23,7 +23,7 @@ class Admin(commands.Cog):
         """로그 메시지를 Logger cog를 통해 전송합니다."""
         logger = self.bot.get_cog('Logger')
         if logger:
-            await logger.log(message)
+            await logger.log(message, title="⚙️ 관리자 시스템 로그", color=discord.Color.dark_red())
 
     @commands.command(name='재시작', aliases=['restart'])
     @commands.is_owner()

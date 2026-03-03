@@ -224,7 +224,7 @@ class BirthdayModal(discord.ui.Modal, title="🎂 생일 등록하기"):
                 # 로그
                 logger = self.bot.get_cog('Logger')
                 if logger:
-                    await logger.log(f"{interaction.user}({interaction.user.id})이 생일을 등록함: {birthday_str} (수정 {edit_count}/2회)")
+                    await logger.log(f"{interaction.user}({interaction.user.id})이 생일을 등록함: {birthday_str} (수정 {edit_count}/2회)", title="🎂 생일 시스템 로그", color=discord.Color.purple())
             else:
                 await interaction.response.send_message(
                     embed=discord.Embed(
@@ -264,7 +264,7 @@ class BirthdayModal(discord.ui.Modal, title="🎂 생일 등록하기"):
         try:
             logger = self.bot.get_cog('Logger')
             if logger:
-                await logger.log(message)
+                await logger.log(message, title="🎂 생일 시스템 로그", color=discord.Color.purple())
         except Exception as e:
             print(f"❌ BirthdayModal 로그 전송 중 오류 발생: {e}")
     
@@ -447,7 +447,7 @@ class BirthdayButtonView(discord.ui.View):
             # 로그
             logger = self.bot.get_cog('Logger')
             if logger:
-                await logger.log(f"{interaction.user}({interaction.user.id})이 생일 정보를 삭제함.")
+                await logger.log(f"{interaction.user}({interaction.user.id})이 생일 정보를 삭제함.", title="🎂 생일 시스템 로그", color=discord.Color.purple())
         else:
             embed = discord.Embed(
                 title="🎂 생일 삭제 실패 ₍ᐢ..ᐢ₎",
@@ -486,7 +486,7 @@ class Birthday(commands.Cog):
         try:
             logger = self.bot.get_cog('Logger')
             if logger:
-                await logger.log(message)
+                await logger.log(message, title="🎂 생일 시스템 로그", color=discord.Color.purple())
         except Exception as e:
             print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
     

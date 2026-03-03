@@ -51,7 +51,7 @@ class RankCardCog(commands.Cog):
         """로그 메시지를 Logger cog를 통해 전송합니다."""
         logger_cog = self.bot.get_cog('Logger')
         if logger_cog:
-            await logger_cog.log(message, "RankCardCog")
+            await logger_cog.log(message, file_name="RankCardCog", title="🏆 랭크 카드 시스템 로그", color=discord.Color.blue())
         else:
             print(f"[RankCardCog] {message}")
 

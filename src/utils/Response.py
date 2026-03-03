@@ -25,7 +25,7 @@ class Response(commands.Cog):
         """로그 메시지를 Logger cog를 통해 전송합니다."""
         logger = self.bot.get_cog('Logger')
         if logger:
-            await logger.log(message)
+            await logger.log(message, title="🛠️ 유틸리티 로그", color=discord.Color.dark_grey())
 
     async def cog_load(self):
         try:

@@ -22,7 +22,7 @@ class BulkDM(commands.Cog):
         """로그 메시지를 Logger cog를 통해 전송합니다."""
         logger = self.bot.get_cog('Logger')
         if logger:
-            await logger.log(message)
+            await logger.log(message, title="⚙️ 관리자 시스템 로그", color=discord.Color.dark_red())
 
     def create_progress_bar(self, current: int, total: int, length: int = 10) -> str:
         """진행률 바를 생성합니다."""
