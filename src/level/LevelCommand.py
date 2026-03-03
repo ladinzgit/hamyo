@@ -131,6 +131,7 @@ class LevelCommands(commands.Cog):
         stats['diary_daily'] = await _safe_get_quest('daily', 'diary', 'day')
         stats['call_daily'] = await _safe_get_quest('daily', 'call', 'day')
         stats['friend_daily'] = await _safe_get_quest('daily', 'friend', 'day')
+        stats['first_sentence_daily'] = await _safe_get_quest('daily', 'first_sentence', 'day')
         
         # 주간 퀘스트
         stats['att_week'] = await _safe_get_quest('daily', 'attendance', 'week')
@@ -212,6 +213,7 @@ class LevelCommands(commands.Cog):
             name="˚‧ 📆 : 오늘 그려낸 구절들",
             value=(
                 f"> 출석체크 : {ox(stats['att_daily'] >= 1)} \n"
+                f"> 첫 문장 작성 : {ox(stats.get('first_sentence_daily', 0) >= 1)} \n"
                 f"> 책방일지 : {ox(stats['diary_daily'] >= 1)} \n"
                 f"> 통화할래 : {ox(stats['call_daily'] >= 1)}\n"
                 f"> 친구할래 : {ox(stats['friend_daily'] >= 1)}\n"

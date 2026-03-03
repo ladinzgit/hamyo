@@ -125,7 +125,8 @@ class FortuneConfig(commands.Cog):
         """운세 설정 도움말/현황"""
         config = fortune_db.get_guild_config(ctx.guild.id)
 
-        send_time = config.get("send_time") or "미설정"
+        send_times = config.get("send_time", [])
+        send_time_text = ", ".join(send_times) if send_times else "미설정"
         role_id = config.get("role_id")
         role = ctx.guild.get_role(role_id) if role_id else None
         role_text = role.mention if role else "미설정"
@@ -144,7 +145,9 @@ class FortuneConfig(commands.Cog):
         embed.add_field(
             name="관리자 명령어",
             value=(
-                "`*운세설정 시간 [HH:MM]` : 운세를 보내는 시간을 KST 기준으로 저장\n"
+                "`*운세설정 시간추가 [HH:MM]` : 운세를 보내는 시간을 추가 (여러 개 가능)\n"
+                "`*운세설정 시간제거 [HH:MM]` : 등록된 전송 시간을 제거\n"
+                "`*운세설정 시간목록` : 등록된 전송 시간 목록 확인\n"
                 "`*운세설정 역할 [@역할]` : 운세 안내에 사용할 역할을 설정/해제\n"
                 "`*운세설정 채널 [#채널]` : 운세 안내를 멘션할 채널을 지정/해제\n"
                 "`*운세설정 대상추가 [@유저] [일수]` : 특정 유저를 운세 대상에 추가 (count 일 뒤 자동 만료)\n"
@@ -156,7 +159,7 @@ class FortuneConfig(commands.Cog):
         embed.add_field(
             name="현재 설정",
             value=(
-                f"- 전송 시간(KST): **{send_time}**\n"
+                f"- 전송 시간(KST): **{send_time_text}**\n"
                 f"- 운세 역할: {role_text}\n"
                 f"- 운세 안내 채널: {channel_text}\n"
                 f"- 대상 목록:\n{self._format_targets(ctx.guild)}"
@@ -170,17 +173,11 @@ class FortuneConfig(commands.Cog):
         embed.timestamp = ctx.message.created_at
         await ctx.reply(embed=embed)
 
-    @fortune_settings.command(name="시간")
+    @fortune_settings.command(name="시간추가")
     @is_guild_admin()
-    async def set_send_time(self, ctx, time_text: str):
-        """운세 전송 시간을 HH:MM 형식으로 설정"""
+    async def add_send_time_cmd(self, ctx, time_text: str):
+        """운세 전송 시간을 추가 (HH:MM 형식)"""
         time_text = time_text.strip()
-        if time_text.lower() in {"none", "해제", "초기화"}:
-            fortune_db.set_send_time(ctx.guild.id, None)
-            await ctx.reply("운세 전송 시간이 해제되었다묘. 자유롭게 *운세 명령을 쓸 수 있다묘!")
-            await self.log(f"{ctx.author}({ctx.author.id})가 운세 전송 시간을 해제함 [길드: {ctx.guild.name}({ctx.guild.id})]")
-            return
-
         try:
             hour, minute = time_text.split(":")
             hour_int, minute_int = int(hour), int(minute)
@@ -191,9 +188,52 @@ class FortuneConfig(commands.Cog):
             await ctx.reply("시간 형식이 이상하다묘... `HH:MM`(예: 09:30) 형식으로 적어달라묘!")
             return
 
-        fortune_db.set_send_time(ctx.guild.id, formatted)
-        await ctx.reply(f"KST 기준 **{formatted}**에 운세를 보내도록 기억했다묘!")
-        await self.log(f"{ctx.author}({ctx.author.id})가 운세 전송 시간을 {formatted} 으로 설정함 [길드: {ctx.guild.name}({ctx.guild.id})]")
+        times = fortune_db.get_send_times(ctx.guild.id)
+        if len(times) >= 5:
+            await ctx.reply("전송 시간은 최대 5개까지만 등록할 수 있다묘!")
+            return
+
+        success = fortune_db.add_send_time(ctx.guild.id, formatted)
+        if success:
+            await ctx.reply(f"KST 기준 **{formatted}**에 운세를 보내도록 추가했다묘!")
+            await self.log(f"{ctx.author}({ctx.author.id})가 운세 전송 시간에 {formatted} 을(를) 추가함 [길드: {ctx.guild.name}({ctx.guild.id})]")
+        else:
+            await ctx.reply(f"**{formatted}**은(는) 이미 등록된 시간이다묘!")
+
+    @fortune_settings.command(name="시간제거")
+    @is_guild_admin()
+    async def remove_send_time_cmd(self, ctx, time_text: str):
+        """등록된 운세 전송 시간을 제거"""
+        time_text = time_text.strip()
+        try:
+            hour, minute = time_text.split(":")
+            hour_int, minute_int = int(hour), int(minute)
+            if not (0 <= hour_int <= 23 and 0 <= minute_int <= 59):
+                raise ValueError
+            formatted = f"{hour_int:02d}:{minute_int:02d}"
+        except ValueError:
+            await ctx.reply("시간 형식이 이상하다묘... `HH:MM`(예: 09:30) 형식으로 적어달라묘!")
+            return
+
+        success = fortune_db.remove_send_time(ctx.guild.id, formatted)
+        if success:
+            fortune_db.set_last_ping_date(ctx.guild.id, formatted, None)
+            await ctx.reply(f"KST 기준 **{formatted}** 전송 설정을 제거했다묘!")
+            await self.log(f"{ctx.author}({ctx.author.id})가 운세 전송 시간 {formatted} 을(를) 제거함 [길드: {ctx.guild.name}({ctx.guild.id})]")
+        else:
+            await ctx.reply(f"**{formatted}**은(는) 등록되지 않은 시간이다묘!")
+
+    @fortune_settings.command(name="시간목록")
+    @is_guild_admin()
+    async def list_send_time_cmd(self, ctx):
+        """등록된 운세 전송 시간 목록 확인"""
+        times = fortune_db.get_send_times(ctx.guild.id)
+        if not times:
+            await ctx.reply("현재 등록된 운세 전송 시간이 없다묘!")
+            return
+            
+        time_list_str = "\n".join([f"- **{t}**" for t in times])
+        await ctx.reply(f"현재 등록된 운세 전송 시간 목록이다묘:\n{time_list_str}")
 
     @fortune_settings.command(name="역할")
     @is_guild_admin()

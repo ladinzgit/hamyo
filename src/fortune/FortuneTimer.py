@@ -117,37 +117,39 @@ class FortuneTimer(commands.Cog):
                 continue
 
             config = fortune_db.get_guild_config(guild_id)
-            send_time = config.get("send_time")
+            send_times = config.get("send_time", [])
             channel_id = config.get("channel_id")
             role_id = config.get("role_id")
-            last_ping_date = config.get("last_ping_date")
+            last_ping_dates = config.get("last_ping_date", {})
 
-            if not (send_time and channel_id and role_id):
+            if not (send_times and channel_id and role_id):
                 continue
 
-            try:
-                hour, minute = map(int, send_time.split(":"))
-            except Exception:
-                continue
+            for send_time in send_times:
+                try:
+                    hour, minute = map(int, send_time.split(":"))
+                except Exception:
+                    continue
 
-            target_dt = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-            if now < target_dt:
-                continue
+                target_dt = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+                if now < target_dt:
+                    continue
 
-            if last_ping_date == today_str:
-                continue
+                if last_ping_dates.get(send_time) == today_str:
+                    continue
 
-            channel = guild.get_channel(channel_id)
-            role = guild.get_role(role_id)
-            if not channel or not role:
-                continue
+                channel = guild.get_channel(channel_id)
+                role = guild.get_role(role_id)
+                if not channel or not role:
+                    break
 
-            try:
-                await channel.send(f"{role.mention} 오늘의 운세를 아직 확인하지 않았다묘! `*운세`로 확인해달라묘 ~!")
-                fortune_db.set_last_ping_date(guild_id, today_str)
-                await self.log(f"운세 멘션 전송 완료 [길드: {guild.name}({guild.id}), 채널: {channel.name}({channel.id})]")
-            except Exception as e:
-                await self.log(f"운세 멘션 전송 실패: {e} [길드: {guild.name}({guild.id})]")
+                try:
+                    await channel.send(f"{role.mention} 오늘의 운세를 아직 확인하지 않았다묘! `*운세`로 확인해달라묘 ~!")
+                    fortune_db.set_last_ping_date(guild_id, send_time, today_str)
+                    last_ping_dates[send_time] = today_str # 로컬 상태 업데이트
+                    await self.log(f"운세 멘션 전송 완료 [길드: {guild.name}({guild.id}), 채널: {channel.name}({channel.id}), 시간: {send_time}]")
+                except Exception as e:
+                    await self.log(f"운세 멘션 전송 실패: {e} [길드: {guild.name}({guild.id}), 시간: {send_time}]")
 
 
 async def setup(bot):

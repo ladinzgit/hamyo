@@ -14,10 +14,10 @@ FORTUNE_CONFIG_PATH = Path("config/fortune.json")
 
 # 길드 설정 기본값
 DEFAULT_GUILD_CONFIG = {
-    "send_time": None,       # "HH:MM" (KST)
+    "send_time": [],         # ["HH:MM", ...] (KST)
     "role_id": None,         # int role id
     "channel_id": None,      # int channel id (운세 안내 채널)
-    "last_ping_date": None,  # "YYYY-MM-DD" 로직
+    "last_ping_date": {},    # {"HH:MM": "YYYY-MM-DD"}
     "targets": [],           # [{"user_id": int, "count": int, "last_used_date": str|None}, ...]
     "buttons": {}            # {message_id: {"expiration_days": int, "used_users": [user_id, ...]}}
 }
@@ -64,14 +64,23 @@ def _ensure_guild_config(config: Dict, guild_id: int) -> Tuple[Dict, str]:
                         t["last_used_date"] = None
                     normalized.append(t)
             config[key]["targets"] = normalized
+        # send_time 호환성 유지 및 리스트화
         if "send_time" not in config[key]:
-            config[key]["send_time"] = None
+            config[key]["send_time"] = []
+        elif isinstance(config[key]["send_time"], str):
+            config[key]["send_time"] = [config[key]["send_time"]]
+        elif config[key]["send_time"] is None:
+            config[key]["send_time"] = []
+
         if "role_id" not in config[key]:
             config[key]["role_id"] = None
         if "channel_id" not in config[key]:
             config[key]["channel_id"] = None
-        if "last_ping_date" not in config[key]:
-            config[key]["last_ping_date"] = None
+
+        # last_ping_date 호환성 유지 및 딕셔너리화
+        if "last_ping_date" not in config[key] or not isinstance(config[key]["last_ping_date"], dict):
+            config[key]["last_ping_date"] = {}
+
         if "buttons" not in config[key]:
             config[key]["buttons"] = {}
     return config, key
@@ -84,17 +93,33 @@ def get_guild_config(guild_id: int) -> Dict:
     return config.get(key, deepcopy(DEFAULT_GUILD_CONFIG))
 
 
-def set_send_time(guild_id: int, send_time: Optional[str]) -> Dict:
-    """
-    운세 전송 시간을 저장합니다.
-    Args:
-        send_time: "HH:MM" 형식(KST) 혹은 None(미설정)
-    """
+def add_send_time(guild_id: int, send_time: str) -> bool:
+    """운세 전송 시간을 추가합니다. 이미 존재하면 False 반환."""
     config = _load_config()
     config, key = _ensure_guild_config(config, guild_id)
-    config[key]["send_time"] = send_time
+    if send_time in config[key]["send_time"]:
+        return False
+    config[key]["send_time"].append(send_time)
+    config[key]["send_time"].sort()  # 시간순 정렬
     _save_config(config)
-    return config[key]
+    return True
+
+
+def remove_send_time(guild_id: int, send_time: str) -> bool:
+    """운세 전송 시간을 제거합니다. 존재하지 않으면 False 반환."""
+    config = _load_config()
+    config, key = _ensure_guild_config(config, guild_id)
+    if send_time not in config[key]["send_time"]:
+        return False
+    config[key]["send_time"].remove(send_time)
+    _save_config(config)
+    return True
+
+
+def get_send_times(guild_id: int) -> List[str]:
+    """길드의 운세 전송 시간 목록을 반환합니다."""
+    config = get_guild_config(guild_id)
+    return config.get("send_time", [])
 
 
 def set_role_id(guild_id: int, role_id: Optional[int]) -> Dict:
@@ -115,11 +140,14 @@ def set_channel_id(guild_id: int, channel_id: Optional[int]) -> Dict:
     return config[key]
 
 
-def set_last_ping_date(guild_id: int, date_str: Optional[str]) -> Dict:
-    """해당 길드의 마지막 안내 전송 날짜(YYYY-MM-DD)를 저장합니다."""
+def set_last_ping_date(guild_id: int, time_str: str, date_str: Optional[str]) -> Dict:
+    """해당 길드의 특정 시간 마지막 안내 전송 날짜를 저장합니다."""
     config = _load_config()
     config, key = _ensure_guild_config(config, guild_id)
-    config[key]["last_ping_date"] = date_str
+    if date_str is None:
+        config[key]["last_ping_date"].pop(time_str, None)
+    else:
+        config[key]["last_ping_date"][time_str] = date_str
     _save_config(config)
     return config[key]
 
