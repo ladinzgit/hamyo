@@ -293,9 +293,10 @@ class LevelSystem(commands.Cog):
 
             # 2. 이전 역할 제거 판별
             # 기본 원칙: 앞으로는 모든 역할을 유지 (단, 여백(yeobaek)만 제거)
+            # 'hub'는 구버전 DB 기본값이므로 함께 처리
             should_remove_previous = False
             
-            if previous_role_key == 'yeobaek':
+            if previous_role_key in ('yeobaek', 'hub'):
                 should_remove_previous = True
             
             if should_remove_previous and previous_role_key and previous_role_key in self.ROLE_IDS:

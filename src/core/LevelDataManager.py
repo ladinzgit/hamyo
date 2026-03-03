@@ -45,7 +45,7 @@ class LevelDataManager:
             CREATE TABLE IF NOT EXISTS user_exp (
                 user_id INTEGER PRIMARY KEY,
                 total_exp INTEGER DEFAULT 0,
-                current_role TEXT DEFAULT 'hub',
+                current_role TEXT DEFAULT 'yeobaek',
                 last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
