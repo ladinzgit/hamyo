@@ -155,7 +155,7 @@ class DailyFirstSentence(commands.Cog):
             prompt = f"디스코드 감성 서버의 유저들에게 던질 따뜻하고 동화 같은 질문 1개를 생성해 줘. 너무 무겁거나 철학적이고 난해한 질문은 피하고, 누구나 일상 속에서 쉽게 대답할 수 있는 가벼운 질문으로 만들어 줘. (예: 가장 좋아하는 간식, 오늘 본 예쁜 풍경 등){recent_context}\n\n20자 이내의 짧은 요약(주제)과, 2~3줄의 질문 본문으로 나누어 JSON 형식으로 반환해 줘. {{\"summary\": \"...\", \"question\": \"...\"}}"
             
             completion = await self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4o",
                 messages=[
                     {
                         "role": "system",
@@ -274,7 +274,7 @@ class DailyFirstSentence(commands.Cog):
                     "1. 어제 질문의 답변 중 가장 인상 깊고 따뜻한 답변 2~3개를 골라서 소개하고 짧은 코멘트 남기기. (유저를 언급할 때는 반드시 디스코드 멘션 `<@유저 ID>` 형식을 사용해). 답변 길이가 꼭 길지 않더라도 하묘의 페르소나와 잘 맞는 따뜻한 내용을 우선으로 골라줘.\n" \
                     "2. 어제 이야기해주고 같이 참여해준 모두에게 고마움을 표현하기.\n" \
                     f"3. 오늘 새롭게 준비한 질문('{new_question}')에 대해서도 궁금해하며, <#{new_thread.id}> 모양의 멘션을 사용해 그곳에 와서 답변해달라고 부탁하기.\n" \
-                    "선정된 유저들에게는 10쪽의 추가 보상이 주어졌다는 내용도 귀엽게 한 줄 덧붙여줘."
+                    "선정된 유저들에게는 30쪽의 추가 보상이 주어졌다는 내용도 귀엽게 한 줄 덧붙여줘."
             else:
                  prompt = \
                     f"오늘 새롭게 던지는 질문: {new_question}\n\n" \
@@ -284,7 +284,7 @@ class DailyFirstSentence(commands.Cog):
                     f"채널 멘션은 `<#{new_thread.id}>` 를 사용해줘."
             
             completion = await self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4o",
                 messages=[
                     {"role": "system", "content": "너는 디스코드 봇 '하묘'야. 다정하고 귀엽고, 따뜻한 마음을 가진 토끼 캐릭터야."},
                     {"role": "user", "content": prompt}
@@ -297,7 +297,7 @@ class DailyFirstSentence(commands.Cog):
             await main_channel.send(final_msg)
             await self.log("자정 브로드캐스트 메시지를 메인 채팅 채널에 전송했습니다.")
             
-            # 인상깊은 답변으로 선정된 유저(멘션된 유저)에게 10쪽 추가 지급
+            # 인상깊은 답변으로 선정된 유저(멘션된 유저)에게 30쪽 추가 지급
             level_checker = self.bot.get_cog("LevelChecker")
             if level_checker and answers:
                 mentioned_users = re.findall(r'<@(\d+)>', broadcast_msg)
@@ -307,8 +307,8 @@ class DailyFirstSentence(commands.Cog):
                         uid = int(str_uid)
                         # 실제로 답변을 단 유저가 맞는지 검증
                         if any(ans['user_id'] == uid for ans in answers):
-                            await level_checker.data_manager.add_exp(uid, 10, 'daily', 'first_sentence_best')
-                            await self.log(f"인상깊은 답변으로 선정된 유저 {uid}에게 10쪽을 지급했습니다.")
+                            await level_checker.data_manager.add_exp(uid, 30, 'daily', 'first_sentence_best')
+                            await self.log(f"인상깊은 답변으로 선정된 유저 {uid}에게 30쪽을 지급했습니다.")
                     except Exception as e:
                         await self.log(f"보상 지급 중 오류 발생: {e}")
 
@@ -354,7 +354,7 @@ class DailyFirstSentence(commands.Cog):
                 "너는 다정하고 착한 토끼 '하묘'야. 반말을 사용하고 말끝을 '~다묘', '~거다묘', '~보라묘' 등으로 마무리해줘."
             
             completion = await self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4o",
                 messages=[
                     {"role": "system", "content": "너는 디스코드 봇 하묘야. 귀엽고 다정한 토끼 캐릭터. 친근하게 반말을 쓰고 말끝을 ~다묘로 끝내줘."},
                     {"role": "user", "content": prompt}
@@ -458,7 +458,7 @@ class DailyFirstSentence(commands.Cog):
             completion = await self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "너는 디스코드 봇 '하묘'야. 길게 말하지 않고 아주 짧고 따뜻하게 1~2줄로만 대답해줘. 다정한 반말 문체에 말끝을 자연스럽게 '~다묘', '~거다묘', '~냐묘'로 끝내줘. 어색하게 억지로 붙이지 말고 (예: '있거다묘' X), '정말 다행이다묘!', '최고였다묘!' 처럼 자연스럽게 써 줘."},
+                    {"role": "system", "content": "너는 디스코드 봇 '하묘'야. 길게 말하지 않고 아주 짧고 따뜻하게 2~3줄로만 대답해줘. 다정한 반말 문체에 말끝을 자연스럽게 '~다묘', '~거다묘', '~냐묘'로 끝내줘. 어색하게 억지로 붙이지 말고 (예: '있거다묘' X), '정말 다행이다묘!', '최고였다묘!' 처럼 자연스럽게 써 줘."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.8
@@ -489,54 +489,6 @@ class DailyFirstSentence(commands.Cog):
     async def test_first_sentence(self, ctx):
         await self.generate_daily_thread()
         await ctx.message.add_reaction("✅")
-
-    @commands.command(name="질문생성테스트")
-    @is_guild_admin()
-    async def test_generate_question(self, ctx):
-        """GPT 프롬프트를 통해 첫 문장 질문 생성을 테스트합니다."""
-        await ctx.send("질문을 생성 중이다묘... 잠시만 기다려달라묘!")
-        self._ensure_client()
-        if not self.client:
-            await ctx.send("❌ API 키가 없습니다.")
-            return
-
-        recent_questions = await self._get_recent_questions(limit=30)
-        recent_context = ""
-        if recent_questions:
-            recent_context = "\n[최근에 했던 질문 목록 (다음 주제들은 반드시 피해서 다른 새로운 주제로 만들어줘)]\n" + "\n".join(f"- {q}" for q in recent_questions)
-
-        try:
-            prompt = f"디스코드 감성 서버의 유저들에게 던질 따뜻하고 동화 같은 질문 1개를 생성해 줘. 너무 무겁거나 철학적이고 난해한 질문은 피하고, 누구나 일상 속에서 쉽게 대답할 수 있는 가벼운 질문으로 만들어 줘. (예: 가장 좋아하는 간식, 오늘 본 예쁜 풍경 등){recent_context}\n\n20자 이내의 짧은 요약(주제)과, 2~3줄의 질문 본문으로 나누어 JSON 형식으로 반환해 줘. {{\"summary\": \"...\", \"question\": \"...\"}}"
-            
-            completion = await self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "너는 디스코드 봇 '하묘'야. 말을 하는 토끼 컨셉으로 다정하고 친근한 반말 문체를 써 줘. 말끝에는 자연스럽게 '~다묘', '~거다묘', '~보라묘', '~냐묘'를 붙여줘. (예시: '가장 좋아하는 계절은 언제냐묘?', '정말 예쁘다묘!', '다들 어땠는지 말해보라묘!') 단, '있거다묘'처럼 어색하게 억지로 어미를 조작하지 말고 문맥에 맞게 자연스럽게 연결해 줘. 반드시 JSON 형식만 반환해."
-                    },
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.8,
-                response_format={ "type": "json_object" }
-            )
-            
-            response_text = completion.choices[0].message.content.strip()
-            data = json.loads(response_text)
-            summary = data.get("summary", "요약 없음")
-            question = data.get("question", "질문 없음")
-            
-            embed = discord.Embed(title="📝 첫 문장 질문 생성 테스트", color=0xedccff)
-            embed.add_field(name="주제 (summary)", value=summary, inline=False)
-            embed.add_field(name="질문 본문 (question)", value=question, inline=False)
-            embed.add_field(name="Raw JSON", value=f"```json\n{response_text}\n```", inline=False)
-            
-            await ctx.send(embed=embed)
-            
-        except Exception as e:
-            await ctx.send(f"❌ 첫 문장 GPT 생성 중 오류: {e}")
-            await self.log(f"❌ 질문생성테스트 오류: {e}")
-
 
 async def setup(bot):
     await bot.add_cog(DailyFirstSentence(bot))
