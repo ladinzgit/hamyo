@@ -302,7 +302,7 @@ class LevelSystem(commands.Cog):
                 prev_role_id = self.ROLE_IDS.get(previous_role_key)
                 prev_role = guild.get_role(prev_role_id)
                 
-                if prev_role and prev_role in member.roles:
+                if prev_role:
                     try:
                         await member.remove_roles(prev_role, reason=f"승급: {new_role_key} (이전 역할 {previous_role_key} 제거)")
                     except Exception as e:
