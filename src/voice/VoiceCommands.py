@@ -163,7 +163,7 @@ class RankingView(discord.ui.View):
         window_label: str,
         page: int,
         footer_note: str,
-        emoji_prefix: str = "<:BM_k_003:1399387520135069770>､ ",
+        emoji_prefix: str = "<:BM_a_000:1477525641623502950>､ ",
         colour: Optional[discord.Colour] = None,
     ):
         super().__init__(timeout=180)
@@ -599,7 +599,7 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
                 window_label=window_label,
                 page=page,
                 footer_note=footer_note,
-                emoji_prefix="<:BM_k_003:1399387520135069770>､ ",
+                emoji_prefix="<:BM_a_000:1477525641623502950>､ ",
             )
 
             message = await interaction.followup.send(embed=view.render_page(), view=view)
@@ -682,7 +682,7 @@ class VoiceCommands(commands.GroupCog, group_name="보이스"):
                 page=page,
                 footer_note=footer_note,
                 colour=role.colour,
-                emoji_prefix="<:BM_k_003:1399387520135069770>､ ",
+                emoji_prefix="<:BM_a_000:1477525641623502950>､ ",
             )
 
             message = await interaction.followup.send(embed=view.render_page(), view=view)
