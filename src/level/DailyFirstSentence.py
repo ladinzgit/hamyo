@@ -500,8 +500,14 @@ class DailyFirstSentence(commands.Cog):
             return
 
         threads = list(forum.threads)
+        async for t in forum.archived_threads(limit=10):
+            if t not in threads:
+                threads.append(t)
+                
+        threads.sort(key=lambda t: t.id, reverse=True)
+
         if len(threads) < 2:
-            await ctx.send("❌ 비교할 이전 스레드가 충분하지 않습니다. (최소 2개의 스레드가 필요합니다)")
+            await ctx.send("❌ 비교할 이전 스레드가 충분하지 않습니다. (최소 2개의 활성화/마감 스레드가 필요합니다)")
             return
 
         # 가장 최근 스레드 = 오늘의 질문, 그 다음 스레드 = 어제의 질문으로 간주
