@@ -8,6 +8,7 @@ import pytz
 import aiosqlite
 from openai import AsyncOpenAI
 import random
+import re
 
 from src.level.LevelConstants import FIRST_SENTENCE_ROLE_ID, FIRST_SENTENCE_FORUM_ID, QUEST_EXP, REACTION_EMOJI_POOL, MAIN_CHAT_CHANNEL_ID
 from src.core.admin_utils import is_guild_admin
@@ -272,7 +273,8 @@ class DailyFirstSentence(commands.Cog):
                     "메인 채팅 채널 유저들에게 보낼 자정 공지 메시지를 작성해 줘. 다음 내용을 포함해야 해:\n" \
                     "1. 어제 질문의 답변 중 가장 인상 깊고 따뜻한 답변 2~3개를 골라서 소개하고 짧은 코멘트 남기기. (유저를 언급할 때는 반드시 디스코드 멘션 `<@유저 ID>` 형식을 사용해). 답변 길이가 꼭 길지 않더라도 하묘의 페르소나와 잘 맞는 따뜻한 내용을 우선으로 골라줘.\n" \
                     "2. 어제 이야기해주고 같이 참여해준 모두에게 고마움을 표현하기.\n" \
-                    f"3. 오늘 새롭게 준비한 질문('{new_question}')에 대해서도 궁금해하며, <#{new_thread.id}> 모양의 멘션을 사용해 그곳에 와서 답변해달라고 부탁하기."
+                    f"3. 오늘 새롭게 준비한 질문('{new_question}')에 대해서도 궁금해하며, <#{new_thread.id}> 모양의 멘션을 사용해 그곳에 와서 답변해달라고 부탁하기.\n" \
+                    "선정된 유저들에게는 10쪽의 추가 보상이 주어졌다는 내용도 귀엽게 한 줄 덧붙여줘."
             else:
                  prompt = \
                     f"오늘 새롭게 던지는 질문: {new_question}\n\n" \
@@ -294,6 +296,22 @@ class DailyFirstSentence(commands.Cog):
             final_msg = f"{broadcast_msg}\n\n{role_mention_text}"
             await main_channel.send(final_msg)
             await self.log("자정 브로드캐스트 메시지를 메인 채팅 채널에 전송했습니다.")
+            
+            # 인상깊은 답변으로 선정된 유저(멘션된 유저)에게 10쪽 추가 지급
+            level_checker = self.bot.get_cog("LevelChecker")
+            if level_checker and answers:
+                mentioned_users = re.findall(r'<@(\d+)>', broadcast_msg)
+                mentioned_users = list(set(mentioned_users))
+                for str_uid in mentioned_users:
+                    try:
+                        uid = int(str_uid)
+                        # 실제로 답변을 단 유저가 맞는지 검증
+                        if any(ans['user_id'] == uid for ans in answers):
+                            await level_checker.data_manager.add_exp(uid, 10, 'daily', 'first_sentence_best')
+                            await self.log(f"인상깊은 답변으로 선정된 유저 {uid}에게 10쪽을 지급했습니다.")
+                    except Exception as e:
+                        await self.log(f"보상 지급 중 오류 발생: {e}")
+
         except Exception as e:
             await self.log(f"❌ 자정 브로드캐스트 생성 중 오류: {e}")
 
