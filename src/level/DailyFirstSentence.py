@@ -9,8 +9,10 @@ import aiosqlite
 from openai import AsyncOpenAI
 import random
 
-from src.level.LevelConstants import FIRST_SENTENCE_ROLE_ID, FIRST_SENTENCE_FORUM_ID, QUEST_EXP, REACTION_EMOJI_POOL
+from src.level.LevelConstants import FIRST_SENTENCE_ROLE_ID, FIRST_SENTENCE_FORUM_ID, QUEST_EXP, REACTION_EMOJI_POOL, MAIN_CHAT_CHANNEL_ID
 from src.core.admin_utils import is_guild_admin
+
+Promotion_Time = ["12:00", "18:00"]
 
 KST = pytz.timezone("Asia/Seoul")
 DB_PATH = "data/level_system.db"
@@ -114,6 +116,14 @@ class DailyFirstSentence(commands.Cog):
         if scheduler:
             # 매일 자정(00:00)에 포럼 스레드 생성
             scheduler.schedule_daily(self.generate_daily_thread, 0, 0)
+            
+            # 일일 홍보 스케줄
+            for time_str in Promotion_Time:
+                try:
+                    h, m = map(int, time_str.split(":"))
+                    scheduler.schedule_daily(self.promote_daily_thread, h, m)
+                except ValueError:
+                    pass
 
     async def generate_daily_thread(self):
         forum = self.bot.get_channel(FIRST_SENTENCE_FORUM_ID)
@@ -189,6 +199,13 @@ class DailyFirstSentence(commands.Cog):
         )
         
         try:
+            # 자정 브로드캐스트를 위해 이전 스레드를 저장
+            old_thread = None
+            for thread in forum.threads:
+                if not thread.archived and not thread.locked:
+                    old_thread = thread
+                    break
+
             # 기존 열려있는 스레드 마감 처리 (이전 날짜 질문 닫기)
             for thread in forum.threads:
                 if not thread.archived and not thread.locked:
@@ -208,10 +225,132 @@ class DailyFirstSentence(commands.Cog):
             )
             await self.log(f"오늘의 첫 문장 스레드가 생성되었습니다: {thread_name}")
             
+            # 자정 브로드캐스트 (메인 채팅에 어제 답변 리뷰 및 오늘 질문 홍보)
+            self.bot.loop.create_task(self.send_midnight_broadcast(question, old_thread, thread_with_message))
+
             # 봇 메시지(질문) 자체도 DB에 잠깐 올려놓을 순 있지만, 
             # 질문 내용은 parent 메시지를 가져오거나 할 수 있으므로 굳이 필요없음.
         except Exception as e:
             await self.log(f"❌ 포럼 스레드 생성 오류: {e}")
+
+    async def send_midnight_broadcast(self, new_question: str, old_thread: discord.Thread, new_thread: discord.Thread):
+        main_channel = self.bot.get_channel(MAIN_CHAT_CHANNEL_ID)
+        if not main_channel:
+            return
+
+        answers = []
+        old_question_text = "알 수 없는 질문"
+        if old_thread:
+            try:
+                async with aiosqlite.connect(DB_PATH) as db:
+                    cursor = await db.execute("SELECT user_id, answer, question FROM daily_sentence_answers WHERE thread_id = ?", (old_thread.id,))
+                    rows = await cursor.fetchall()
+                    for row in rows:
+                        answers.append({"user_id": row[0], "answer": row[1]})
+                        old_question_text = row[2]
+            except Exception as e:
+                await self.log(f"자정 브로드캐스트 답변 조회 중 오류: {e}")
+
+        self._ensure_client()
+        if not self.client:
+            return
+            
+        try:
+            role_mention_text = f"<@&{FIRST_SENTENCE_ROLE_ID}>\n-# ◟. 첫 문장 알림 역할을 받고 싶다면 <#1474014238468083867> 에서 역할을 선택해 달라묘!"
+            
+            if answers:
+                random.shuffle(answers)
+                answers = answers[:30]
+                answers_context = "\n".join([f"유저 ID: {ans['user_id']}, 답변 내용: {ans['answer']}" for ans in answers])
+                
+                prompt = \
+                    f"어제 하묘가 던진 질문: {old_question_text}\n" \
+                    f"유저들의 답변 목록 (일부):\n{answers_context}\n\n" \
+                    f"오늘 새롭게 던지는 질문: {new_question}\n\n" \
+                    "너는 디스코드 봇 '하묘'야. 말을 하는 토끼 컨셉으로 다정하고 귀여운 반말 문체를 써 줘. " \
+                    "말끝에는 자연스럽게 '~다묘', '~거다묘', '~보라묘', '~냐묘'를 붙여줘. '있거다묘' 같은 어색한 어미는 피하고 문맥에 맞게만 써줘.\n\n" \
+                    "메인 채팅 채널 유저들에게 보낼 자정 공지 메시지를 작성해 줘. 다음 내용을 포함해야 해:\n" \
+                    "1. 어제 질문의 답변 중 가장 인상 깊고 따뜻한 답변 2~3개를 골라서 소개하고 짧은 코멘트 남기기. (유저를 언급할 때는 반드시 디스코드 멘션 `<@유저 ID>` 형식을 사용해). 답변 길이가 꼭 길지 않더라도 하묘의 페르소나와 잘 맞는 따뜻한 내용을 우선으로 골라줘.\n" \
+                    "2. 어제 이야기해주고 같이 참여해준 모두에게 고마움을 표현하기.\n" \
+                    f"3. 오늘 새롭게 준비한 질문('{new_question}')에 대해서도 궁금해하며, <#{new_thread.id}> 모양의 멘션을 사용해 그곳에 와서 답변해달라고 부탁하기."
+            else:
+                 prompt = \
+                    f"오늘 새롭게 던지는 질문: {new_question}\n\n" \
+                    "너는 디스코드 봇 '하묘'야. 귀엽고 다정한 토끼 캐릭터. 반말로 말하며 끝은 '~다묘', '~거다묘' 등으로 끝내줘.\n" \
+                    "어제는 첫 문장에 대해 새로운 답변이 없어서 조금 아쉬웠다는 귀여운 투정을 아주 짧게 남기고, " \
+                    f"오늘 새롭게 준비한 질문('{new_question}')에 대해서는 꼭 많이 대답해주기를 바라며 참여를 유도하는 홍보 메시지를 작성해줘. " \
+                    f"채널 멘션은 `<#{new_thread.id}>` 를 사용해줘."
+            
+            completion = await self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "너는 디스코드 봇 '하묘'야. 다정하고 귀엽고, 따뜻한 마음을 가진 토끼 캐릭터야."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.8
+            )
+            broadcast_msg = completion.choices[0].message.content.strip()
+            
+            final_msg = f"{broadcast_msg}\n\n{role_mention_text}"
+            await main_channel.send(final_msg)
+            await self.log("자정 브로드캐스트 메시지를 메인 채팅 채널에 전송했습니다.")
+        except Exception as e:
+            await self.log(f"❌ 자정 브로드캐스트 생성 중 오류: {e}")
+
+    async def promote_daily_thread(self):
+        forum = self.bot.get_channel(FIRST_SENTENCE_FORUM_ID)
+        main_channel = self.bot.get_channel(MAIN_CHAT_CHANNEL_ID)
+        if not forum or not main_channel:
+            return
+
+        active_thread = None
+        for thread in forum.threads:
+            if not thread.archived and not thread.locked:
+                active_thread = thread
+                break
+                
+        if not active_thread:
+            return
+
+        question_text = "알 수 없는 질문"
+        try:
+            starter_msg = await active_thread.fetch_message(active_thread.id)
+            if starter_msg:
+                lines = starter_msg.content.split('\n')
+                for line in lines:
+                    if line.startswith("> **Q."):
+                        question_text = line.replace("> **Q. ", "").replace("**", "").strip()
+                        break
+        except Exception:
+            pass
+
+        self._ensure_client()
+        if not self.client:
+            return
+
+        try:
+            prompt = \
+                f"오늘의 '하묘가 건네는 첫 문장' 질문은 '{question_text}'야.\n" \
+                f"디스코드 메인 채팅 채널 유저들에게 이 주제에 대해 너희들의 이야기가 너무 궁금하다며 오늘 질문 채널(<#{active_thread.id}>)로 와서 답해달라고 홍보하는 " \
+                "2~3줄짜리 귀여운 홍보 메시지를 작성해줘. " \
+                "너는 다정하고 착한 토끼 '하묘'야. 반말을 사용하고 말끝을 '~다묘', '~거다묘', '~보라묘' 등으로 마무리해줘."
+            
+            completion = await self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "너는 디스코드 봇 하묘야. 귀엽고 다정한 토끼 캐릭터. 친근하게 반말을 쓰고 말끝을 ~다묘로 끝내줘."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.8
+            )
+            promo_msg = completion.choices[0].message.content.strip()
+            role_mention_text = f"<@&{FIRST_SENTENCE_ROLE_ID}>\n-# ◟. 첫 문장 알림 역할을 받고 싶다면 <#1474014238468083867> 에서 역할을 선택해 달라묘!"
+            
+            final_msg = f"{promo_msg}\n\n{role_mention_text}"
+            await main_channel.send(final_msg)
+            await self.log("시간대별 첫 문장 스레드 홍보 메시지를 전송했습니다.")
+        except Exception as e:
+            await self.log(f"❌ 홍보 메시지 생성 중 오류: {e}")
 
     @commands.Cog.listener()
     async def on_message(self, message):
