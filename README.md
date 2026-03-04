@@ -20,6 +20,12 @@
 
 <br>
 
+📖 **비몽책방**이 궁금하시다면 언제든 문을 두드려주세요!
+
+[![Disboard](https://img.shields.io/badge/비몽책방_놀러가기-Disboard-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://disboard.org/ko/server/1474014230549237857)
+
+<br>
+
 </div>
 
 ---
@@ -652,12 +658,6 @@ git push origin feature/amazing-feature
 | **Issues** | [GitHub Issues](https://github.com/ladinzgit/hamyo/issues) |
 
 <br>
-
-### 📖 비몽책방에 놀러오세요!
-
-꿈과 현실 사이, 책내음이 가득한 **비몽책방**이 궁금하시다면 언제든 문을 두드려주세요.
-
-[![Disboard](https://img.shields.io/badge/비몽책방-Disboard-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://disboard.org/ko/server/1474014230549237857)
 
 ---
 
