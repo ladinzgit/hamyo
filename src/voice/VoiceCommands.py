@@ -127,7 +127,7 @@ class TimeSummaryView(discord.ui.View):
 
         if lines:
             lines.append("")
-        lines.append(f"<:BM_a_000:1399387512945774672> **총 {self.format_duration(cat['total'])}** 채웠다묘 .ᐟ")
+        lines.append(f"<:BM_a_000:1477525641623502950> **총 {self.format_duration(cat['total'])}** 채웠다묘 .ᐟ")
         return "\n".join(lines)
 
     async def on_select(self, interaction: discord.Interaction):
