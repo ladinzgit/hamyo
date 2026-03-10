@@ -473,7 +473,7 @@ class ConstellationImageGen:
         bbox = draw.textbbox((0, 0), title, font=self.font_title)
         tw = bbox[2] - bbox[0]
         draw.text(
-            (CANVAS_W // 2 - tw // 2, int(CANVAS_H * 0.04)),
+            (CANVAS_W // 2 - tw // 2, int(CANVAS_H * 0.1)),
             title,
             fill=COLOR_TEXT_WHITE,
             font=self.font_title
@@ -625,7 +625,7 @@ class ConstellationImageGen:
         u_bbox = draw.textbbox((0, 0), user_text, font=self.font_desc)
         u_w = u_bbox[2] - u_bbox[0]
         draw.text(
-            (CANVAS_W // 2 - u_w // 2, int(CANVAS_H * 0.95)),
+            (CANVAS_W // 2 - u_w // 2, int(CANVAS_H * 0.91)),
             user_text,
             fill=COLOR_TEXT_GRAY,
             font=self.font_desc
