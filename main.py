@@ -13,7 +13,7 @@ import logging
 application_id = os.environ.get("APPLICATION_ID")
 
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix="?!", intents=intents, help_command=None, owner_id = 277812129011204097, application_id = application_id)
+bot = commands.Bot(command_prefix="*", intents=intents, help_command=None, owner_id = 277812129011204097, application_id = application_id)
 bot_token = os.environ.get("DISCORD_BOT_TOKEN")
 
 # load cogs
