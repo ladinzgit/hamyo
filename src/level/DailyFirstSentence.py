@@ -10,7 +10,7 @@ from openai import AsyncOpenAI
 import random
 import re
 
-from src.level.LevelConstants import FIRST_SENTENCE_ROLE_ID, FIRST_SENTENCE_FORUM_ID, QUEST_EXP, REACTION_EMOJI_POOL, MAIN_CHAT_CHANNEL_ID
+from src.level.LevelConstants import FIRST_SENTENCE_ROLE_ID, EVERYONE_ROLE_ID, FIRST_SENTENCE_FORUM_ID, QUEST_EXP, REACTION_EMOJI_POOL, MAIN_CHAT_CHANNEL_ID
 from src.core.admin_utils import is_guild_admin
 
 Promotion_Time = ["12:00", "18:00"]
@@ -195,7 +195,7 @@ class DailyFirstSentence(commands.Cog):
             ". ᘏ▸◂ᘏ \n"
             "꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱ 다들 오늘 하루도 따뜻하게 보냈냐묘 ?\n\n"
             f"> **Q. {question}**\n\n"
-            "-# ◟. 이 스레드에 답변을 남겨주시면, 하묘가 짧은 답장과 함께 `25 쪽`을 드려요 !\n"
+            "-# ◟. 이 스레드에 답변을 남겨주시면, 하묘가 짧은 답장과 함께 `25 쪽`을 드려요 !\n\n"
             f"<@&{FIRST_SENTENCE_ROLE_ID}>"
         )
         
@@ -381,10 +381,20 @@ class DailyFirstSentence(commands.Cog):
             return
 
         try:
+            # 현재 시간에 따라 식사 관련 멘트 추가
+            now_hour = datetime.now(KST).hour
+            if now_hour == 12:
+                meal_context = "지금은 점심시간이니까, 점심 맛있게 먹으라는 다정한 인사도 함께 넣어줘."
+            elif now_hour == 18:
+                meal_context = "지금은 저녁시간이니까, 저녁 맛있게 먹으라는 다정한 인사도 함께 넣어줘."
+            else:
+                meal_context = ""
+
             prompt = \
                 f"오늘의 '하묘가 건네는 첫 문장' 질문은 '{question_text}'야.\n" \
                 f"디스코드 메인 채팅 채널 유저들에게 이 주제에 대해 너희들의 이야기가 너무 궁금하다며 오늘 질문 채널(<#{active_thread.id}>)로 와서 답해달라고 홍보하는 " \
                 "2~3줄짜리 귀여운 홍보 메시지를 작성해줘. " \
+                f"{meal_context}\n" \
                 "너는 다정하고 착한 토끼 '하묘'야. 반말을 사용하고 말끝을 '~다묘', '~거다묘', '~보라묘' 등으로 마무리해줘."
             
             completion = await self.client.chat.completions.create(
@@ -396,7 +406,7 @@ class DailyFirstSentence(commands.Cog):
                 temperature=0.8
             )
             promo_msg = completion.choices[0].message.content.strip()
-            role_mention_text = f"<@&{FIRST_SENTENCE_ROLE_ID}>\n-# ◟. 첫 문장 알림 역할을 받고 싶다면 <#1474014238468083867> 에서 역할을 선택해 달라묘!"
+            role_mention_text = f"<@&{EVERYONE_ROLE_ID}>\n-# ◟. 첫 문장 알림 역할을 받고 싶다면 <#1474014238468083867> 에서 역할을 선택해 달라묘!"
             
             final_msg = f"{promo_msg}\n\n{role_mention_text}"
             await main_channel.send(final_msg)

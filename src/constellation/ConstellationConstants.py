@@ -163,7 +163,8 @@ SUNSET_ANNOUNCE_MSG = (
     ". ᘏ▸◂ᘏ        ╭◜◝     ◜◝     ◜◝     ◜◝     ◜◝╮\n"
     f"꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱   .oO {EMOJI_MOON_WAXING} 해가 졌다묘! 비몽책방의 밤하늘에 별이 보이기 시작한다묘! ᝰꪑ\n"
     "( つ🔭O        ╰◟◞     ◟◞     ◟◞     ◟◞     ◟◞╯\n\n"
-    f"-# ◟. {EMOJI_STAR} `*별자리 관측`으로 오늘 밤의 별을 찾아보라묘! {EMOJI_GLITTER1}"
+    f"-# ◟. {EMOJI_STAR} `*별자리 관측`으로 오늘 밤의 별을 찾아보라묘! {EMOJI_GLITTER1}\n"
+    f"-# <@&1474014231153082375>"
 )
 
 OBSERVE_COOLDOWN_MSG = (
