@@ -333,8 +333,16 @@ class DailyFirstSentence(commands.Cog):
                         uid = int(str_uid)
                         # 실제로 답변을 단 유저가 맞는지 검증
                         if any(ans['user_id'] == uid for ans in answers):
-                            await level_checker.data_manager.add_exp(uid, 30, 'daily', 'first_sentence_best')
-                            await self.log(f"인상깊은 답변으로 선정된 유저 {uid}에게 30쪽을 지급했습니다.")
+                            best_exp = 30
+                            await level_checker.data_manager.add_exp(uid, best_exp, 'daily', 'first_sentence_best')
+                            result = {
+                                'success': True,
+                                'exp_gained': best_exp,
+                                'messages': [f"하묘가 건네는 첫 문장 인상깊은 답변 선정: **+{best_exp} 쪽**"],
+                                'quest_completed': ['daily_first_sentence_best']
+                            }
+                            await level_checker._finalize_quest_result(uid, result)
+                            await self.log(f"인상깊은 답변으로 선정된 유저 {uid}에게 {best_exp}쪽을 지급했습니다.")
                     except Exception as e:
                         await self.log(f"보상 지급 중 오류 발생: {e}")
 
