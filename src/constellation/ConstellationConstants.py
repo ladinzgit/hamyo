@@ -186,3 +186,10 @@ OBSERVE_ALL_COMPLETE_MSG = (
     f"( つ{EMOJI_MOON_OUTLINE}O        ╰◟◞     ◟◞     ◟◞     ◟◞     ◟◞╯\n\n"
     f"-# ◟. {EMOJI_GLITTER1} 더 이상 관측할 별이 없다묘! 축하한다묘! {EMOJI_GLITTER4}"
 )
+
+SUNRISE_ANNOUNCE_MSG = (
+    f". ᘏ▸◂ᘏ        ╭◜◝     ◜◝     ◜◝     ◜◝     ◜◝╮\n"
+    f"꒰   ɞ̴̶̷ ·̮ ɞ̴̶̷ ꒱   .oO {EMOJI_SUN} 해가 떴다묘! 오늘 하루도 좋은 하루 보내라묘~ ᝰꪑ\n"
+    f"( つ☀️O        ╰◟◞     ◟◞     ◟◞     ◟◞     ◟◞╯\n\n"
+    f"-# ◟. {EMOJI_MOON_WANING} 별자리 관측이 종료되었다묘. 오늘 밤에 다시 만나라묘! {EMOJI_SUN}"
+)

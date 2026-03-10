@@ -33,6 +33,7 @@ def _ensure_config():
             "observe_cooldown_hours": DEFAULT_OBSERVE_COOLDOWN_HOURS,
             "exchange_fee": DEFAULT_EXCHANGE_FEE,
             "allowed_channels": [],
+            "announce_channel_id": None,
             "completion_rewards": {}
         }
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
@@ -261,6 +262,16 @@ class ConstellationData:
         cfg["allowed_channels"] = channels
         _save_config(cfg)
         return True
+
+    # ── 알림 채널 ──
+    def get_announce_channel_id(self) -> int | None:
+        cfg = _load_config()
+        return cfg.get("announce_channel_id")
+
+    def set_announce_channel_id(self, channel_id: int | None):
+        cfg = _load_config()
+        cfg["announce_channel_id"] = channel_id
+        _save_config(cfg)
 
     # ── 완성 보상 마일스톤 ──
     def get_completion_rewards(self) -> dict:

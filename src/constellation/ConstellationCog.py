@@ -22,7 +22,8 @@ from src.constellation.ConstellationConstants import (
     FALLBACK_SUNSET_HOUR, FALLBACK_SUNRISE_HOUR,
     OBSERVE_NEW_STAR_MSG, OBSERVE_DUP_STAR_MSG,
     OBSERVE_COMPLETE_MSG, OBSERVE_DAYTIME_MSG,
-    SUNSET_ANNOUNCE_MSG, OBSERVE_COOLDOWN_MSG,
+    SUNSET_ANNOUNCE_MSG, SUNRISE_ANNOUNCE_MSG,
+    OBSERVE_COOLDOWN_MSG,
     OBSERVE_NO_BALANCE_MSG, OBSERVE_ALL_COMPLETE_MSG,
     EMOJI_SUN, EMOJI_CRESCENT, EMOJI_STAR, EMOJI_CLOUD,
     EMOJI_GLITTER1, EMOJI_GLITTER2, EMOJI_MOON_WAXING,
@@ -145,6 +146,9 @@ class ConstellationCog(commands.Cog):
         # 일몰 알림 스케줄 등록
         await self._schedule_sunset_announce()
 
+        # 일출 알림 스케줄 등록
+        await self._schedule_sunrise_announce()
+
         # 매일 자정에 일몰/일출 갱신 + 재스케줄
         scheduler = self.bot.get_cog("Scheduler")
         if scheduler:
@@ -155,6 +159,7 @@ class ConstellationCog(commands.Cog):
         self._sun_times_date = None  # 캐시 무효화
         await self._ensure_sun_times()
         await self._schedule_sunset_announce()
+        await self._schedule_sunrise_announce()
 
     async def _schedule_sunset_announce(self):
         """오늘의 일몰 시간에 알림을 전송하도록 스케줄합니다."""
@@ -167,15 +172,45 @@ class ConstellationCog(commands.Cog):
             scheduler.schedule_once(self._send_sunset_announce, self._sunset_time)
             await self.log(f"일몰 알림 스케줄 등록: {self._sunset_time.strftime('%H:%M')} KST")
 
+    async def _schedule_sunrise_announce(self):
+        """다음날 일출 시간에 알림을 전송하도록 스케줄합니다."""
+        scheduler = self.bot.get_cog("Scheduler")
+        if not scheduler or not self._sunrise_time:
+            return
+
+        now = datetime.now(KST)
+        if self._sunrise_time > now:
+            scheduler.schedule_once(self._send_sunrise_announce, self._sunrise_time)
+            await self.log(f"일출 알림 스케줄 등록: {self._sunrise_time.strftime('%H:%M')} KST")
+
+    def _get_announce_channel(self):
+        """알림 채널을 반환합니다. 설정된 채널 > MAIN_CHAT_CHANNEL_ID 순으로 폴백."""
+        announce_id = self.data.get_announce_channel_id()
+        if announce_id:
+            ch = self.bot.get_channel(announce_id)
+            if ch:
+                return ch
+        return self.bot.get_channel(MAIN_CHAT_CHANNEL_ID)
+
     async def _send_sunset_announce(self):
-        """일몰 시 메인 채팅 채널에 알림 메시지를 전송합니다."""
-        channel = self.bot.get_channel(MAIN_CHAT_CHANNEL_ID)
+        """일몰 시 알림 메시지를 전송합니다."""
+        channel = self._get_announce_channel()
         if channel:
             try:
                 await channel.send(SUNSET_ANNOUNCE_MSG)
                 await self.log("일몰 알림 전송 완료")
             except Exception as e:
                 await self.log(f"일몰 알림 전송 실패: {e}")
+
+    async def _send_sunrise_announce(self):
+        """일출 시 관측 종료 + 아침 인사 메시지를 전송합니다."""
+        channel = self._get_announce_channel()
+        if channel:
+            try:
+                await channel.send(SUNRISE_ANNOUNCE_MSG)
+                await self.log("일출 알림 전송 완료")
+            except Exception as e:
+                await self.log(f"일출 알림 전송 실패: {e}")
 
     # ===========================================
     # 채널 제한 체크
@@ -639,12 +674,17 @@ class ConstellationCog(commands.Cog):
         embed.add_field(name="교환 수수료", value=f"{fee:,}{unit}", inline=True)
         embed.add_field(name="허용 채널", value=channel_text, inline=True)
 
+        announce_id = self.data.get_announce_channel_id()
+        announce_text = f"<#{announce_id}>" if announce_id else f"<#{MAIN_CHAT_CHANNEL_ID}> (기본)"
+
         if self._sunset_time and self._sunrise_time:
             embed.add_field(
                 name="관측 시간",
                 value=f"일몰 {self._sunset_time.strftime('%H:%M')} ~ 일출 {self._sunrise_time.strftime('%H:%M')}",
                 inline=True
             )
+
+        embed.add_field(name="알림 채널", value=announce_text, inline=True)
 
         if rewards:
             reward_lines = []
@@ -670,6 +710,7 @@ class ConstellationCog(commands.Cog):
                 "`*별자리설정 관측비용 [금액]`\n"
                 "`*별자리설정 쿨타임 [시간]`\n"
                 "`*별자리설정 교환수수료 [금액]`\n"
+                "`*별자리설정 알림채널 [#채널]`\n"
                 "`*별자리설정 채널추가 [#채널]`\n"
                 "`*별자리설정 채널제거 [#채널]`\n"
                 "`*별자리설정 채널목록`\n"
@@ -716,6 +757,18 @@ class ConstellationCog(commands.Cog):
         unit = await self._get_currency_unit()
         await ctx.reply(f"✅ 교환 수수료가 **{fee:,}**{unit}으로 설정되었다묘!")
         await self.log(f"{ctx.author}({ctx.author.id})가 교환 수수료를 {fee}으로 변경")
+
+    @settings.command(name="알림채널")
+    @is_guild_admin()
+    async def set_announce_channel(self, ctx, channel: discord.TextChannel = None):
+        """일몰/일출 알림이 전송될 채널을 설정합니다. 채널 미지정 시 기본값 사용."""
+        if channel:
+            self.data.set_announce_channel_id(channel.id)
+            await ctx.reply(f"✅ 일몰/일출 알림 채널이 {channel.mention}으로 설정되었다묘!")
+        else:
+            self.data.set_announce_channel_id(None)
+            await ctx.reply(f"✅ 알림 채널이 기본값(<#{MAIN_CHAT_CHANNEL_ID}>)으로 초기화되었다묘!")
+        await self.log(f"{ctx.author}({ctx.author.id})가 알림 채널을 {channel}으로 변경")
 
     @settings.command(name="채널추가")
     @is_guild_admin()
