@@ -469,7 +469,7 @@ class ConstellationImageGen:
         draw = ImageDraw.Draw(canvas)
 
         # ── 제목 ──
-        title = "🌌 비몽 별자리 도감"
+        title = "비몽 별자리 도감"
         bbox = draw.textbbox((0, 0), title, font=self.font_title)
         tw = bbox[2] - bbox[0]
         draw.text(
