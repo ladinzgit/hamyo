@@ -313,16 +313,16 @@ class ConstellationImageGen:
         # 하단: 진행률 바 (80~100%)
 
         star_area_x = int(CANVAS_W * 0.1)
-        star_area_y = int(CANVAS_H * 0.18)
+        star_area_y = int(CANVAS_H * 0.3)
         star_area_w = int(CANVAS_W * 0.8)
-        star_area_h = int(CANVAS_H * 0.58)
+        star_area_h = int(CANVAS_H * 0.5)
 
         # ── 제목 ──
         title_text = f"{constellation['emoji']} {constellation['name']}"
         bbox = draw.textbbox((0, 0), title_text, font=self.font_title)
         tw = bbox[2] - bbox[0]
         draw.text(
-            (CANVAS_W // 2 - tw // 2, int(CANVAS_H * 0.04)),
+            (CANVAS_W // 2 - tw // 2, int(CANVAS_H * 0.1)),
             title_text,
             fill=COLOR_TEXT_WHITE,
             font=self.font_title
