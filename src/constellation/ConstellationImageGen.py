@@ -6,6 +6,7 @@
 
 import io
 import os
+import re
 import math
 import logging
 from typing import Optional, List, Set
@@ -52,6 +53,39 @@ def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont:
     except (IOError, OSError) as e:
         logger.warning(f"폰트 로드 실패 ({path}, {size}px): {e}")
         return ImageFont.load_default()
+
+
+# 이모지를 제거하는 정규식 (Pillow 폰트가 지원하지 않는 문자 제거)
+_EMOJI_RE = re.compile(
+    "[" 
+    "\U0001F600-\U0001F64F"  # Emoticons
+    "\U0001F300-\U0001F5FF"  # Misc Symbols and Pictographs
+    "\U0001F680-\U0001F6FF"  # Transport and Map
+    "\U0001F900-\U0001F9FF"  # Supplemental Symbols
+    "\U0001FA00-\U0001FA6F"  # Chess Symbols
+    "\U0001FA70-\U0001FAFF"  # Symbols Extended-A
+    "\U00002702-\U000027B0"  # Dingbats
+    "\U0000FE00-\U0000FE0F"  # Variation Selectors
+    "\U0000200D"             # Zero Width Joiner
+    "\U00002600-\U000026FF"  # Misc Symbols
+    "\U00002700-\U000027BF"  # Dingbats
+    "\U0000231A-\U0000231B"  # Watch/Hourglass
+    "\U00002934-\U00002935"  # Arrows
+    "\U000025AA-\U000025AB"  # Squares
+    "\U000025FB-\U000025FE"  # Squares
+    "\U00002B05-\U00002B07"  # Arrows
+    "\U00002B1B-\U00002B1C"  # Squares
+    "\U00002B50"             # Star
+    "\U00002B55"             # Circle
+    "\U0000203C"             # Exclamation
+    "\U00002049"             # Exclamation Question
+    "\U00002139"             # Info
+    "]+", flags=re.UNICODE
+)
+
+def _strip_emoji(text: str) -> str:
+    """Pillow 렌더링용으로 이모지를 제거합니다."""
+    return _EMOJI_RE.sub("", text).strip()
 
 
 def _generate_star_glow(size: int) -> Image.Image:
@@ -224,8 +258,8 @@ class ConstellationImageGen:
             font=self.font_subtitle
         )
 
-        # 별자리 정보
-        info_text = f"{constellation['emoji']} {constellation['name']}"
+        # 별자리 정보 (이모지 제거 - Pillow 폰트 미지원)
+        info_text = _strip_emoji(f"{constellation['emoji']} {constellation['name']}")
         bbox2 = draw.textbbox((0, 0), info_text, font=self.font_info)
         tw2 = bbox2[2] - bbox2[0]
         draw.text(
@@ -317,8 +351,8 @@ class ConstellationImageGen:
         star_area_w = int(CANVAS_W * 0.8)
         star_area_h = int(CANVAS_H * 0.5)
 
-        # ── 제목 ──
-        title_text = f"{constellation['emoji']} {constellation['name']}"
+        # ── 제목 (이모지 제거) ──
+        title_text = _strip_emoji(f"{constellation['emoji']} {constellation['name']}")
         bbox = draw.textbbox((0, 0), title_text, font=self.font_title)
         tw = bbox[2] - bbox[0]
         draw.text(
@@ -483,9 +517,9 @@ class ConstellationImageGen:
         # 5개를 2행으로 배치: 1행에 3개, 2행에 2개
         positions = [
             # 1행: 3개
-            (0.18, 0.20), (0.50, 0.20), (0.82, 0.20),
+            (0.18, 0.32), (0.50, 0.32), (0.82, 0.32),
             # 2행: 2개
-            (0.34, 0.55), (0.66, 0.55),
+            (0.34, 0.65), (0.66, 0.65),
         ]
         mini_w = int(CANVAS_W * 0.28)
         mini_h = int(CANVAS_H * 0.28)
@@ -525,8 +559,8 @@ class ConstellationImageGen:
             canvas = Image.alpha_composite(canvas, card_layer)
             draw = ImageDraw.Draw(canvas)
 
-            # 별자리 이름
-            name_text = f"{constellation['emoji']} {constellation['name']}"
+            # 별자리 이름 (이모지 제거 - Pillow 폰트 미지원)
+            name_text = _strip_emoji(f"{constellation['emoji']} {constellation['name']}")
             name_bbox = draw.textbbox((0, 0), name_text, font=self.font_star_name_big)
             name_w = name_bbox[2] - name_bbox[0]
             draw.text(
