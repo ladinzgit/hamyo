@@ -200,12 +200,32 @@ class DailyFirstSentence(commands.Cog):
         )
         
         try:
-            # 자정 브로드캐스트를 위해 이전 스레드를 저장
+            # DB에서 가장 최근 답변이 있는 thread_id를 조회하여 이전 스레드 확인
             old_thread = None
-            for thread in forum.threads:
-                if not thread.archived and not thread.locked:
-                    old_thread = thread
-                    break
+            old_thread_id = None
+            try:
+                async with aiosqlite.connect(DB_PATH) as db:
+                    cursor = await db.execute(
+                        "SELECT DISTINCT thread_id FROM daily_sentence_answers ORDER BY id DESC LIMIT 1"
+                    )
+                    row = await cursor.fetchone()
+                    if row:
+                        old_thread_id = row[0]
+            except Exception as e:
+                await self.log(f"DB에서 이전 스레드 ID 조회 중 오류: {e}")
+
+            # DB에서 찾은 thread_id로 스레드 객체 가져오기
+            if old_thread_id:
+                try:
+                    old_thread = self.bot.get_channel(old_thread_id)
+                    if not old_thread:
+                        old_thread = await self.bot.fetch_channel(old_thread_id)
+                    await self.log(f"DB 기반으로 이전 스레드를 찾았습니다: {old_thread.name} (ID: {old_thread_id})")
+                except Exception as e:
+                    await self.log(f"이전 스레드 fetch 중 오류 (ID: {old_thread_id}): {e}")
+                    old_thread = None
+            else:
+                await self.log("DB에 이전 답변 기록이 없어 이전 스레드를 찾을 수 없습니다.")
 
             # 기존 열려있는 스레드 마감 처리 (이전 날짜 질문 닫기)
             for thread in forum.threads:
@@ -227,30 +247,36 @@ class DailyFirstSentence(commands.Cog):
             await self.log(f"오늘의 첫 문장 스레드가 생성되었습니다: {thread_name}")
             
             # 자정 브로드캐스트 (메인 채팅에 어제 답변 리뷰 및 오늘 질문 홍보)
-            self.bot.loop.create_task(self.send_midnight_broadcast(question, old_thread, thread_with_message.thread))
+            self.bot.loop.create_task(self.send_midnight_broadcast(question, old_thread, old_thread_id, thread_with_message.thread))
 
             # 봇 메시지(질문) 자체도 DB에 잠깐 올려놓을 순 있지만, 
             # 질문 내용은 parent 메시지를 가져오거나 할 수 있으므로 굳이 필요없음.
         except Exception as e:
             await self.log(f"❌ 포럼 스레드 생성 오류: {e}")
 
-    async def send_midnight_broadcast(self, new_question: str, old_thread: discord.Thread, new_thread: discord.Thread):
+    async def send_midnight_broadcast(self, new_question: str, old_thread: discord.Thread, old_thread_id: int, new_thread: discord.Thread):
         main_channel = self.bot.get_channel(MAIN_CHAT_CHANNEL_ID)
         if not main_channel:
             return
 
         answers = []
         old_question_text = "알 수 없는 질문"
-        if old_thread:
+        
+        # old_thread 객체가 없더라도 old_thread_id가 있으면 DB에서 답변 조회 가능
+        lookup_thread_id = old_thread.id if old_thread else old_thread_id
+        if lookup_thread_id:
             try:
                 async with aiosqlite.connect(DB_PATH) as db:
-                    cursor = await db.execute("SELECT user_id, answer, question FROM daily_sentence_answers WHERE thread_id = ?", (old_thread.id,))
+                    cursor = await db.execute("SELECT user_id, answer, question FROM daily_sentence_answers WHERE thread_id = ?", (lookup_thread_id,))
                     rows = await cursor.fetchall()
                     for row in rows:
                         answers.append({"user_id": row[0], "answer": row[1]})
                         old_question_text = row[2]
+                await self.log(f"자정 브로드캐스트: thread_id={lookup_thread_id}에서 {len(answers)}개의 답변을 조회했습니다.")
             except Exception as e:
                 await self.log(f"자정 브로드캐스트 답변 조회 중 오류: {e}")
+        else:
+            await self.log("자정 브로드캐스트: 이전 스레드 ID를 알 수 없어 답변을 조회할 수 없습니다.")
 
         self._ensure_client()
         if not self.client:
@@ -529,7 +555,7 @@ class DailyFirstSentence(commands.Cog):
         await ctx.send(f"자정 브로드캐스트를 실행합니다다묘... (오늘 질문: {question_text})")
         
         # 어제 스레드와 오늘 스레드를 넘겨주고 강제 브로드캐스트 실행
-        await self.send_midnight_broadcast(question_text, old_thread, new_thread)
+        await self.send_midnight_broadcast(question_text, old_thread, old_thread.id, new_thread)
         await ctx.message.add_reaction("✅")
 
 async def setup(bot):
