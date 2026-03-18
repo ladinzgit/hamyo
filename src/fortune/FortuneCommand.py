@@ -364,23 +364,27 @@ class FortuneCommand(commands.Cog):
         try:
             waiting_message = await ctx.reply("운세를 불러오는 중이다묘... 잠시만 기다려달라묘!", mention_author=False)
             
-            completion = await self.client.chat.completions.create(
+            response = await self.client.responses.create(
                 model="gpt-5.4",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": system_prompt,
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=1,
-                top_p=0.9,
-                presence_penalty=0.6,
-                frequency_penalty=0.4,
-                reasoning_effort="low",
-                max_completion_tokens=1500,
+                instructions=system_prompt,
+                input=prompt,
+                reasoning= {
+                    "effort": "medium"
+                }
             )
-            fortune_text = completion.choices[0].message.content.strip()
+            fortune_text = (getattr(response, "output_text", None) or "").strip()
+
+            if not fortune_text:
+                text_parts = []
+                for item in (getattr(response, "output", None) or []):
+                    for content in (getattr(item, "content", None) or []):
+                        text_value = getattr(content, "text", None)
+                        if text_value:
+                            text_parts.append(text_value)
+                fortune_text = "\n".join(text_parts).strip()
+
+            if not fortune_text:
+                raise ValueError("Responses API returned empty output")
 
             fortune_db.add_fortune_history(
                 ctx.guild.id,
