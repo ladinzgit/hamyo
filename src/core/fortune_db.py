@@ -18,7 +18,7 @@ DEFAULT_GUILD_CONFIG = {
     "role_id": None,         # int role id
     "channel_id": None,      # int channel id (운세 안내 채널)
     "last_ping_date": {},    # {"HH:MM": "YYYY-MM-DD"}
-    "targets": [],           # [{"user_id": int, "count": int, "last_used_date": str|None}, ...]
+    "targets": [],           # [{"user_id": int, "count": int, "last_used_date": str|None, "fortune_history": [{"date": str, "text": str}, ...]}, ...]
     "buttons": {}            # {message_id: {"expiration_days": int, "used_users": [user_id, ...]}}
 }
 
@@ -62,6 +62,17 @@ def _ensure_guild_config(config: Dict, guild_id: int) -> Tuple[Dict, str]:
                 if isinstance(t, dict):
                     if "last_used_date" not in t:
                         t["last_used_date"] = None
+                    if "fortune_history" not in t or not isinstance(t.get("fortune_history"), list):
+                        t["fortune_history"] = []
+                    else:
+                        cleaned_history = []
+                        for h in t["fortune_history"]:
+                            if isinstance(h, dict):
+                                date_str = h.get("date")
+                                text = h.get("text")
+                                if isinstance(date_str, str) and isinstance(text, str):
+                                    cleaned_history.append({"date": date_str, "text": text})
+                        t["fortune_history"] = cleaned_history
                     normalized.append(t)
             config[key]["targets"] = normalized
         # send_time 호환성 유지 및 리스트화
@@ -161,7 +172,8 @@ def list_targets(guild_id: int) -> List[Dict]:
             targets.append({
                 "user_id": int(t.get("user_id", 0)),
                 "count": int(t.get("count", 0)),
-                "last_used_date": t.get("last_used_date")
+                "last_used_date": t.get("last_used_date"),
+                "fortune_history": t.get("fortune_history", [])
             })
     return targets
 
@@ -172,6 +184,8 @@ def get_target(guild_id: int, user_id: int) -> Optional[Dict]:
         if int(target.get("user_id", 0)) == int(user_id):
             if "last_used_date" not in target:
                 target["last_used_date"] = None
+            if "fortune_history" not in target or not isinstance(target.get("fortune_history"), list):
+                target["fortune_history"] = []
             return target
     return None
 
@@ -187,12 +201,18 @@ def upsert_target(guild_id: int, user_id: int, count: int) -> Optional[Dict]:
     targets = config[key].get("targets", [])
     existing = get_target(guild_id, user_id)
     last_used = existing.get("last_used_date") if existing else None
+    history = existing.get("fortune_history", []) if existing else []
 
     # 기존 대상 제거
     targets = [t for t in targets if int(t.get("user_id", 0)) != int(user_id)]
 
     if count >= 1:
-        new_target = {"user_id": int(user_id), "count": int(count), "last_used_date": last_used}
+        new_target = {
+            "user_id": int(user_id),
+            "count": int(count),
+            "last_used_date": last_used,
+            "fortune_history": history,
+        }
         targets.append(new_target)
         config[key]["targets"] = targets
         _save_config(config)
@@ -230,6 +250,62 @@ def mark_target_used(guild_id: int, user_id: int, date_str: str) -> Optional[Dic
             break
     _save_config(config)
     return get_target(guild_id, user_id)
+
+
+def add_fortune_history(guild_id: int, user_id: int, date_str: str, fortune_text: str, keep_days: int = 7) -> bool:
+    """
+    대상 유저의 운세 생성 기록을 추가합니다.
+    같은 날짜 기록이 있으면 최신 텍스트로 교체하며, 최근 keep_days만 유지합니다.
+    """
+    config = _load_config()
+    config, key = _ensure_guild_config(config, guild_id)
+
+    targets = config[key].get("targets", [])
+    updated = False
+
+    for t in targets:
+        if int(t.get("user_id", 0)) == int(user_id):
+            history = t.get("fortune_history", [])
+            history = [
+                h for h in history
+                if not (isinstance(h, dict) and h.get("date") == date_str)
+            ]
+
+            # 저장 용량 급증 방지를 위해 텍스트 길이 제한
+            trimmed_text = str(fortune_text).strip()[:3500]
+            history.append({"date": date_str, "text": trimmed_text})
+
+            # 날짜 문자열 기준 최근 keep_days개 유지 (YYYY-MM-DD 정렬 가능)
+            history = sorted(
+                [h for h in history if isinstance(h, dict) and isinstance(h.get("date"), str)],
+                key=lambda x: x["date"],
+            )
+            t["fortune_history"] = history[-max(1, int(keep_days)):]
+            updated = True
+            break
+
+    if updated:
+        _save_config(config)
+    return updated
+
+
+def get_recent_fortune_texts(guild_id: int, user_id: int, days: int = 7) -> List[str]:
+    """대상 유저의 최근 운세 본문 텍스트를 오래된 순으로 반환합니다."""
+    target = get_target(guild_id, user_id)
+    if not target:
+        return []
+
+    history = target.get("fortune_history", [])
+    if not isinstance(history, list):
+        return []
+
+    records = [
+        h for h in history
+        if isinstance(h, dict) and isinstance(h.get("date"), str) and isinstance(h.get("text"), str)
+    ]
+    records.sort(key=lambda x: x["date"])
+    recent = records[-max(1, int(days)):]
+    return [h["text"] for h in recent]
 
 
 def reset_last_used(guild_id: int, user_id: Optional[int] = None) -> int:

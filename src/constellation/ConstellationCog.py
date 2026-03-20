@@ -64,12 +64,16 @@ class ConstellationCog(commands.Cog):
     # 일몰/일출 API
     # ===========================================
 
-    async def _fetch_sun_times(self, date_str: str = "today") -> tuple:
+    async def _fetch_sun_times(self, kst_date: datetime.date = None) -> tuple:
         """
-        sunrise-sunset.org API로 서울의 일몰/일출 시간을 조회합니다.
-        Returns: (sunset_dt, sunrise_dt) — KST datetime 객체
-        실패 시 폴백값 사용.
+        sunrise-sunset.org API로 특정 날짜의 일몰/일출 시간을 조회합니다.
+        kst_date 미지정 시 오늘의 KST 날짜 사용.
+        Returns: (sunset_dt, sunrise_dt) — KST datetime 객체 (해당 날짜의 일몰과 일출)
         """
+        if kst_date is None:
+            kst_date = datetime.now(KST).date()
+        
+        date_str = kst_date.strftime("%Y-%m-%d")
         url = (
             f"https://api.sunrise-sunset.org/json"
             f"?lat={SEOUL_LAT}&lng={SEOUL_LNG}"
@@ -82,33 +86,19 @@ class ConstellationCog(commands.Cog):
                         data = await resp.json()
                         if data.get("status") == "OK":
                             results = data["results"]
-                            # API는 UTC ISO 8601 반환
+                            # API는 UTC ISO 8601 반환 ("2026-03-13T09:30:00+00:00")
+                            sunrise_utc = datetime.fromisoformat(results["sunrise"].replace("Z", "+00:00"))
                             sunset_utc = datetime.fromisoformat(results["sunset"].replace("Z", "+00:00"))
+                            
+                            sunrise_kst = sunrise_utc.astimezone(KST)
                             sunset_kst = sunset_utc.astimezone(KST)
-
-                            # 다음날 일출을 위해 tomorrow 조회
-                            tomorrow = (datetime.now(KST) + timedelta(days=1)).strftime("%Y-%m-%d")
-                            url_tomorrow = (
-                                f"https://api.sunrise-sunset.org/json"
-                                f"?lat={SEOUL_LAT}&lng={SEOUL_LNG}"
-                                f"&formatted=0&date={tomorrow}"
-                            )
-                            async with session.get(url_tomorrow, timeout=aiohttp.ClientTimeout(total=10)) as resp2:
-                                if resp2.status == 200:
-                                    data2 = await resp2.json()
-                                    if data2.get("status") == "OK":
-                                        sunrise_utc = datetime.fromisoformat(
-                                            data2["results"]["sunrise"].replace("Z", "+00:00")
-                                        )
-                                        sunrise_kst = sunrise_utc.astimezone(KST)
-                                        return (sunset_kst, sunrise_kst)
+                            return (sunset_kst, sunrise_kst)
         except Exception as e:
-            print(f"일몰/일출 API 조회 실패: {e}")
+            print(f"일몰/일출 API 조회 실패 ({date_str}): {e}")
 
         # 폴백
-        now = datetime.now(KST)
-        sunset_fb = now.replace(hour=FALLBACK_SUNSET_HOUR, minute=0, second=0, microsecond=0)
-        sunrise_fb = (now + timedelta(days=1)).replace(hour=FALLBACK_SUNRISE_HOUR, minute=0, second=0, microsecond=0)
+        sunset_fb = datetime.combine(kst_date, datetime.min.time()).replace(tzinfo=KST) + timedelta(hours=FALLBACK_SUNSET_HOUR)
+        sunrise_fb = datetime.combine(kst_date, datetime.min.time()).replace(tzinfo=KST) + timedelta(hours=FALLBACK_SUNRISE_HOUR)
         return (sunset_fb, sunrise_fb)
 
     async def _ensure_sun_times(self):
@@ -123,15 +113,16 @@ class ConstellationCog(commands.Cog):
             )
 
     def _is_nighttime(self) -> bool:
-        """현재 관측 가능한 시간대(일몰~일출)인지 확인합니다."""
+        """현재 관측 가능한 시간대인지 확인합니다. (당일 일출 전 또는 당일 일몰 후)"""
+        now = datetime.now(KST)
+        
         if self._sunset_time is None or self._sunrise_time is None:
-            # 캐시 없으면 폴백
-            now = datetime.now(KST)
+            # 캐시 없으면 폴백 시간대 확인
             hour = now.hour
             return hour >= FALLBACK_SUNSET_HOUR or hour < FALLBACK_SUNRISE_HOUR
 
-        now = datetime.now(KST)
-        return now >= self._sunset_time and now < self._sunrise_time
+        # 오늘 해 뜨기 전이거나, 오늘 해 진 후면 밤
+        return now < self._sunrise_time or now >= self._sunset_time
 
     # ===========================================
     # 스케줄러 설정
@@ -173,12 +164,13 @@ class ConstellationCog(commands.Cog):
             await self.log(f"일몰 알림 스케줄 등록: {self._sunset_time.strftime('%H:%M')} KST")
 
     async def _schedule_sunrise_announce(self):
-        """다음날 일출 시간에 알림을 전송하도록 스케줄합니다."""
+        """오늘의 일출 시간에 알림을 전송하도록 스케줄합니다."""
         scheduler = self.bot.get_cog("Scheduler")
         if not scheduler or not self._sunrise_time:
             return
 
         now = datetime.now(KST)
+        # 오늘 일출이 아직 안 지났으면 예약
         if self._sunrise_time > now:
             scheduler.schedule_once(self._send_sunrise_announce, self._sunrise_time)
             await self.log(f"일출 알림 스케줄 등록: {self._sunrise_time.strftime('%H:%M')} KST")
