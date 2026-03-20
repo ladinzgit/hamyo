@@ -761,6 +761,24 @@ files = [
 ]
 
 [[package]]
+name = "lavalink"
+version = "5.10.0"
+description = "A Lavalink WebSocket & API wrapper built around coverage, reliability and performance."
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "lavalink-5.10.0.tar.gz", hash = "sha256:6b364726a4db753dbe398ce4343b7eee20368b84bb6b0092156d08e0b8caf64f"},
+]
+
+[package.dependencies]
+aiohttp = ">=3.9.0,<4"
+
+[package.extras]
+development = ["flake8", "pylint"]
+docs = ["enum_tools", "guzzle_sphinx_theme", "pygments", "sphinx", "sphinx_toolbox"]
+
+[[package]]
 name = "multidict"
 version = "6.4.3"
 description = "multidict implementation"
@@ -1744,4 +1762,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13"
-content-hash = "d4c4e4fb050f950f1fde60853eed48babc872ab8d3b26277125e16d0a74d2274"
+content-hash = "db5dd219b625c3bda4f8ec9e9645aa229bf2d55c293af06fb1ad9b65102c52c8"
