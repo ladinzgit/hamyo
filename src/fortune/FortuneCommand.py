@@ -1,5 +1,4 @@
 import os
-import random
 import re
 from datetime import datetime
 
@@ -131,64 +130,89 @@ class FortuneCommand(commands.Cog):
             "luck_anchor": luck_anchor,
         }
 
-    def _extract_avoid_phrases(self, recent_texts, limit: int = 18):
-        """최근 운세에서 반복 가능성이 큰 표현 후보를 추출"""
+    def _extract_avoid_phrases(self, recent_texts, limit: int = 24):
+        """최근 운세에서 반복 가능성이 큰 표현 후보를 추출 (상투 표현 + 실제 사용 문장)"""
         if not recent_texts:
             return []
 
-        banned_prefixes = ("**요약:**", "**행운의 상징:**")
-        phrases = []
+        # dinzbot 스타일: 자주 반복되는 상투 표현 목록
+        cliche_candidates = [
+            "좋은 기운", "무난한 하루", "작은 행운", "기회를 잡", "흐름을 타",
+            "균형을 유지", "여유를 가져", "신중하게", "서두르지", "천천히",
+            "타이밍", "소통이 중요", "컨디션 관리", "지출 관리", "에너지가",
+            "기분 전환", "새로운 시작", "한 걸음", "마음의 여유", "리듬을 찾",
+        ]
+
+        joined = "\n".join(t for t in recent_texts if isinstance(t, str))
+        found: list[str] = []
         seen = set()
 
+        # 1) 상투 표현 중 실제로 사용된 것 수집
+        for phrase in cliche_candidates:
+            if re.search(re.escape(phrase), joined) and phrase not in seen:
+                seen.add(phrase)
+                found.append(phrase)
+
+        # 2) 실제 문장에서 핵심 표현 추출 (문단 첫 문장, 요약 등)
+        banned_prefixes = ("**요약:**", "**행운의 상징:**")
         for text in recent_texts:
             if not isinstance(text, str):
                 continue
-
             lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
             for ln in lines:
                 if ln.startswith(banned_prefixes):
                     continue
-
                 cleaned = re.sub(r"\s+", " ", ln)
                 cleaned = re.sub(r"[\*`#]", "", cleaned).strip(" .")
                 if 9 <= len(cleaned) <= 42 and cleaned not in seen:
                     seen.add(cleaned)
-                    phrases.append(cleaned)
+                    found.append(cleaned)
+                if len(found) >= limit:
+                    return found
 
-                if len(phrases) >= limit:
-                    return phrases
+        return found
 
-        return phrases
+    def _build_recent_fortune_summary(self, recent_texts):
+        """최근 운세 각각의 핵심 소재/장면을 요약 목록으로 반환 (중복 방지용)"""
+        if not recent_texts:
+            return ""
+
+        summaries = []
+        for i, text in enumerate(recent_texts, 1):
+            if not isinstance(text, str):
+                continue
+            # 각 운세에서 첫 3줄(핵심 소재/장면)을 추출
+            content_lines = []
+            for ln in text.splitlines():
+                ln = ln.strip()
+                if not ln or ln.startswith("**요약:**") or ln.startswith("**행운의 상징:**"):
+                    continue
+                cleaned = re.sub(r"[\*`#]", "", ln).strip()
+                if len(cleaned) >= 8:
+                    content_lines.append(cleaned)
+                if len(content_lines) >= 3:
+                    break
+            if content_lines:
+                summaries.append(f"[{i}일전 운세 핵심 소재]\n" + "\n".join(f"  - {c}" for c in content_lines))
+
+        return "\n".join(summaries)
 
     @commands.command(name="운세")
     @only_in_guild()
     async def tell_fortune(self, ctx):
         """운세를 생성하여 전송"""
         config = fortune_db.get_guild_config(ctx.guild.id)
-        target = fortune_db.get_target(ctx.guild.id, ctx.author.id)
 
         # 설정된 채널에서만 사용 가능
         channel_id = config.get("channel_id")
         if channel_id and ctx.channel.id != channel_id:
             return
 
-        if not target:
-            await ctx.reply("운세 대상에 등록되어 있지 않다묘... 관리자가 등록해줘야 *운세 명령을 쓸 수 있다묘!")
-            return
-
-        try:
-            remaining_count = int(target.get("count", 0))
-        except (ValueError, TypeError):
-            remaining_count = 0
+        user_record = fortune_db.get_user_record(ctx.guild.id, ctx.author.id)
 
         today_str = datetime.now(KST).strftime("%Y-%m-%d")
-        if target.get("last_used_date") == today_str:
+        if user_record and user_record.get("last_used_date") == today_str:
             await ctx.reply("오늘은 이미 운세를 봤다묘! 내일 다시 찾아와달라묘.", mention_author=False)
-            return
-
-        if remaining_count <= 0:
-            fortune_db.remove_target(ctx.guild.id, ctx.author.id)
-            await ctx.reply("등록 기간이 끝난 것 같다묘. 다시 등록받아달라묘!")
             return
 
         self._ensure_client()
@@ -217,22 +241,11 @@ class FortuneCommand(commands.Cog):
             birth_text = f"생년 미기재 {month}월 {day}일생"
 
         await self._generate_fortune(ctx, birth_text, today, birth_year, int(month), int(day))
-        
-        fortune_db.mark_target_used(ctx.guild.id, ctx.author.id, today_str)
-
-        # 운세 역할 회수 (사용 중에는 멘션 대상에서 제외)
-        role_id = config.get("role_id")
-        if role_id:
-            role = ctx.guild.get_role(role_id)
-            if role:
-                try:
-                    await ctx.author.remove_roles(role, reason="운세 사용 완료로 역할 회수")
-                except Exception as e:
-                    await self.log(f"{ctx.author}({ctx.author.id}) 운세 역할 회수 실패: {e}")
+        fortune_db.mark_user_used(ctx.guild.id, ctx.author.id, today_str)
 
         await self.log(
             f"{ctx.author}({ctx.author.id})가 운세를 조회함 "
-            f"[길드: {ctx.guild.name}({ctx.guild.id}), 남은 일수: {remaining_count}]"
+            f"[길드: {ctx.guild.name}({ctx.guild.id})]"
         )
 
     @commands.command(name="강제운세")
@@ -275,89 +288,53 @@ class FortuneCommand(commands.Cog):
         recent_texts = fortune_db.get_recent_fortune_texts(ctx.guild.id, ctx.author.id, days=7)
         avoid_phrases = self._extract_avoid_phrases(recent_texts)
         avoid_phrases_text = "\n".join([f"- {p}" for p in avoid_phrases]) if avoid_phrases else "- 없음"
+        recent_summary = self._build_recent_fortune_summary(recent_texts)
 
         prompt = (
-            f"{birth_text} {today_text} 오늘의 운세를 알려줘.\n"
-            "아래 개인화 입력을 반드시 반영해.\n"
+            "다음 정보를 반영해 오늘의 개인화 운세를 작성해.\n"
+            f"- 기준 정보: {birth_text}, {today_text}\n"
             f"- 별자리: {birth_profile['zodiac']}\n"
-            f"- 월별 핵심 성향: {birth_profile['month_key']}\n"
-            f"- 별자리 핵심 성향: {birth_profile['zodiac_key']}\n"
-            f"- 관계 소통 스타일: {birth_profile['relation_style']}\n"
-            f"- 오늘 실수 트리거: {birth_profile['mistake_trigger']}\n"
-            f"- 행운 루틴 키워드: {birth_profile['luck_anchor']}\n"
-            f"- 라이프패스 숫자: {life_path_text}\n\n"
-            "최근 7일 운세에서 반복 회피할 표현 목록:\n"
-            f"{avoid_phrases_text}"
+            f"- 월별 키워드: {birth_profile['month_key']}\n"
+            f"- 별자리 키워드: {birth_profile['zodiac_key']}\n"
+            f"- 관계 스타일: {birth_profile['relation_style']}\n"
+            f"- 실수 트리거: {birth_profile['mistake_trigger']}\n"
+            f"- 행운 루틴: {birth_profile['luck_anchor']}\n"
+            f"- 라이프패스: {life_path_text}\n\n"
+            "최근 7일 반복 금지 표현:\n"
+            f"{avoid_phrases_text}\n\n"
         )
 
-        # 매 호출마다 문체/리듬을 바꾸기 위한 다양성 지시문
-        variant_instruction = random.choice([
-            "문장 길이를 짧은 문장과 긴 문장으로 교차하고, 문단 첫 문장은 각각 다른 방식(상황 제시/행동 제안/감각 묘사)으로 시작해",
-            "각 문단에 서로 다른 리듬을 사용하고, 같은 어미 반복을 줄이며, 비유는 한 문단에 최대 1회만 사용해",
-            "문단마다 시점을 다르게 운용해(관찰->행동->정리), 상투 표현 없이 구체 장면 중심으로 전개해",
-            "첫 문단은 현실 장면, 둘째 문단은 대화 맥락, 셋째 문단은 체크리스트형 조언으로 구성하되 문장 흐름은 자연스럽게 이어가",
-            "문단 시작어를 모두 다르게 하고, 연결어 남용을 피하며, 핵심 조언은 동사 중심으로 또렷하게 써",
-        ])
+        if recent_summary:
+            prompt += (
+                "=== 최근 7일간 사용된 운세 핵심 소재 (절대 재사용 금지) ===\n"
+                f"{recent_summary}\n\n"
+                "위 소재들과 겹치지 않는 완전히 새로운 장면과 조언으로 작성해.\n"
+            )
 
         system_prompt = (
-            "너는 오늘의 운세를 전하는 글을 쓰는 작가형 AI야. 단순 정보 전달이 아니라, 사람이 쓴 듯한 자연스럽고 생생한 문장으로 운세를 작성해.\n\n"
-            "【핵심 목표】\n"
-            "- 읽는 사람이 '내 이야기 같다'고 느낄 정도로 구체적이고 현실적인 상황을 포함해\n"
-            "- 추상적인 표현보다 장면이 떠오르는 묘사를 우선해\n"
-            "- 매번 완전히 다른 글처럼 느껴지도록 표현, 리듬, 비유를 바꿔\n\n"
-            "【말투 규칙】\n"
-            "- 디스코드 봇 '하묘'의 말투를 유지해\n"
-            "- 모든 문장은 반드시 '묘'로 끝내고, 평서문은 마침표(.)로 마무리해\n"
-            "- 질문문만 물음표(?)를 사용하고, '묘' 바로 뒤에 문장부호를 붙여\n"
-            "- 지나치게 꾸민 문장보다 자연스럽고 읽기 편한 문장으로 써\n"
-            "- 과장된 긍정은 피하고, 따뜻하지만 담백한 어조를 유지해\n\n"
-            "【콘텐츠 규칙】\n"
-            "- 반드시 구체적인 상황을 1개 이상 포함해 (예: 메시지를 늦게 확인해 오해가 생기는 상황, 회의에서 의견 타이밍을 놓치는 상황)\n"
-            "- 각 문단은 서로 다른 주제를 다루고 내용이 겹치지 않게 작성해\n"
-            "- 긍정 70%, 주의/경고 30% 비율을 유지해\n"
-            "- 경고를 제시할 때는 반드시 실제 행동 가능한 대응 방법을 함께 제시해\n\n"
-            "【생일 기반 개인화 규칙 - 최우선】\n"
-            "- 사용자 입력의 별자리/월별 성향/관계 스타일/실수 트리거/행운 루틴을 반드시 본문에 녹여 써\n"
-            "- 세 문단 모두 개인화 요소를 각각 1개 이상 반영해\n"
-            "- 생일이 다르면 핵심 상황, 조언, 경고 포인트가 명확히 달라지게 작성해\n"
-            "- 개인화 키워드는 직접 나열하지 말고 자연스러운 문장 안에 녹여 써\n"
-            "- 생년월일 자체 언급은 금지하되, 개인화 해석 결과는 적극 반영해\n\n"
-            "【다양성 강화 규칙 - 매우 중요】\n"
-            f"- {variant_instruction}\n"
-            "- 같은 표현, 문장 구조, 시작 방식 반복을 금지해\n"
-            "- '좋은 기운', '무난한 하루', '작은 행운' 같은 상투 표현은 쓰지 마\n"
-            "- 사용자 프롬프트에 제공된 '반복 회피 표현 목록'과 동일/유사한 문장을 다시 쓰지 마\n"
-            "- 특히 문단 첫 문장과 요약 문장은 과거 7일과 겹치지 않게 새롭게 작성해\n"
-            "- 문단 시작 방식은 매번 다르게 구성해 (상황 제시 / 감각 묘사 / 행동 제안 등)\n"
-            "- 비유를 쓰더라도 뻔한 비유(cliche)는 피해\n\n"
-            "【출력 형식 - 반드시 준수】\n"
-            "서론 없이 바로 시작해\n\n"
-            "- 본문은 총 3~4개 문단으로 작성해\n"
-            "- 각 문단은 3~5줄 분량으로 작성해\n"
-            "- 문단별 주제는 모델이 직접 정하되, 문단끼리 주제와 표현이 겹치지 않게 구성\n"
-            "- 최소 1개 문단에는 일/학업/할 일 진행 관련 장면을, 최소 1개 문단에는 관계/소통 장면을 포함해\n"
-            "- 남은 문단 주제는 컨디션, 소비 습관, 감정 관리, 시간 운영, 공간/환경, 루틴 등에서 자유롭게 선택해\n"
-            "- 각 문단에는 반드시 1개 이상의 구체적 상황과 1개 이상의 행동 가능한 조언을 포함해\n\n"
-            "(빈 줄)\n\n"
-            "**요약:** 한 문장으로 핵심 정리 (자연스럽게)묘.\n\n"
-            "**행운의 상징:**\n"
-            "- 아래 항목 중 6개 선택\n"
-            "- 매번 다른 조합 + 다른 키워드 사용\n"
-            "- 절대 반복 금지\n\n"
-            "선택 항목:\n"
-            "행동, 장소, 색깔, 음식, 숫자, 방향, 동물, 시간대, 날씨, 물건, 꽃, 감정\n\n"
-            "출력 형식:\n"
-            "항목-(키워드), 항목-(키워드), 항목-(키워드), 항목-(키워드), 항목-(키워드), 항목-(키워드)\n\n"
-            "【금지 사항】\n"
-            "- 생년월일, 나이, 날짜 언급 금지\n"
-            "- 서론/인사말 금지\n"
-            "- 같은 표현 반복 금지\n"
-            "- 추상적인 말만 하고 끝내는 것 금지\n"
-            "- 입력된 개인화 정보를 무시한 일반론 운세 작성 금지\n"
-            "- 요약/행운의 상징에서도 띄어쓰기를 철저히 지켜\n\n"
-            "【중요】\n"
-            "- 형식은 반드시 지키되, 문장은 매번 새롭게 만들어\n"
-            "- 사람이 쓴 글처럼 자연스러운 흐름을 최우선으로 해"
+            "너는 디스코드 봇 하묘의 운세 작성자다. 간결하지만 생생한 한국어로 개인화 운세를 작성해.\n\n"
+            "[말투]\n"
+            "- 모든 문장은 '묘'로 끝내고, 평서문은 마침표로 끝내\n"
+            "- 과장된 미사여구는 피하고 따뜻하고 담백한 톤 유지\n\n"
+            "[내용]\n"
+            "- 3개 문단 작성, 문단마다 주제를 다르게 유지\n"
+            "- 최소 1개 문단은 일/학업/할 일, 최소 1개 문단은 관계/소통 장면 포함\n"
+            "- 각 문단에 구체적 상황 1개 이상 + 실행 가능한 조언 1개 이상 포함\n"
+            "- 긍정:주의 비중은 약 7:3\n"
+            "- 입력된 개인화 요소(별자리/성향/트리거/루틴)를 직접 나열하지 말고 문장 속에 자연스럽게 반영\n\n"
+            "[중복 방지]\n"
+            "- 제공된 반복 금지 표현/최근 7일 핵심 소재와 동일하거나 유사한 표현, 장면, 비유를 사용하지 마\n"
+            "- 문단 시작 문장 3개는 서로 완전히 다르게 작성\n\n"
+            "[출력 형식]\n"
+            "- 인사말 없이 본문부터 시작\n"
+            "- 본문 3문단 작성 후 한 줄 띄우고 아래 2개 블록 추가\n"
+            "- **요약:** 한 문장\n"
+            "- **행운의 상징:** 행동, 장소, 색깔, 음식, 숫자, 물건 형식으로 6개\n"
+            "- 상징 출력 예시: 행동-(...), 장소-(...), 색깔-(...), 음식-(...), 숫자-(...), 물건-(...)\n\n"
+            "[금지]\n"
+            "- 생년월일/나이/날짜 직접 언급\n"
+            "- 일반론만 있는 추상적 조언\n"
+            "- 같은 표현 반복"
         )
 
         waiting_message = None
