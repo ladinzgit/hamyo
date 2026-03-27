@@ -197,7 +197,7 @@ class FortuneCommand(commands.Cog):
 
         return "\n".join(summaries)
 
-    @commands.command(name="운세")
+    @commands.command(aliases=["운세", "ㅇㅅ"])
     @only_in_guild()
     async def tell_fortune(self, ctx):
         """운세를 생성하여 전송"""
