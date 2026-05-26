@@ -8,6 +8,8 @@ import pytz
 import aiosqlite
 from openai import AsyncOpenAI
 
+from src.core.admin_utils import is_guild_admin
+
 class UserDiaryService(commands.Cog):
     """유저의 과거 답변을 분석하여 평생 단 한 번 하묘의 일기를 보여주는 서비스"""
 
@@ -98,7 +100,7 @@ class UserDiaryService(commands.Cog):
             "[내용 구성 규칙]\n"
             "- 유저가 그동안 대답했던 내용들을 세심하게 짚으며, 유저의 취향, 생각, 성격을 정성스럽게 묘사해 줘.\n"
             "- 한 편의 예쁜 동화 같은 감동과 힐링을 유저에게 선사해 줘.\n"
-            "- 분량은 한글 기준 400~600자 내외로 풍성하고 짜임새 있게 작성해 줘.\n\n"
+            "- 분량은 한글 기준 1000~1500자 내외로 풍성하고 짜임새 있게 작성해 줘.\n\n"
             "[출력 형식]\n"
             "- 다른 인사말이나 잡담 없이 곧바로 본문 첫 문장부터 시작해 줘.\n"
             "- 마크다운 형식을 사용하여 가독성 있게 작성해 줘.\n\n"
@@ -173,6 +175,27 @@ class UserDiaryService(commands.Cog):
 
         await status_msg.delete()
         await ctx.reply(embed=embed)
+
+    @commands.command(name="일기초기화")
+    @is_guild_admin()
+    async def reset_diary_view(self, ctx, member: discord.Member):
+        """특정 유저의 일기보기 조회 권한을 초기화합니다 (관리자 전용)"""
+        user_id = member.id
+        try:
+            async with aiosqlite.connect("data/level_system.db") as db:
+                cursor = await db.execute("SELECT 1 FROM user_diary_views WHERE user_id = ?", (user_id,))
+                exists = await cursor.fetchone()
+                if not exists:
+                    return await ctx.reply(f"이전 일기 조회 기록이 없다묘! ({member.display_name})")
+                
+                await db.execute("DELETE FROM user_diary_views WHERE user_id = ?", (user_id,))
+                await db.commit()
+            
+            await ctx.reply(f"성공적으로 {member.display_name} 님의 일기 조회 권한을 초기화했다묘! 🌸")
+            await self.log(f"관리자 {ctx.author}({ctx.author.id})가 {member}({user_id})의 일기 조회 권한을 초기화함.")
+        except Exception as e:
+            print(f"❌ 일기 초기화 오류: {e}")
+            await ctx.reply("일기 조회 권한 초기화 중에 오류가 발생했다묘...")
 
 async def setup(bot):
     await bot.add_cog(UserDiaryService(bot))
