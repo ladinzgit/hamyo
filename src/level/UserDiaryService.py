@@ -87,19 +87,31 @@ class UserDiaryService(commands.Cog):
             qa_list.append(f"질문: {q}\n답변: {a}")
         qa_str = "\n\n".join(qa_list)
 
+        system_prompt = (
+            "너는 디스코드 봇 '하묘'야. 다정하고 귀여운 아기 토끼 캐릭터로, 유저가 그동안 남겨준 따뜻한 답변들을 기억하고 분석하여, "
+            "그 사람의 성격과 답변 내용들을 엮어 세상에 단 하나뿐인 일기(편지 형식)를 써 주는 역할을 수행해.\n\n"
+            "[말투 및 톤앤매너]\n"
+            "- 친근하고 다정한 반말(구어체)을 사용해 줘.\n"
+            "- 문장 끝에는 자연스럽게 '~다묘', '~거다묘', '~보라묘', '~냐묘' 등을 붙여서 토끼 컨셉을 완벽하게 살려줘.\n"
+            "- 어색하게 어미를 조작(예: '있거다묘' X)하지 말고 문맥에 맞게 매끄럽게 연결해 줘.\n"
+            "- 과장되거나 상투적인 미사여구는 피하고, 진심으로 유저를 아끼고 관찰해 온 담백하고 따뜻한 톤을 유지해 줘.\n\n"
+            "[내용 구성 규칙]\n"
+            "- 유저가 그동안 대답했던 내용들을 세심하게 짚으며, 유저의 취향, 생각, 성격을 정성스럽게 묘사해 줘.\n"
+            "- 한 편의 예쁜 동화 같은 감동과 힐링을 유저에게 선사해 줘.\n"
+            "- 분량은 한글 기준 400~600자 내외로 풍성하고 짜임새 있게 작성해 줘.\n\n"
+            "[출력 형식]\n"
+            "- 다른 인사말이나 잡담 없이 곧바로 본문 첫 문장부터 시작해 줘.\n"
+            "- 마크다운 형식을 사용하여 가독성 있게 작성해 줘.\n\n"
+            "[금지 사항]\n"
+            "- 생년월일, 나이, 구체적인 날짜는 일기 본문에 언급하지 마.\n"
+            "- 뻔한 일반론이나 추상적인 문구는 사용하지 마."
+        )
+
         prompt = (
-            f"유저 이름: {ctx.author.display_name}\n"
-            f"유저가 그동안 대답했던 문장 목록:\n"
-            f"{qa_str}\n\n"
-            f"위 대답들을 세심하게 살펴보고, 유저의 성격, 생각, 감정, 취향(좋아하는 것들)을 깊이 있게 분석해 줘. "
-            f"그리고 분석한 성격과 답변 내용들을 자연스럽게 엮어서, '하묘'가 유저에 대해 적은 비밀 일기(편지 형식의 일기)를 1편 써 줘.\n\n"
-            f"하묘의 페르소나 및 작성 규칙:\n"
-            f"- 너는 디스코드 서버의 다정하고 귀여운 아기 토끼 '하묘'야.\n"
-            f"- 유저를 깊이 아끼고 세심하게 관찰하며, 유저가 남겼던 사소한 대답 하나하나를 소중히 간직해 온 느낌을 주어야 해.\n"
-            f"- 문체는 친근하고 다정한 반말(구어체)을 사용하고, 말끝에는 자연스럽게 '~다묘', '~거다묘', '~보라묘', '~냐묘' 등을 어울리게 사용해 줘. 단, '있거다묘' 같이 어색하고 억지스러운 표현은 피하고 문맥에 맞게 매끄럽게 써줘.\n"
-            f"- 일기의 분위기는 한 편의 동화 같으면서도 깊은 감동과 따뜻한 힐링을 선사해야 해.\n"
-            f"- 분량은 한글 기준 400~600자 내외로 정성스럽게 작성해 줘.\n"
-            f"- 마크다운 형식을 사용하여 가독성 있게 구조를 잡아 줘."
+            f"다음은 유저(이름: {ctx.author.display_name})가 그동안 하묘의 첫 문장에 대답했던 질문과 답변 목록이야. "
+            f"이 내용들을 정성껏 엮어서 하묘의 비밀 일기를 작성해 줘.\n\n"
+            f"[유저 답변 목록]\n"
+            f"{qa_str}"
         )
 
         self._ensure_client()
@@ -108,21 +120,31 @@ class UserDiaryService(commands.Cog):
             return
 
         try:
-            # GPT-4o를 이용해 고품질 일기 텍스트 작성
-            completion = await self.client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "너는 디스코드 서버의 다정하고 따뜻한 마음을 가진 아기 토끼 캐릭터 '하묘'야. 유저가 그동안 건네준 소중한 답변들을 기억하고, 이를 바탕으로 유저의 성격과 내면을 예쁘게 그려내며 세상에 단 하나뿐인 감동적인 일기를 써 주는 역할을 수행해."
-                      },
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.8
+            # gpt-5.4 모델과 responses.create 호출 형식을 벤치마크하여 작성
+            response = await self.client.responses.create(
+                model="gpt-5.4",
+                instructions=system_prompt,
+                input=prompt,
+                reasoning={
+                    "effort": "medium"
+                }
             )
-            diary_content = completion.choices[0].message.content.strip()
+            diary_content = (getattr(response, "output_text", None) or "").strip()
+
+            if not diary_content:
+                text_parts = []
+                for item in (getattr(response, "output", None) or []):
+                    for content in (getattr(item, "content", None) or []):
+                        text_value = getattr(content, "text", None)
+                        if text_value:
+                            text_parts.append(text_value)
+                diary_content = "\n".join(text_parts).strip()
+
+            if not diary_content:
+                raise ValueError("Responses API returned empty output")
+
         except Exception as e:
-            print(f"❌ OpenAI GPT API 호출 중 오류 발생: {e}")
+            print(f"❌ OpenAI GPT responses API 호출 중 오류 발생: {e}")
             await status_msg.edit(content="❌ 일기를 쓰는 중에 문제가 생겼다묘... 다시 시도해 달라묘.")
             return
 
