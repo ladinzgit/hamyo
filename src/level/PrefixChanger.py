@@ -1,3 +1,4 @@
+import asyncio
 import discord
 from discord.ext import commands
 import json
@@ -126,7 +127,7 @@ class PrefixChanger(commands.Cog):
     @is_guild_admin()
     async def prefix_rules(self, ctx):
         """칭호 변경 규칙을 관리합니다."""
-        await ctx.send("`추가`, `예외추가`, `예외제거`, `확인`, `일괄제거` 하위 명령어를 사용하세요.")
+        await ctx.send("`추가`, `예외추가`, `예외제거`, `확인`, `일괄제거`, `전체칭호제거` 하위 명령어를 사용하세요.")
 
     @prefix_rules.command(name="추가")
     @is_guild_admin()
@@ -215,6 +216,55 @@ class PrefixChanger(commands.Cog):
         self._save_config()
         await ctx.reply("🗑️ 모든 규칙과 예외 설정이 초기화되었습니다.")
         await self.log(f"{ctx.author}({ctx.author.id})가 모든 칭호 규칙 및 예외를 초기화함")
+
+    @prefix_rules.command(name="전체칭호제거")
+    @is_guild_admin()
+    async def clear_all_member_prefixes(self, ctx):
+        """
+        서버 멤버 닉네임에서 칭호(《...》, 『...』) 및 접두어(!, &)를 일괄 제거합니다.
+        사용법: *칭호규칙 전체칭호제거
+        """
+        if not ctx.guild:
+            await ctx.reply("이 명령어는 서버에서만 사용할 수 있습니다.")
+            return
+
+        await ctx.reply("🔄 서버 멤버 닉네임의 칭호/접두어를 정리하는 중입니다...")
+
+        changed = 0
+        skipped = 0
+        failed = 0
+
+        for member in ctx.guild.members:
+            if member.bot:
+                skipped += 1
+                continue
+
+            # 닉네임이 없는 멤버는 username을 변경할 수 없으므로 건너뜀
+            if member.nick is None:
+                skipped += 1
+                continue
+
+            original_nick = member.nick
+            cleaned_nick = self._get_pure_name(original_nick)
+
+            if cleaned_nick == original_nick:
+                skipped += 1
+                continue
+
+            try:
+                await member.edit(nick=cleaned_nick[:32], reason="관리자 요청: 칭호/접두어 일괄 제거")
+                changed += 1
+            except discord.Forbidden:
+                failed += 1
+            except Exception:
+                failed += 1
+
+            # 대규모 서버에서 API 버스트를 완화
+            await asyncio.sleep(0.2)
+
+        summary = f"✅ 칭호/접두어 일괄 정리 완료\n변경: {changed}명 | 건너뜀: {skipped}명 | 실패: {failed}명"
+        await ctx.send(summary)
+        await self.log(f"{ctx.author}({ctx.author.id})가 전체칭호제거 실행: 변경 {changed}명, 건너뜀 {skipped}명, 실패 {failed}명")
 
 async def setup(bot):
     await bot.add_cog(PrefixChanger(bot))

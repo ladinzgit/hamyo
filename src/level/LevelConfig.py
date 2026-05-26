@@ -51,19 +51,6 @@ class LevelConfig(commands.Cog):
             print(f"❌ {self.__class__.__name__} 로그 전송 중 오류 발생: {e}")
             
     # ===========================================
-    # 흩날리는 이야기 조각 설정
-    # ===========================================
-    
-    def get_story_piece_times(self) -> list:
-        cfg = _load_levelcfg()
-        return cfg.get("story_piece_times", [])
-
-    def set_story_piece_times(self, times: list):
-        cfg = _load_levelcfg()
-        cfg["story_piece_times"] = times
-        _save_levelcfg(cfg)
-    
-    # ===========================================
     # 경험치 관리 명령어들
     # ===========================================
     
@@ -573,12 +560,7 @@ class LevelConfig(commands.Cog):
         # 일일 퀘스트
         daily_quests = []
         for quest, exp in quest_exp['daily'].items():
-            if quest == "call":
-                daily_quests.append(f"`{quest}` ({exp} 쪽) - 통화하자(지정 채널에서 역할 멘션)")
-            elif quest == "friend":
-                daily_quests.append(f"`{quest}` ({exp} 쪽) - 친구하자(지정 채널에서 역할 멘션)")
-            else:
-                daily_quests.append(f"`{quest}` ({exp} 쪽)")
+            daily_quests.append(f"`{quest}` ({exp} 쪽)")
         embed.add_field(
             name="📅 일일 퀘스트",
             value="\n".join(daily_quests) if daily_quests else "없음",
@@ -653,10 +635,6 @@ class LevelConfig(commands.Cog):
                 special_conditions.append(f"주간 음성방 {hours}시간 달성 필요")
             elif quest_type == 'voice_30min':
                 special_conditions.append("하루 1회, 30분 이상 음성방 활동 필요")
-        elif quest_type == 'call':
-            special_conditions.append("지정된 채널에서 지정된 역할 멘션 필요")
-        elif quest_type == 'friend':
-            special_conditions.append("지정된 채널에서 지정된 역할 멘션 필요")
         elif quest_category == 'weekly' and quest_type not in ['attendance_4', 'attendance_7', 'diary_4', 'diary_7']:
             special_conditions.append("주 1회 완료 가능")
         elif quest_category == 'one_time':

@@ -3,8 +3,7 @@ from discord.ext import commands
 from src.core.LevelDataManager import LevelDataManager
 from src.level.LevelConstants import (
     QUEST_EXP, REACTION_EMOJI_POOL,
-    DIARY_CHANNEL_ID, CALL_CHANNEL_ID, FRIEND_CHANNEL_ID,
-    CALL_ROLE_ID, FRIEND_ROLE_ID, BOARD_CATEGORY_ID,
+    DIARY_CHANNEL_ID, BOARD_CATEGORY_ID,
     DIARY_MIN_LENGTH, RANK_REWARD_EXP_PER_LEVEL, RANK_REWARD_LEVEL_INTERVAL,
     VOICE_WEEKLY_QUEST_MAP
 )
@@ -151,7 +150,7 @@ class LevelChecker(commands.Cog):
     
     @commands.Cog.listener()
     async def on_message(self, message):
-        """메시지 이벤트 리스너 - 다방일지/삐삐/게시판 퀘스트 감지"""
+        """메시지 이벤트 리스너 - 다방일지/게시판 퀘스트 감지"""
         # 봇 메시지 무시
         if message.author.bot:
             return
@@ -164,23 +163,6 @@ class LevelChecker(commands.Cog):
         if message.type != discord.MessageType.default:
             return
 
-        # --- 삐삐 퀘스트 감지 ---
-        # 채널/역할 ID는 LevelConstants에서 import됨
-
-        if message.channel.id == CALL_CHANNEL_ID and any(role.id == CALL_ROLE_ID for role in message.role_mentions):
-            user_id = message.author.id
-            result = await self.process_call(user_id)
-            if result.get('success'):
-                await message.add_reaction(random.choice(REACTION_EMOJI_POOL))
-                return
-
-        if message.channel.id == FRIEND_CHANNEL_ID and any(role.id == FRIEND_ROLE_ID for role in message.role_mentions):
-            user_id = message.author.id
-            result = await self.process_friend(user_id)
-            if result.get('success'):
-                await message.add_reaction(random.choice(REACTION_EMOJI_POOL))
-                return
-        
         # --- 다방일지 퀘스트 감지 ---
         if message.channel.id == DIARY_CHANNEL_ID:
             # 최소 길이 체크
@@ -218,18 +200,6 @@ class LevelChecker(commands.Cog):
                 await message.add_reaction(random.choice(REACTION_EMOJI_POOL))
             except Exception as e:
                 await self.log(f"게시판 퀘스트 처리 중 오류 발생: {e}")
-
-    async def process_call(self, user_id: int) -> Dict[str, Any]:
-        """전화하자 일일 퀘스트 처리"""
-        return await self._process_simple_daily_quest(
-            user_id, 'call', "📢 수화기 너머로 다정한 목소리가 닿았습니다. **+{exp} 쪽**", "전화하자 퀘스트 처리 중 오류가 발생했습니다."
-        )
-
-    async def process_friend(self, user_id: int) -> Dict[str, Any]:
-        """친구하자 일일 퀘스트 처리"""
-        return await self._process_simple_daily_quest(
-            user_id, 'friend', "📢 새로운 인연의 실이 기분 좋게 엮였습니다. **+{exp} 쪽**", "친구하자 퀘스트 처리 중 오류가 발생했습니다."
-        )
 
     async def process_diary(self, user_id: int) -> Dict[str, Any]:
         """다방일지 퀘스트 처리 (일간 + 주간 마일스톤)"""

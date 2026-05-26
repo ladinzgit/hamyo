@@ -16,16 +16,13 @@ QUEST_COMPLETION_CHANNEL_ID = 1474014239436836974 # 퀘스트 완료 알림 채�
 
 # LevelChecker 전용
 DIARY_CHANNEL_ID = 1474014240896585882            # 다방일지 채널
-CALL_CHANNEL_ID = 1474014240896585884             # 전화하자 채널
-FRIEND_CHANNEL_ID = 1474014240896585883           # 친구하자 채널
 BOARD_CATEGORY_ID = 1474014240896585886           # 게시판 카테고리
 
 # ===========================================
 # 삐삐 퀘스트용 역할 ID
 # ===========================================
 
-CALL_ROLE_ID = 1474014231069200445                # 전화하자 역할
-FRIEND_ROLE_ID = 1474014231069200446              # 친구하자 역할
+FIRST_SENTENCE_ROLE_ID = 1477597009392173056      # 첫 문장 역할
 EVERYONE_ROLE_ID = 1474014231153082375             # @everyone 역할
 
 # ===========================================
@@ -91,9 +88,7 @@ QUEST_EXP = {
         'diary': 5,
         'voice_30min': 15,
         'bbibbi': 5,
-        'call': 3,
-        'friend': 3,
-        'story_piece': 20
+        'first_sentence': 25
     },
     'weekly': {
         'recommend_3': 50,
@@ -213,8 +208,6 @@ QUEST_DESCRIPTIONS = {
     'attendance': '매일 서버에 출석하는 퀘스트',
     'diary': '다방일지 채널에 일기를 작성하는 퀘스트',
     'voice_30min': '책방 음성 채널에서 30분 이상 머무르며 이야기를 나누는 퀘스트',
-    'call': '특정 채널에서 역할을 멘션하는 통화하자 퀘스트',
-    'friend': '특정 채널에서 역할을 멘션하는 친구하자 퀘스트',
     'recommend_3': '서버를 외부 사이트에 3회 추천하는 퀘스트',
     'shop_purchase': '비몽상점에서 상품을 구매하는 퀘스트',
     'board_participate': '비몽게시판에 참여하는 퀘스트',
@@ -228,7 +221,7 @@ QUEST_DESCRIPTIONS = {
     'diary_7': '주간 다방일지 7회 달성 시 자동 완료',
     'self_intro': '여백 카테고리에 자기소개 채널을 만드는 퀘스트',
     'review': '디코올에 서버 후기를 작성하는 퀘스트',
-    'story_piece': '바람에 흩날리는 이야기 조각을 빠르게 줍는 선착순 퀘스트'
+    'first_sentence': '하묘가 건네는 첫 문장 질문에 다정한 답변을 남기는 퀘스트'
 }
 
 QUEST_CATEGORY_NAMES = {

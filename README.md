@@ -251,7 +251,6 @@ hamyo/
     │   ├── LevelConfig.py           # 관리자 경험치/퀘스트 설정
     │   ├── LevelConstants.py        # 역할·퀘스트·채널 상수 통합 관리
     │   ├── DailyFirstSentence.py    # 하묘가 건네는 첫 문장 (OpenAI)
-    │   ├── ScatteredStoryPiece.py   # 흩날리는 이야기 조각 (선착순)
     │   ├── LevelExpTransfer.py      # 기존 다공 → 쪽 경험치 이전
     │   └── PrefixChanger.py         # 역할 기반 칭호 자동 변경
     │
